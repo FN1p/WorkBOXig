@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         streak_l.addWidget(streak_text)
         tb_layout.addWidget(streak_frame)
 
-        # Floating Mini Widget Button (Spotify HUD)
+        # Floating Mini Widget Button (Focus HUD)
         self.mini_widget_btn = QPushButton()
         self.mini_widget_btn.setIcon(get_icon("widget", COLORS['text_secondary'], 16))
         self.mini_widget_btn.setIconSize(QSize(16, 16))
@@ -329,7 +329,7 @@ class MainWindow(QMainWindow):
         if cal_url and self.storage.get_setting("google_calendar_auto_sync", True):
             QTimer.singleShot(4000, self._check_startup_google_sync)
 
-        # 10. Floating Desktop Mini Widget (Spotify HUD)
+        # 10. Floating Desktop Mini Widget (Focus HUD)
         self.mini_widget = DesktopMiniWidget(self.pomodoro, self)
         self.mini_widget.expand_requested.connect(self._restore_from_mini_widget)
 
@@ -409,7 +409,7 @@ class MainWindow(QMainWindow):
         act_show = tray_menu.addAction(get_icon("dashboard", COLORS["primary_light"], 16), t("tray_open"))
         act_show.triggered.connect(self._restore_main_window)
 
-        act_widget = tray_menu.addAction(get_icon("widget", COLORS["cyan"], 16), t("tray_mini_widget"))
+        act_widget = tray_menu.addAction(get_icon("widget", COLORS["sky"], 16), t("tray_mini_widget"))
         act_widget.triggered.connect(self.toggle_mini_widget)
 
         act_update = tray_menu.addAction(get_icon("zap", COLORS["amber"], 16), t("tray_check_updates"))
