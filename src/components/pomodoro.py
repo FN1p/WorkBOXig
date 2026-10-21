@@ -19,6 +19,7 @@ from src.i18n import t
 class PomodoroManager(QWidget):
     """Pomodoro capsule widget for header and timer engine."""
     session_completed = pyqtSignal(str) # mode: 'focus' or 'break'
+    time_updated = pyqtSignal(int, str, bool) # time_left, mode, is_running
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -104,6 +105,7 @@ class PomodoroManager(QWidget):
         if self.time_left > 0:
             self.time_left -= 1
             self.time_lbl.setText(self._format_time(self.time_left))
+            self.time_updated.emit(self.time_left, self.mode, self.is_running)
         else:
             self.timer.stop()
             self.is_running = False
@@ -129,6 +131,7 @@ class PomodoroManager(QWidget):
                 self.mode_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 16))
 
             self.time_lbl.setText(self._format_time(self.time_left))
+            self.time_updated.emit(self.time_left, self.mode, self.is_running)
 
     def toggle_timer(self):
         if self.is_running:
@@ -139,6 +142,7 @@ class PomodoroManager(QWidget):
             self.timer.start()
             self.is_running = True
             self.toggle_btn.setIcon(get_icon("pause", COLORS['primary_light'], 16))
+        self.time_updated.emit(self.time_left, self.mode, self.is_running)
 
     def start_timer(self):
         if not self.is_running:
@@ -150,6 +154,23 @@ class PomodoroManager(QWidget):
         self.toggle_btn.setIcon(get_icon("play", COLORS['primary_light'], 16))
         self.time_left = self.FOCUS_TIME if self.mode == "focus" else self.BREAK_TIME
         self.time_lbl.setText(self._format_time(self.time_left))
+        self.time_updated.emit(self.time_left, self.mode, self.is_running)
+
+    def skip_session(self):
+        """Skip current focus/break session and transition to next."""
+        self.timer.stop()
+        self.is_running = False
+        self.toggle_btn.setIcon(get_icon("play", COLORS['primary_light'], 16))
+        if self.mode == "focus":
+            self.mode = "break"
+            self.time_left = self.BREAK_TIME
+            self.mode_icon.setPixmap(get_pixmap("coffee", COLORS['sky'], 16))
+        else:
+            self.mode = "focus"
+            self.time_left = self.FOCUS_TIME
+            self.mode_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 16))
+        self.time_lbl.setText(self._format_time(self.time_left))
+        self.time_updated.emit(self.time_left, self.mode, self.is_running)
 
     def _format_time(self, seconds: int) -> str:
         m = seconds // 60

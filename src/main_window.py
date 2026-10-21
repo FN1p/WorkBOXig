@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QStackedWidget, QLabel, QPushButton, QMenu, QFrame, QApplication
 )
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QFont, QCursor
 
 from src.styles import THEME_STYLESHEET, COLORS, set_active_theme, get_theme_stylesheet
@@ -31,6 +31,7 @@ from src.views.tasks_view import TasksView
 from src.views.settings_view import SettingsView
 from src.utils.updater import CheckUpdateThread
 from src.components.update_dialog import UpdateDialog
+from src.components.mini_widget import DesktopMiniWidget
 
 
 class MainWindow(QMainWindow):
@@ -178,6 +179,27 @@ class MainWindow(QMainWindow):
         streak_l.addWidget(streak_text)
         tb_layout.addWidget(streak_frame)
 
+        # Floating Mini Widget Button (Spotify HUD)
+        self.mini_widget_btn = QPushButton()
+        self.mini_widget_btn.setIcon(get_icon("widget", COLORS['text_secondary'], 16))
+        self.mini_widget_btn.setIconSize(QSize(16, 16))
+        self.mini_widget_btn.setToolTip(t("mini_widget_tooltip"))
+        self.mini_widget_btn.setFixedSize(30, 30)
+        self.mini_widget_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.mini_widget_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 8px;
+            }}
+            QPushButton:hover {{
+                border-color: {COLORS['primary_border']};
+                background-color: {COLORS['bg_card_hover']};
+            }}
+        """)
+        self.mini_widget_btn.clicked.connect(self.toggle_mini_widget)
+        tb_layout.addWidget(self.mini_widget_btn)
+
         # Live Clock
         self.clock_lbl = QLabel()
         self.clock_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
@@ -304,6 +326,10 @@ class MainWindow(QMainWindow):
         if cal_url and self.storage.get_setting("google_calendar_auto_sync", True):
             QTimer.singleShot(4000, self._check_startup_google_sync)
 
+        # 10. Floating Desktop Mini Widget (Spotify HUD)
+        self.mini_widget = DesktopMiniWidget(self.pomodoro, self)
+        self.mini_widget.expand_requested.connect(self._restore_from_mini_widget)
+
     def _check_startup_google_sync(self):
         cal_url = self.storage.get_setting("google_calendar_url", "")
         if cal_url:
@@ -324,6 +350,22 @@ class MainWindow(QMainWindow):
     def _on_startup_update_available(self, info: dict):
         tag = info.get("tag_name", "")
         self.show_toast(t("toast_new_version", version=tag), icon_type="zap")
+
+    def toggle_mini_widget(self):
+        """Toggle floating desktop mini widget visibility."""
+        if hasattr(self, "mini_widget"):
+            if self.mini_widget.isVisible():
+                self.mini_widget.hide()
+            else:
+                self.mini_widget.show()
+                self.mini_widget.raise_()
+                self.mini_widget.activateWindow()
+
+    def _restore_from_mini_widget(self):
+        """Restore main window when expand button is clicked in mini widget."""
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
 
     def _on_sidebar_toggled(self, is_collapsed: bool):
         icon_name = "panel_left_open" if is_collapsed else "panel_left"
@@ -587,6 +629,9 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_command_palette)
         # Pomodoro Zen Mode (Ctrl+T)
         QShortcut(QKeySequence("Ctrl+T"), self, self.pomodoro.open_zen_mode)
+        # Desktop Mini Widget (F8 and Ctrl+M)
+        QShortcut(QKeySequence("F8"), self, self.toggle_mini_widget)
+        QShortcut(QKeySequence("Ctrl+M"), self, self.toggle_mini_widget)
         # Toggle Sidebar (Ctrl+B)
         QShortcut(QKeySequence("Ctrl+B"), self, self.sidebar.toggle_collapse)
         # Tabs navigation
