@@ -201,5 +201,5 @@ python -m unittest tests/test_app.py
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).  
+This project is licensed under the [MIT License](LICENSE) — Copyright (c) 2026 **PFT Studio**.  
 You are free to use, modify, distribute, and compile this software for personal or commercial purposes.

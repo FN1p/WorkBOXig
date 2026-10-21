@@ -151,8 +151,8 @@ def register_uninstall_entry(
     install_dir: str,
     exe_path: str,
     uninstaller_path: str,
-    version: str = "1.2.0",
-    publisher: str = "WorkBOXig Team"
+    version: str = "1.0.0",
+    publisher: str = "PFT Studio"
 ) -> bool:
     """Register application in Windows Add/Remove Programs (Programs & Features)."""
     reg_path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\WorkBOXig"

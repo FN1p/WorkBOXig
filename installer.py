@@ -75,7 +75,7 @@ except ImportError:
         except Exception:
             return False
 
-    def register_uninstall_entry(idir, exe, uninst, ver="1.2.0", pub="WorkBOXig Team"):
+    def register_uninstall_entry(idir, exe, uninst, ver=__version__, pub="PFT Studio"):
         import winreg
         try:
             k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall\WorkBOXig")
