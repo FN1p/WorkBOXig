@@ -22,7 +22,9 @@ DEFAULT_DATA = {
         "language": "ru",
         "font_size": 14,
         "auto_save_interval": 1000,
-        "check_updates_on_startup": True
+        "check_updates_on_startup": True,
+        "google_calendar_url": "",
+        "google_calendar_auto_sync": True
     },
     "notebooks": [],
     "notes": [],

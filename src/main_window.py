@@ -298,6 +298,24 @@ class MainWindow(QMainWindow):
         if self.storage.get_setting("check_updates_on_startup", True):
             QTimer.singleShot(3000, self._check_startup_update)
 
+        # 9. Auto-sync Google Calendar on startup (non-blocking, delayed by 4s)
+        self._startup_google_sync_thread = None
+        cal_url = self.storage.get_setting("google_calendar_url", "")
+        if cal_url and self.storage.get_setting("google_calendar_auto_sync", True):
+            QTimer.singleShot(4000, self._check_startup_google_sync)
+
+    def _check_startup_google_sync(self):
+        cal_url = self.storage.get_setting("google_calendar_url", "")
+        if cal_url:
+            from src.utils.google_calendar import GoogleCalendarSyncWorker
+            self._startup_google_sync_thread = GoogleCalendarSyncWorker(cal_url, self.storage, parent=self)
+            self._startup_google_sync_thread.sync_finished.connect(self._on_startup_google_sync_finished)
+            self._startup_google_sync_thread.start()
+
+    def _on_startup_google_sync_finished(self, added: int, updated: int, total: int):
+        if added > 0 or updated > 0:
+            self.show_toast(t("google_sync_success", added=added, updated=updated, total=total), icon_type="check")
+
     def _check_startup_update(self):
         self._startup_update_thread = CheckUpdateThread(parent=self)
         self._startup_update_thread.update_available.connect(self._on_startup_update_available)

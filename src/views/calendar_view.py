@@ -21,6 +21,7 @@ from src.views.tasks_view import TaskDialog
 from src.icons import get_pixmap, get_icon
 from src.utils.shortcuts import clear_layout
 from src.i18n import t, get_language
+from src.components.google_sync_dialog import GoogleSyncDialog
 
 
 COLOR_PALETTE = [
@@ -989,6 +990,29 @@ class CalendarView(QWidget):
         self.export_btn.clicked.connect(self.export_to_ics)
         ctrl_bar.addWidget(self.export_btn)
 
+        self.google_sync_btn = QPushButton(t("btn_google_sync"))
+        self.google_sync_btn.setIcon(get_icon("sync", "#4285F4", 16))
+        self.google_sync_btn.setIconSize(QSize(16, 16))
+        self.google_sync_btn.setToolTip(t("google_sync_tooltip"))
+        self.google_sync_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.google_sync_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['bg_input']};
+                color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['bg_card_hover']};
+                border-color: #4285F4;
+            }}
+        """)
+        self.google_sync_btn.clicked.connect(self._open_google_sync)
+        ctrl_bar.addWidget(self.google_sync_btn)
+
         layout.addLayout(ctrl_bar)
 
         # 2. View Mode Stack (Page 0: Timetable, Page 1: Month Grid)
@@ -1349,3 +1373,17 @@ class CalendarView(QWidget):
 
         lines.append("END:VCALENDAR")
         return "\r\n".join(lines) + "\r\n"
+
+    def _open_google_sync(self):
+        dialog = GoogleSyncDialog(storage=self.storage, parent=self)
+        dialog.sync_completed.connect(self._on_google_sync_completed)
+        dialog.exec()
+
+    def _on_google_sync_completed(self, added: int, updated: int, total: int):
+        self._refresh_all_events()
+        parent = self.window()
+        if hasattr(parent, "show_toast"):
+            if total > 0:
+                parent.show_toast(t("google_sync_success", added=added, updated=updated, total=total), "check")
+            else:
+                parent.show_toast(t("all_data_saved"), "check")
