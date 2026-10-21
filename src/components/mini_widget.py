@@ -1,14 +1,14 @@
 """
-Floating Desktop Mini Widget for WorkBOXig (Spotify-Style Productivity HUD).
-Always-on-top, draggable, acrylic/cyberpunk styled compact overlay with live Pomodoro timer,
-next upcoming lesson countdown, quick-complete urgent tasks, and window restore.
+Floating Desktop Mini Widget for WorkBOXig (Authentic Spotify-Style HUD with Timeline).
+Always-on-top, draggable, acrylic/cyberpunk compact overlay featuring a horizontal
+track-progress timeline, live Pomodoro status, active task checkbox, and upcoming lesson countdown.
 """
 
 from datetime import datetime, date
 from typing import Optional, Dict, Any
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
-    QFrame, QGraphicsDropShadowEffect, QApplication
+    QProgressBar, QFrame, QGraphicsDropShadowEffect, QApplication
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPoint, QSize, QTimer
 from PyQt6.QtGui import QFont, QCursor, QColor, QMouseEvent
@@ -21,29 +21,29 @@ from src.components.pomodoro import PomodoroManager
 
 
 class DesktopMiniWidget(QWidget):
-    """Floating desktop widget displaying timer, active task, and upcoming classes."""
+    """Spotify-style floating desktop widget with audio/focus progress timeline."""
     expand_requested = pyqtSignal()
 
     def __init__(self, pomodoro_manager: PomodoroManager, parent=None):
-        super().__init__(None)  # Top-level window independent of main window
+        super().__init__(None)
         self.pomodoro = pomodoro_manager
         self.storage = get_storage()
 
-        self._is_compact = False
         self._is_pinned = True
+        self._is_compact = False
         self._drag_position = QPoint()
 
         # Frameless, Always on Top, Tool window
         self._apply_window_flags()
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setWindowTitle("WorkBOXig Mini HUD")
+        self.setWindowTitle("WorkBOXig Spotify HUD")
 
         self._init_ui()
         self._connect_signals()
         self._load_saved_position()
         self._refresh_content()
 
-        # Refresh schedule countdowns every 30 seconds
+        # Timer to refresh upcoming events every 30s
         self._refresh_timer = QTimer(self)
         self._refresh_timer.setInterval(30000)
         self._refresh_timer.timeout.connect(self._refresh_content)
@@ -60,69 +60,48 @@ class DesktopMiniWidget(QWidget):
         root_layout.setContentsMargins(10, 10, 10, 10)
         root_layout.setSpacing(0)
 
-        # Main Card Container
+        # Main Acrylic / Cyberpunk Card
         self.card = QFrame(self)
         self.card.setObjectName("MiniCard")
         self._update_card_style()
 
-        # Shadow Effect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(24)
-        shadow.setColor(QColor(0, 0, 0, 160))
+        shadow.setColor(QColor(0, 0, 0, 170))
         shadow.setOffset(0, 6)
         self.card.setGraphicsEffect(shadow)
 
-        self.card_layout = QHBoxLayout(self.card)
-        self.card_layout.setContentsMargins(14, 10, 14, 10)
-        self.card_layout.setSpacing(12)
+        card_vbox = QVBoxLayout(self.card)
+        card_vbox.setContentsMargins(14, 10, 14, 10)
+        card_vbox.setSpacing(8)
 
-        # 1. Left Block: Timer & Mode Pill
-        timer_box = QVBoxLayout()
-        timer_box.setSpacing(2)
-        timer_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # ================= ROW 1: SPOTIFY TRACK INFO & CONTROLS =================
+        top_row = QHBoxLayout()
+        top_row.setSpacing(12)
 
-        t_row = QHBoxLayout()
-        t_row.setSpacing(6)
-        self.mode_icon = QLabel()
-        self.mode_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 16))
-        t_row.addWidget(self.mode_icon)
+        # 1. Left "Album Cover / Icon" Box (38x38)
+        self.cover_box = QFrame()
+        self.cover_box.setFixedSize(38, 38)
+        self._update_cover_style(self.pomodoro.mode)
 
-        self.time_lbl = QLabel(self.pomodoro._format_time(self.pomodoro.time_left))
-        self.time_lbl.setFont(QFont("Consolas", 15, QFont.Weight.Bold))
-        self.time_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
-        t_row.addWidget(self.time_lbl)
-        timer_box.addLayout(t_row)
+        c_layout = QVBoxLayout(self.cover_box)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cover_icon = QLabel()
+        self.cover_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 20))
+        c_layout.addWidget(self.cover_icon)
+        top_row.addWidget(self.cover_box)
 
-        self.mode_pill = QLabel(t("mini_widget_focus"))
-        self.mode_pill.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-        self.mode_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.mode_pill.setStyleSheet(f"""
-            QLabel {{
-                background-color: rgba(244, 63, 94, 0.2);
-                color: {COLORS['rose']};
-                border-radius: 4px;
-                padding: 1px 6px;
-            }}
-        """)
-        timer_box.addWidget(self.mode_pill)
-        self.card_layout.addLayout(timer_box)
+        # 2. Middle: Task Title (Track) & Next Event (Artist)
+        self.text_container = QVBoxLayout()
+        self.text_container.setSpacing(2)
+        self.text_container.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # Vertical Divider
-        self.div1 = QFrame()
-        self.div1.setFrameShape(QFrame.Shape.VLine)
-        self.div1.setStyleSheet(f"color: {COLORS['border_subtle']};")
-        self.card_layout.addWidget(self.div1)
-
-        # 2. Middle Block: Active Task with Checkbox & Upcoming Lesson
-        self.info_box = QVBoxLayout()
-        self.info_box.setSpacing(4)
-        self.info_box.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-        task_row = QHBoxLayout()
-        task_row.setSpacing(6)
+        task_line = QHBoxLayout()
+        task_line.setSpacing(6)
 
         self.task_check_btn = QPushButton()
-        self.task_check_btn.setFixedSize(18, 18)
+        self.task_check_btn.setFixedSize(16, 16)
         self.task_check_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.task_check_btn.setStyleSheet(f"""
             QPushButton {{
@@ -132,37 +111,37 @@ class DesktopMiniWidget(QWidget):
             }}
             QPushButton:hover {{
                 border-color: {COLORS['emerald']};
-                background-color: rgba(16, 185, 129, 0.15);
+                background-color: rgba(16, 185, 129, 0.2);
             }}
         """)
         self.task_check_btn.clicked.connect(self._complete_current_task)
-        task_row.addWidget(self.task_check_btn)
+        task_line.addWidget(self.task_check_btn)
 
         self.task_lbl = QLabel(t("mini_free_focus"))
-        self.task_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        self.task_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         self.task_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
-        task_row.addWidget(self.task_lbl, stretch=1)
-        self.info_box.addLayout(task_row)
+        task_line.addWidget(self.task_lbl, stretch=1)
+        self.text_container.addLayout(task_line)
 
         self.next_event_lbl = QLabel(t("mini_no_classes"))
         self.next_event_lbl.setFont(QFont("Segoe UI", 8))
         self.next_event_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
-        self.info_box.addWidget(self.next_event_lbl)
+        self.text_container.addWidget(self.next_event_lbl)
 
-        self.card_layout.addLayout(self.info_box, stretch=1)
+        top_row.addLayout(self.text_container, stretch=1)
 
-        # 3. Right Block: Spotify-Style HUD Media Controls
-        self.ctrl_box = QHBoxLayout()
-        self.ctrl_box.setSpacing(6)
-        self.ctrl_box.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        # 3. Right: Media HUD Controls
+        ctrl_row = QHBoxLayout()
+        ctrl_row.setSpacing(5)
+        ctrl_row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # Play/Pause
         self.play_btn = QPushButton()
-        self.play_btn.setFixedSize(30, 30)
+        self.play_btn.setFixedSize(32, 32)
         self.play_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._update_play_icon(self.pomodoro.is_running)
         self.play_btn.clicked.connect(self.pomodoro.toggle_timer)
-        self.ctrl_box.addWidget(self.play_btn)
+        ctrl_row.addWidget(self.play_btn)
 
         # Skip
         self.skip_btn = QPushButton()
@@ -172,7 +151,7 @@ class DesktopMiniWidget(QWidget):
         self.skip_btn.setToolTip(t("mini_skip"))
         self.skip_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.skip_btn.clicked.connect(self.pomodoro.skip_session)
-        self.ctrl_box.addWidget(self.skip_btn)
+        ctrl_row.addWidget(self.skip_btn)
 
         # Expand / Restore Main Window
         self.expand_btn = QPushButton()
@@ -182,7 +161,7 @@ class DesktopMiniWidget(QWidget):
         self.expand_btn.setToolTip(t("mini_expand"))
         self.expand_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.expand_btn.clicked.connect(self._restore_main_window)
-        self.ctrl_box.addWidget(self.expand_btn)
+        ctrl_row.addWidget(self.expand_btn)
 
         # Pin / Unpin
         self.pin_btn = QPushButton()
@@ -192,7 +171,7 @@ class DesktopMiniWidget(QWidget):
         self.pin_btn.setToolTip(t("mini_pin"))
         self.pin_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.pin_btn.clicked.connect(self._toggle_pin)
-        self.ctrl_box.addWidget(self.pin_btn)
+        ctrl_row.addWidget(self.pin_btn)
 
         # Close
         self.close_btn = QPushButton()
@@ -202,13 +181,43 @@ class DesktopMiniWidget(QWidget):
         self.close_btn.setToolTip(t("mini_close"))
         self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.close_btn.clicked.connect(self.hide)
-        self.ctrl_box.addWidget(self.close_btn)
+        ctrl_row.addWidget(self.close_btn)
 
         self._style_ctrl_buttons()
-        self.card_layout.addLayout(self.ctrl_box)
+        top_row.addLayout(ctrl_row)
+        card_vbox.addLayout(top_row)
+
+        # ================= ROW 2: SPOTIFY TRACK PROGRESS TIMELINE =================
+        self.timeline_row = QHBoxLayout()
+        self.timeline_row.setSpacing(8)
+        self.timeline_row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        # Elapsed Time label
+        self.elapsed_lbl = QLabel("00:00")
+        self.elapsed_lbl.setFont(QFont("Consolas", 8, QFont.Weight.Medium))
+        self.elapsed_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
+        self.timeline_row.addWidget(self.elapsed_lbl)
+
+        # Sleek Minimalist Progress Timeline Bar
+        self.timeline_bar = QProgressBar()
+        self.timeline_bar.setRange(0, 1000)
+        self.timeline_bar.setValue(0)
+        self.timeline_bar.setTextVisible(False)
+        self.timeline_bar.setFixedHeight(5)
+        self.timeline_bar.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self._update_timeline_style()
+        self.timeline_row.addWidget(self.timeline_bar, stretch=1)
+
+        # Remaining / Total Time label (time_lbl for backward-compatible test hooks)
+        self.time_lbl = QLabel(self.pomodoro._format_time(self.pomodoro.time_left))
+        self.time_lbl.setFont(QFont("Consolas", 8, QFont.Weight.Bold))
+        self.time_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
+        self.timeline_row.addWidget(self.time_lbl)
+
+        card_vbox.addLayout(self.timeline_row)
 
         root_layout.addWidget(self.card)
-        self.setFixedSize(450, 96)
+        self.setFixedSize(450, 102)
 
     def _update_card_style(self):
         is_cyber = (CURRENT_THEME == "cyberpunk")
@@ -223,6 +232,39 @@ class DesktopMiniWidget(QWidget):
             }}
         """)
 
+    def _update_cover_style(self, mode: str):
+        is_cyber = (CURRENT_THEME == "cyberpunk")
+        if mode == "focus":
+            bg = "rgba(244, 63, 94, 0.15)"
+            border = COLORS['rose']
+        else:
+            bg = "rgba(56, 189, 248, 0.15)"
+            border = COLORS['sky']
+
+        self.cover_box.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg};
+                border: 1px solid {border};
+                border-radius: {'4px' if is_cyber else '8px'};
+            }}
+        """)
+
+    def _update_timeline_style(self):
+        is_cyber = (CURRENT_THEME == "cyberpunk")
+        chunk_color = "#FCEE0A" if is_cyber else COLORS['primary']
+
+        self.timeline_bar.setStyleSheet(f"""
+            QProgressBar {{
+                background-color: rgba(255, 255, 255, 0.1);
+                border: none;
+                border-radius: 2px;
+            }}
+            QProgressBar::chunk {{
+                background: {chunk_color};
+                border-radius: 2px;
+            }}
+        """)
+
     def _style_ctrl_buttons(self):
         is_cyber = (CURRENT_THEME == "cyberpunk")
         accent = "#FCEE0A" if is_cyber else COLORS['primary']
@@ -230,7 +272,7 @@ class DesktopMiniWidget(QWidget):
         self.play_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {accent};
-                border-radius: {'4px' if is_cyber else '15px'};
+                border-radius: {'4px' if is_cyber else '16px'};
                 border: none;
             }}
             QPushButton:hover {{
@@ -254,25 +296,31 @@ class DesktopMiniWidget(QWidget):
         is_cyber = (CURRENT_THEME == "cyberpunk")
         icon_name = "pause" if is_running else "play"
         icon_col = "#000000" if is_cyber else "#FFFFFF"
-        self.play_btn.setIcon(get_icon(icon_name, icon_col, 14))
-        self.play_btn.setIconSize(QSize(14, 14))
+        self.play_btn.setIcon(get_icon(icon_name, icon_col, 15))
+        self.play_btn.setIconSize(QSize(15, 15))
 
     def _connect_signals(self):
         self.pomodoro.time_updated.connect(self._on_time_updated)
         self.storage.data_changed.connect(self._on_storage_changed)
 
     def _on_time_updated(self, time_left: int, mode: str, is_running: bool):
+        total_time = self.pomodoro.FOCUS_TIME if mode == "focus" else self.pomodoro.BREAK_TIME
+        elapsed = max(0, total_time - time_left)
+
+        # Update Spotify timeline labels and progress
+        self.elapsed_lbl.setText(self.pomodoro._format_time(elapsed))
         self.time_lbl.setText(self.pomodoro._format_time(time_left))
+
+        progress_val = int((elapsed / total_time) * 1000) if total_time > 0 else 0
+        self.timeline_bar.setValue(progress_val)
         self._update_play_icon(is_running)
 
+        # Cover icon update
+        self._update_cover_style(mode)
         if mode == "focus":
-            self.mode_pill.setText(t("mini_widget_focus"))
-            self.mode_pill.setStyleSheet(f"background-color: rgba(244, 63, 94, 0.2); color: {COLORS['rose']}; border-radius: 4px; padding: 1px 6px;")
-            self.mode_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 16))
+            self.cover_icon.setPixmap(get_pixmap("timer", COLORS['rose'], 20))
         else:
-            self.mode_pill.setText(t("mini_widget_break"))
-            self.mode_pill.setStyleSheet(f"background-color: rgba(56, 189, 248, 0.2); color: {COLORS['sky']}; border-radius: 4px; padding: 1px 6px;")
-            self.mode_icon.setPixmap(get_pixmap("coffee", COLORS['sky'], 16))
+            self.cover_icon.setPixmap(get_pixmap("coffee", COLORS['sky'], 20))
 
     def _on_storage_changed(self, entity: str):
         if entity in ("tasks", "events", "all"):
@@ -306,8 +354,8 @@ class DesktopMiniWidget(QWidget):
         if upcoming:
             ev = upcoming[0]
             ev_title = ev.get("title", "")
-            if len(ev_title) > 20:
-                ev_title = ev_title[:18] + "…"
+            if len(ev_title) > 24:
+                ev_title = ev_title[:22] + "…"
             room = f" ({ev.get('room')})" if ev.get("room") else ""
             self.next_event_lbl.setText(f"📅 {ev.get('time')} {ev_title}{room}")
         else:
@@ -323,7 +371,7 @@ class DesktopMiniWidget(QWidget):
         self._is_pinned = not self._is_pinned
         self._apply_window_flags()
         self.pin_btn.setIcon(get_icon("pin", COLORS['primary_light'] if self._is_pinned else COLORS['text_muted'], 14))
-        self.show()  # Re-show required after setWindowFlags
+        self.show()
 
     def _restore_main_window(self):
         self.expand_requested.emit()
@@ -343,19 +391,18 @@ class DesktopMiniWidget(QWidget):
         event.accept()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent):
-        """Toggle ultra-compact pill mode on double-click."""
+        """Toggle ultra-compact mode (hide text info, show only controls & timeline)."""
         self._is_compact = not self._is_compact
-        self.div1.setVisible(not self._is_compact)
-        self.info_box.setEnabled(not self._is_compact)
-        for i in range(self.info_box.count()):
-            w = self.info_box.itemAt(i).widget()
-            if w:
-                w.setVisible(not self._is_compact)
+        self.text_container.setEnabled(not self._is_compact)
+        for i in range(self.text_container.count()):
+            item = self.text_container.itemAt(i)
+            if item and item.widget():
+                item.widget().setVisible(not self._is_compact)
 
         if self._is_compact:
-            self.setFixedSize(240, 68)
+            self.setFixedSize(300, 72)
         else:
-            self.setFixedSize(450, 96)
+            self.setFixedSize(450, 102)
         event.accept()
 
     def _save_position(self):
@@ -368,8 +415,7 @@ class DesktopMiniWidget(QWidget):
         if x is not None and y is not None:
             self.move(x, y)
         else:
-            # Default to bottom-right corner of primary screen
             screen = QApplication.primaryScreen()
             if screen:
                 geo = screen.availableGeometry()
-                self.move(geo.width() - 480, geo.height() - 120)
+                self.move(geo.width() - 480, geo.height() - 130)

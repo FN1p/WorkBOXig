@@ -73,6 +73,13 @@ class TestMiniWidget(unittest.TestCase):
         self.widget.expand_btn.click()
         self.assertTrue(len(signal_received) > 0)
 
+    def test_timeline_progress(self):
+        # 1200 seconds left out of 1500 (300 elapsed = 20%)
+        self.pomodoro.time_updated.emit(1200, "focus", True)
+        self.assertEqual(self.widget.elapsed_lbl.text(), "05:00")
+        self.assertEqual(self.widget.time_lbl.text(), "20:00")
+        self.assertEqual(self.widget.timeline_bar.value(), 200)
+
 
 if __name__ == "__main__":
     unittest.main()
