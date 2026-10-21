@@ -29,6 +29,8 @@ from src.views.notebooks_view import NotebooksView
 from src.views.notes_view import NotesView
 from src.views.tasks_view import TasksView
 from src.views.settings_view import SettingsView
+from src.utils.updater import CheckUpdateThread
+from src.components.update_dialog import UpdateDialog
 
 
 class MainWindow(QMainWindow):
@@ -290,6 +292,20 @@ class MainWindow(QMainWindow):
         saved_theme = self.storage.get_setting("theme", "dark")
         if saved_theme != "dark":
             self._apply_theme(saved_theme)
+
+        # 8. Check for updates on startup (non-blocking, delayed by 3s)
+        self._startup_update_thread = None
+        if self.storage.get_setting("check_updates_on_startup", True):
+            QTimer.singleShot(3000, self._check_startup_update)
+
+    def _check_startup_update(self):
+        self._startup_update_thread = CheckUpdateThread(parent=self)
+        self._startup_update_thread.update_available.connect(self._on_startup_update_available)
+        self._startup_update_thread.start()
+
+    def _on_startup_update_available(self, info: dict):
+        tag = info.get("tag_name", "")
+        self.show_toast(t("toast_new_version", version=tag), icon_type="zap")
 
     def _on_sidebar_toggled(self, is_collapsed: bool):
         icon_name = "panel_left_open" if is_collapsed else "panel_left"

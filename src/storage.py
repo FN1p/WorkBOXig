@@ -12,15 +12,17 @@ from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from src.i18n import t
+from src.version import __version__
 
 
 DEFAULT_DATA = {
-    "version": "1.0.0",
+    "version": __version__,
     "settings": {
         "theme": "dark",
         "language": "ru",
         "font_size": 14,
-        "auto_save_interval": 1000
+        "auto_save_interval": 1000,
+        "check_updates_on_startup": True
     },
     "notebooks": [],
     "notes": [],
@@ -133,6 +135,13 @@ class StorageManager(QObject):
         """Export all application data as a single JSON file."""
         with open(target_filepath, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
+
+    def create_pre_update_backup(self) -> str:
+        """Create an automatic timestamped backup of all user data before updating."""
+        backup_name = f"storage.pre_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        backup_path = os.path.join(self.base_dir, backup_name)
+        self.export_full_backup(backup_path)
+        return backup_path
 
     def import_full_backup(self, source_filepath: str) -> bool:
         """Import and replace all application data from a JSON file."""

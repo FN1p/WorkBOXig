@@ -18,6 +18,9 @@ from src.styles import COLORS, CURRENT_THEME
 from src.i18n import t, get_i18n, get_language, set_language
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.version import __version__
+from src.utils.updater import CheckUpdateThread
+from src.components.update_dialog import UpdateDialog
 from src.utils.autostart import (
     is_autostart_supported, is_autostart_enabled, set_autostart_enabled
 )
@@ -288,12 +291,58 @@ class SettingsView(QWidget):
         data_card.add_layout(data_actions)
         content_layout.addWidget(data_card)
 
-        # 6. Section: About
+        # 7. Section: Application Updates & Data Safety
+        self._check_update_thread = None
+        updates_card = SettingsCard(t("card_updates"), t("card_updates_sub"))
+        updates_layout = QVBoxLayout()
+        updates_layout.setSpacing(12)
+
+        up_row1 = QHBoxLayout()
+        up_row1.setSpacing(12)
+
+        self.ver_status_lbl = QLabel(f"WorkBOXig v{__version__}")
+        self.ver_status_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.ver_status_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
+        up_row1.addWidget(self.ver_status_lbl)
+
+        self.update_status_pill = QLabel(t("up_to_date_status", version=__version__))
+        self.update_status_pill.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
+        self.update_status_pill.setStyleSheet(f"color: {COLORS['emerald']}; background-color: rgba(16, 185, 129, 0.12); padding: 4px 10px; border-radius: 6px;")
+        up_row1.addWidget(self.update_status_pill)
+        up_row1.addStretch()
+
+        self.check_updates_btn = QPushButton(t("check_updates_btn"))
+        self.check_updates_btn.setIcon(get_icon("zap", COLORS['primary_light'], 16))
+        self.check_updates_btn.setIconSize(QSize(16, 16))
+        self.check_updates_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.check_updates_btn.clicked.connect(self._check_updates)
+        up_row1.addWidget(self.check_updates_btn)
+        updates_layout.addLayout(up_row1)
+
+        up_row2 = QHBoxLayout()
+        self.auto_update_cb = QCheckBox(t("auto_check_updates_cb"))
+        self.auto_update_cb.setFont(QFont("Segoe UI", 10))
+        self.auto_update_cb.setChecked(self.storage.get_setting("check_updates_on_startup", True))
+        self.auto_update_cb.toggled.connect(lambda ch: self.storage.set_setting("check_updates_on_startup", ch))
+        up_row2.addWidget(self.auto_update_cb)
+        up_row2.addStretch()
+        updates_layout.addLayout(up_row2)
+
+        up_safety = QLabel(t("data_safe_guarantee"))
+        up_safety.setWordWrap(True)
+        up_safety.setFont(QFont("Segoe UI", 9))
+        up_safety.setStyleSheet(f"color: {COLORS['text_muted']};")
+        updates_layout.addWidget(up_safety)
+
+        updates_card.add_layout(updates_layout)
+        content_layout.addWidget(updates_card)
+
+        # 8. Section: About
         about_card = SettingsCard(t("card_about"), t("card_about_sub"))
         about_l = QVBoxLayout()
         about_l.setSpacing(6)
 
-        ver_lbl = QLabel("WorkBOXig — Work & Study Studio v1.2.0")
+        ver_lbl = QLabel(f"WorkBOXig — Work & Study Studio v{__version__}")
         ver_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         ver_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         about_l.addWidget(ver_lbl)
@@ -502,3 +551,36 @@ class SettingsView(QWidget):
                     border-color: {COLORS['primary_border']};
                 }}
             """)
+
+    def _check_updates(self):
+        self.check_updates_btn.setEnabled(False)
+        self.update_status_pill.setText(t("checking_updates"))
+        self.update_status_pill.setStyleSheet(f"color: {COLORS['amber']}; background-color: rgba(245, 158, 11, 0.12); padding: 4px 10px; border-radius: 6px;")
+
+        self._check_update_thread = CheckUpdateThread(parent=self)
+        self._check_update_thread.update_available.connect(self._on_update_available)
+        self._check_update_thread.up_to_date.connect(self._on_up_to_date)
+        self._check_update_thread.error.connect(self._on_update_check_error)
+        self._check_update_thread.start()
+
+    def _on_update_available(self, info: dict):
+        self.check_updates_btn.setEnabled(True)
+        tag = info.get("tag_name", "")
+        self.update_status_pill.setText(t("update_available_status", version=tag))
+        self.update_status_pill.setStyleSheet("color: #00F0FF; background-color: rgba(0, 240, 255, 0.15); padding: 4px 10px; border-radius: 6px; font-weight: bold;")
+
+        # Display update dialog
+        dialog = UpdateDialog(info, storage=self.storage, parent=self)
+        dialog.exec()
+
+    def _on_up_to_date(self, info: dict):
+        self.check_updates_btn.setEnabled(True)
+        self.update_status_pill.setText(t("up_to_date_status", version=__version__))
+        self.update_status_pill.setStyleSheet(f"color: {COLORS['emerald']}; background-color: rgba(16, 185, 129, 0.12); padding: 4px 10px; border-radius: 6px;")
+        self.toast_requested.emit(t("up_to_date_status", version=__version__), "check")
+
+    def _on_update_check_error(self, err_msg: str):
+        self.check_updates_btn.setEnabled(True)
+        self.update_status_pill.setText(f"Ошибка проверки сети")
+        self.update_status_pill.setStyleSheet(f"color: {COLORS['rose']}; background-color: rgba(244, 63, 94, 0.12); padding: 4px 10px; border-radius: 6px;")
+        self.toast_requested.emit(f"{t('update_error_title')}: {err_msg}", "alert")

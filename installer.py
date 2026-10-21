@@ -22,6 +22,11 @@ from PyQt6.QtGui import QFont, QIcon, QPixmap, QColor, QPainter, QLinearGradient
 # Setup path to import shortcuts helper
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 try:
+    from src.version import __version__
+except Exception:
+    __version__ = "1.0.0"
+
+try:
     from src.utils.shortcuts import (
         get_desktop_dir, get_start_menu_dir, create_shortcut,
         remove_shortcut, set_autostart_registry, register_uninstall_entry,
@@ -301,7 +306,7 @@ class InstallWorker(QThread):
                 install_dir=self.target_dir,
                 exe_path=dest_exe,
                 uninstaller_path=uninstaller_path,
-                version="1.2.0"
+                version=__version__
             )
 
             self.progress_updated.emit(100, "Установка успешно завершена!")
@@ -419,7 +424,7 @@ class InstallerWindow(QMainWindow):
         main_title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         title_box.addWidget(main_title)
 
-        sub_title = QLabel("Современное рабочее пространство для учёбы • Версия 1.2.0" if not self.uninstall_mode else "Мастер деинсталляции компонентов программы")
+        sub_title = QLabel(f"Современное рабочее пространство для учёбы • Версия {__version__}" if not self.uninstall_mode else "Мастер деинсталляции компонентов программы")
         sub_title.setObjectName("MutedLabel")
         sub_title.setFont(QFont("Segoe UI", 9))
         title_box.addWidget(sub_title)
