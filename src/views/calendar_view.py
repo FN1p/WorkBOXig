@@ -20,6 +20,7 @@ from src.storage import get_storage
 from src.views.tasks_view import TaskDialog
 from src.icons import get_pixmap, get_icon
 from src.utils.shortcuts import clear_layout
+from src.i18n import t, get_language
 
 
 COLOR_PALETTE = [
@@ -66,7 +67,7 @@ class AddLessonDialog(QDialog):
                  existing_event: Optional[Dict[str, Any]] = None, parent=None):
         super().__init__(parent)
         self.existing_event = existing_event
-        self.setWindowTitle("Редактировать урок" if existing_event else "Добавить урок в расписание")
+        self.setWindowTitle(t("cal_edit_title") if existing_event else t("cal_new_title"))
         self.setFixedSize(540, 680)
         self.setStyleSheet(f"""
             QDialog {{
@@ -87,7 +88,7 @@ class AddLessonDialog(QDialog):
         c_ic.setPixmap(get_pixmap("calendar", COLORS['primary_light'], 22))
         header_l.addWidget(c_ic)
 
-        title_text = "Редактирование занятия" if existing_event else "Новое занятие / урок"
+        title_text = t("cal_edit_title") if existing_event else t("cal_new_title")
         title_lbl = QLabel(title_text)
         title_lbl.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
@@ -96,7 +97,7 @@ class AddLessonDialog(QDialog):
         layout.addLayout(header_l)
 
         # Quick Subject preset chips
-        preset_lbl = QLabel("Быстрый выбор предмета:")
+        preset_lbl = QLabel(t("cal_presets_lbl"))
         preset_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
         preset_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; margin-top: 2px;")
         layout.addWidget(preset_lbl)
@@ -139,24 +140,24 @@ class AddLessonDialog(QDialog):
         layout.addWidget(presets_scroll)
 
         # Subject Title
-        lbl_subj = QLabel("Предмет / Название:")
+        lbl_subj = QLabel(t("cal_subj_lbl"))
         lbl_subj.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_subj.setStyleSheet(f"color: {COLORS['text_secondary']};")
         layout.addWidget(lbl_subj)
 
         self.title_input = QLineEdit()
         self.title_input.setFixedHeight(38)
-        self.title_input.setPlaceholderText("Например: Русский язык, Высшая математика")
+        self.title_input.setPlaceholderText(t("cal_subj_ph"))
         layout.addWidget(self.title_input)
 
         # Topic / Description
-        lbl_desc = QLabel("Тема урока / Заметки / ДЗ:")
+        lbl_desc = QLabel(t("cal_desc_lbl"))
         lbl_desc.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_desc.setStyleSheet(f"color: {COLORS['text_secondary']};")
         layout.addWidget(lbl_desc)
 
         self.desc_input = QTextEdit()
-        self.desc_input.setPlaceholderText("Тема занятия, номер параграфа, задания...")
+        self.desc_input.setPlaceholderText(t("cal_desc_ph"))
         self.desc_input.setFixedHeight(64)
         layout.addWidget(self.desc_input)
 
@@ -166,7 +167,7 @@ class AddLessonDialog(QDialog):
 
         date_col = QVBoxLayout()
         date_col.setSpacing(4)
-        lbl_date = QLabel("Дата проведения:")
+        lbl_date = QLabel(t("cal_date_lbl"))
         lbl_date.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_date.setStyleSheet(f"color: {COLORS['text_secondary']};")
         date_col.addWidget(lbl_date)
@@ -182,7 +183,7 @@ class AddLessonDialog(QDialog):
 
         badge_col = QVBoxLayout()
         badge_col.setSpacing(4)
-        lbl_badge = QLabel("Тип / Бейдж:")
+        lbl_badge = QLabel(t("cal_type_lbl"))
         lbl_badge.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_badge.setStyleSheet(f"color: {COLORS['text_secondary']};")
         badge_col.addWidget(lbl_badge)
@@ -201,7 +202,7 @@ class AddLessonDialog(QDialog):
 
         start_col = QVBoxLayout()
         start_col.setSpacing(4)
-        lbl_start = QLabel("Время начала:")
+        lbl_start = QLabel(t("cal_start_lbl"))
         lbl_start.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_start.setStyleSheet(f"color: {COLORS['text_secondary']};")
         start_col.addWidget(lbl_start)
@@ -215,7 +216,7 @@ class AddLessonDialog(QDialog):
 
         end_col = QVBoxLayout()
         end_col.setSpacing(4)
-        lbl_end = QLabel("Время окончания:")
+        lbl_end = QLabel(t("cal_end_lbl"))
         lbl_end.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_end.setStyleSheet(f"color: {COLORS['text_secondary']};")
         end_col.addWidget(lbl_end)
@@ -230,18 +231,18 @@ class AddLessonDialog(QDialog):
         layout.addLayout(row2)
 
         # Room / Link
-        lbl_room = QLabel("Кабинет / Ссылка:")
+        lbl_room = QLabel(t("cal_room_lbl"))
         lbl_room.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_room.setStyleSheet(f"color: {COLORS['text_secondary']};")
         layout.addWidget(lbl_room)
 
         self.room_input = QLineEdit()
         self.room_input.setFixedHeight(38)
-        self.room_input.setPlaceholderText("Каб. 302, Спортзал, Zoom...")
+        self.room_input.setPlaceholderText(t("cal_room_ph"))
         layout.addWidget(self.room_input)
 
         # Color Palette Picker
-        lbl_col = QLabel("Цветовая метка:")
+        lbl_col = QLabel(t("cal_color_lbl"))
         lbl_col.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl_col.setStyleSheet(f"color: {COLORS['text_secondary']};")
         layout.addWidget(lbl_col)
@@ -308,12 +309,12 @@ class AddLessonDialog(QDialog):
         # Action Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
-        cancel_btn = QPushButton("Отмена")
+        cancel_btn = QPushButton(t("cancel"))
         cancel_btn.setObjectName("ghost-btn")
         cancel_btn.setFixedHeight(38)
         cancel_btn.clicked.connect(self.reject)
 
-        save_btn = QPushButton("Сохранить урок" if not existing_event else "Обновить урок")
+        save_btn = QPushButton(t("cal_save_btn") if not existing_event else t("cal_update_btn"))
         save_btn.setObjectName("primary-btn")
         save_btn.setFixedHeight(38)
         save_btn.clicked.connect(self._on_save)
@@ -401,7 +402,7 @@ class LessonCard(QFrame):
         del_btn.setIcon(get_icon("close", COLORS['text_muted'], 14))
         del_btn.setIconSize(QSize(14, 14))
         del_btn.setFixedSize(20, 20)
-        del_btn.setToolTip("Удалить урок")
+        del_btn.setToolTip(t("cal_del_btn"))
         del_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -662,8 +663,8 @@ class WeeklyTimetableWidget(QWidget):
         # 1. Update Header
         clear_layout(self.header_layout)
 
-        days_short = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-        months_short = ["", "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
+        days_short = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] if get_language() == "ru" else ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        months_short = ["", "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"] if get_language() == "ru" else ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         today = QDate.currentDate()
 
         for i in range(7):
@@ -851,12 +852,12 @@ class CalendarView(QWidget):
         ctrl_bar.setSpacing(10)
 
         # View Mode Switcher: "Неделя" / "Месяц"
-        self.mode_week_btn = QPushButton("Неделя (Расписание)")
+        self.mode_week_btn = QPushButton(t("view_week"))
         self.mode_week_btn.setCheckable(True)
         self.mode_week_btn.setChecked(True)
         self.mode_week_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        self.mode_month_btn = QPushButton("Месяц")
+        self.mode_month_btn = QPushButton(t("view_month"))
         self.mode_month_btn.setCheckable(True)
         self.mode_month_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
@@ -902,12 +903,12 @@ class CalendarView(QWidget):
         self.prev_btn = QPushButton("←")
         self.prev_btn.setFixedSize(32, 32)
         self.prev_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        self.prev_btn.setToolTip("Предыдущая неделя")
+        self.prev_btn.setToolTip(t("cal_prev_week"))
         self.prev_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.prev_btn.clicked.connect(self._prev_week)
         nav_box.addWidget(self.prev_btn)
 
-        self.today_btn = QPushButton("Сегодня")
+        self.today_btn = QPushButton(t("today_btn"))
         self.today_btn.setFixedHeight(32)
         self.today_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.today_btn.clicked.connect(self._jump_to_today)
@@ -916,7 +917,7 @@ class CalendarView(QWidget):
         self.next_btn = QPushButton("→")
         self.next_btn.setFixedSize(32, 32)
         self.next_btn.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        self.next_btn.setToolTip("Следующая неделя")
+        self.next_btn.setToolTip(t("cal_next_week"))
         self.next_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.next_btn.clicked.connect(self._next_week)
         nav_box.addWidget(self.next_btn)

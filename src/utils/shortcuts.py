@@ -52,7 +52,7 @@ def create_shortcut(
     target_path: str,
     shortcut_path: str,
     icon_path: Optional[str] = None,
-    description: str = "WorkBOXig - Рабочее пространство для учёбы",
+    description: str = "WorkBOXig - Executive Work & Study OS",
     working_dir: Optional[str] = None
 ) -> bool:
     """Create a Windows .lnk shortcut with icon and description."""

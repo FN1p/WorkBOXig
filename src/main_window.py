@@ -189,7 +189,7 @@ class MainWindow(QMainWindow):
         self.clock_timer.start()
 
         # Quick Add Button with Menu
-        self.quick_add_btn = QPushButton("Создать")
+        self.quick_add_btn = QPushButton(t("quick_add_btn"))
         self.quick_add_btn.setIcon(get_icon("plus", "#FFFFFF", 12))
         self.quick_add_btn.setObjectName("primary-btn")
         self.quick_add_btn.setFixedHeight(32)
@@ -390,31 +390,31 @@ class MainWindow(QMainWindow):
 
     def _on_pomodoro_completed(self, mode: str):
         if mode == "focus":
-            self._show_toast("25 минут фокуса завершены! Отличная работа, сделайте перерыв.", "success")
+            self._show_toast(t("pomo_focus_finished_toast"), "success")
             self.desktop_notification.notify(
-                title="Фокус-сессия завершена!",
-                message="25 минут продуктивной работы позади. Сделайте перерыв 5 минут!",
+                title=t("pomo_focus_finished_title"),
+                message=t("pomo_focus_finished_msg"),
                 category="focus",
-                badge_text="Отдых",
+                badge_text=t("pomo_break_badge"),
                 action_type="open_dashboard"
             )
         else:
-            self._show_toast("Перерыв окончен. Готовы к новому блоку учебы?", "info")
+            self._show_toast(t("pomo_break_finished_toast"), "info")
             self.desktop_notification.notify(
-                title="Перерыв окончен!",
-                message="Готовы к новому блоку учебы? Запустите таймер фокуса.",
+                title=t("pomo_break_finished_title"),
+                message=t("pomo_break_finished_msg"),
                 category="focus",
-                badge_text="Фокус",
+                badge_text=t("pomo_focus_badge"),
                 action_type="open_dashboard"
             )
 
     def _show_test_desktop_notification(self):
         """Triggered from Settings to preview the floating desktop notification."""
         self.desktop_notification.notify(
-            title="Информатика (Лекция)",
-            message="Через 15 минут начинается занятие: Ауд. 402 / Онлайн",
+            title=t("notif_test_class"),
+            message=t("notif_test_msg"),
             category="lesson",
-            badge_text="Через 15 мин",
+            badge_text=t("notif_in_min_badge", min=15),
             action_type="open_calendar",
             payload={}
         )
@@ -455,10 +455,10 @@ class MainWindow(QMainWindow):
                                 self._notified_events.add(ev_id)
                                 room_txt = f" • {ev.get('room')}" if ev.get('room') else ""
                                 self.desktop_notification.notify(
-                                    title=f"Скоро урок: {ev.get('title')}",
-                                    message=f"Начало в {time_str}{room_txt}",
+                                    title=t("notif_lesson_soon_title", title=ev.get('title')),
+                                    message=t("notif_lesson_soon_msg", time=time_str, room=room_txt),
                                     category="lesson",
-                                    badge_text=f"Через {int(diff_min)} мин",
+                                    badge_text=t("notif_in_min_badge", min=int(diff_min)),
                                     action_type="open_calendar",
                                     payload={"event_id": ev_id}
                                 )
@@ -467,16 +467,16 @@ class MainWindow(QMainWindow):
 
         # 2. Task Deadlines (Urgent due today)
         if self.storage.get_setting("notif_tasks", True):
-            for t in self.storage.get_tasks():
+            for task_item in self.storage.get_tasks():
                 t_id = t.get("id")
-                if not t.get("completed") and t.get("priority") == "urgent" and t.get("due_date") == today_iso and t_id not in self._notified_tasks:
+                if not task_item.get("completed") and task_item.get("priority") == "urgent" and t.get("due_date") == today_iso and t_id not in self._notified_tasks:
                     self._notified_tasks.add(t_id)
-                    due_txt = f" до {t.get('due_time')}" if t.get('due_time') else ""
+                    due_txt = f" {t.get('due_time')}" if t.get('due_time') else ""
                     self.desktop_notification.notify(
-                        title="Горящий дедлайн сегодня!",
+                        title=t("notif_deadline_title"),
                         message=f"{t.get('title')}{due_txt}",
                         category="task",
-                        badge_text="Срочно",
+                        badge_text=t("notif_deadline_badge"),
                         action_type="open_tasks",
                         payload={"task_id": t_id}
                     )
@@ -512,11 +512,11 @@ class MainWindow(QMainWindow):
             self._apply_theme(new_theme)
             self.settings_view._update_theme_buttons(new_theme)
             theme_names = {
-                "dark": "Тёмная (Dark Slate)",
-                "light": "Светлая (Light Clean)",
+                "dark": t("theme_dark"),
+                "light": t("theme_light"),
                 "cyberpunk": "Cyberpunk Neon (Edgerunner)"
             }
-            self._show_toast(f"Установлена тема: {theme_names.get(new_theme, new_theme)}", "success")
+            self._show_toast(t("theme_applied", theme=theme_names.get(new_theme, new_theme)), "success")
         elif action_type == "open_task":
             self._navigate_to("tasks")
             self.tasks_view.select_task(data.get("task_id"))
@@ -533,7 +533,7 @@ class MainWindow(QMainWindow):
 
     def _update_badges(self):
         tasks = self.storage.get_tasks()
-        pending = sum(1 for t in tasks if not t.get("completed"))
+        pending = sum(1 for t in tasks if not task_item.get("completed"))
         self.sidebar.update_task_count(pending)
 
     def _quick_add_task(self):
@@ -566,7 +566,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+N"), self, self._quick_add_note)
         QShortcut(QKeySequence("Ctrl+S"), self, lambda: (
             self.storage.save_immediately(),
-            self._show_toast("Все данные сохранены", "success")
+            self._show_toast(t("all_data_saved"), "success")
         ))
 
     def resizeEvent(self, event):

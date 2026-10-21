@@ -13,6 +13,7 @@ from PyQt6.QtGui import QFont, QCursor, QIcon
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 
 
 class PomodoroManager(QWidget):
@@ -30,7 +31,7 @@ class PomodoroManager(QWidget):
         self.is_running = False
         self.mode = "focus" # "focus" or "break"
         self.completed_today = 0
-        self.active_task_title = "Свободная сессия"
+        self.active_task_title = t("pomo_session")
 
         self.timer = QTimer(self)
         self.timer.setInterval(1000)
@@ -165,7 +166,7 @@ class ZenFocusDialog(QDialog):
     def __init__(self, manager: PomodoroManager, parent=None):
         super().__init__(parent)
         self.manager = manager
-        self.setWindowTitle("Режим глубокого фокуса — WorkBOXig")
+        self.setWindowTitle(t("pomo_zen_title"))
         self.setFixedSize(540, 460)
         self.setStyleSheet(f"""
             QDialog {{
@@ -181,7 +182,7 @@ class ZenFocusDialog(QDialog):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Top Mode badge
-        self.mode_badge = QLabel("СЕССИЯ ФОКУСА" if self.manager.mode == "focus" else "ВРЕМЯ ОТДЫХА")
+        self.mode_badge = QLabel(t("pomo_deep_work") if self.manager.mode == "focus" else t("pomo_rest_break"))
         self.mode_badge.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         self.mode_badge.setStyleSheet(f"""
             color: {COLORS['primary_light']};
@@ -200,16 +201,16 @@ class ZenFocusDialog(QDialog):
 
         # Current Focus Task Selector
         task_box = QHBoxLayout()
-        t_icon = QLabel("Фокус на:")
+        t_icon = QLabel(t("pomo_current_task"))
         t_icon.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         t_icon.setStyleSheet(f"color: {COLORS['text_secondary']};")
         task_box.addWidget(t_icon)
 
         self.task_selector = QComboBox()
-        self.task_selector.addItem("Свободная учебная сессия", None)
-        tasks = [t for t in self.manager.storage.get_tasks() if not t.get("completed")]
-        for t in tasks:
-            self.task_selector.addItem(f"{t.get('title')} ({t.get('subject', 'Общее')})", t["id"])
+        self.task_selector.addItem(t("pomo_no_task"), None)
+        tasks = [task_item for task_item in self.manager.storage.get_tasks() if not task_item.get("completed")]
+        for task_item in tasks:
+            self.task_selector.addItem(f"{task_item.get('title')} ({task_item.get('subject', t('general'))})", task_item["id"])
         
         self.task_selector.setMinimumWidth(260)
         task_box.addWidget(self.task_selector)
@@ -236,7 +237,7 @@ class ZenFocusDialog(QDialog):
         ctrl_layout.setSpacing(12)
         ctrl_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.dlg_toggle_btn = QPushButton("Пауза" if self.manager.is_running else "Старт")
+        self.dlg_toggle_btn = QPushButton(t("pomo_pause") if self.manager.is_running else t("pomo_start"))
         self.dlg_toggle_btn.setIcon(get_icon("pause" if self.manager.is_running else "play", "#FFFFFF", 18))
         self.dlg_toggle_btn.setIconSize(QSize(18, 18))
         self.dlg_toggle_btn.setObjectName("primary-btn")
@@ -245,7 +246,7 @@ class ZenFocusDialog(QDialog):
         self.dlg_toggle_btn.clicked.connect(self._toggle_from_dialog)
         ctrl_layout.addWidget(self.dlg_toggle_btn)
 
-        reset_btn = QPushButton("Сброс")
+        reset_btn = QPushButton(t("pomo_reset"))
         reset_btn.setFixedSize(90, 42)
         reset_btn.clicked.connect(self._reset_from_dialog)
         ctrl_layout.addWidget(reset_btn)
@@ -255,7 +256,7 @@ class ZenFocusDialog(QDialog):
         # Daily Streak / Stats Footer
         footer_layout = QHBoxLayout()
         footer_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.stats_lbl = QLabel(f"Завершено сегодня: {self.manager.completed_today} сессий")
+        self.stats_lbl = QLabel(t("pomo_completed_today", count=self.manager.completed_today))
         self.stats_lbl.setFont(QFont("Segoe UI", 10))
         self.stats_lbl.setStyleSheet(f"color: {COLORS['amber']};")
         footer_layout.addWidget(self.stats_lbl)
@@ -280,15 +281,15 @@ class ZenFocusDialog(QDialog):
     def _sync_state(self):
         self.big_timer_lbl.setText(self.manager._format_time(self.manager.time_left))
         is_run = self.manager.is_running
-        self.dlg_toggle_btn.setText("Пауза" if is_run else "Старт")
+        self.dlg_toggle_btn.setText(t("pomo_pause") if is_run else t("pomo_start"))
         self.dlg_toggle_btn.setIcon(get_icon("pause" if is_run else "play", "#FFFFFF", 18))
-        self.mode_badge.setText("СЕССИЯ ФОКУСА" if self.manager.mode == "focus" else "ВРЕМЯ ОТДЫХА")
+        self.mode_badge.setText(t("pomo_deep_work") if self.manager.mode == "focus" else t("pomo_rest_break"))
         
         total = self.manager.FOCUS_TIME if self.manager.mode == "focus" else self.manager.BREAK_TIME
         done = total - self.manager.time_left
         pct = int((done / total) * 100) if total > 0 else 0
         self.progress.setValue(pct)
-        self.stats_lbl.setText(f"Завершено сегодня: {self.manager.completed_today} сессий")
+        self.stats_lbl.setText(t("pomo_completed_today", count=self.manager.completed_today))
 
     def closeEvent(self, event):
         self.sync_timer.stop()

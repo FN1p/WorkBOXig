@@ -18,6 +18,7 @@ from PyQt6.QtGui import (
 )
 from src.styles import COLORS
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 from src.storage import get_storage
 
 
@@ -151,7 +152,7 @@ class RichEditor(QWidget):
 
         # 1. Header: Page Title Input (Large, modern typography)
         self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("Заголовок конспекта...")
+        self.title_input.setPlaceholderText(t("editor_title_ph"))
         self.title_input.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
         self.title_input.setStyleSheet(f"""
             QLineEdit {{
@@ -183,46 +184,46 @@ class RichEditor(QWidget):
         tb_layout.setSpacing(5)
 
         # Text Formatting: B, I, U, S with real QFont properties
-        self.btn_bold = self._create_tool_btn("B", "Жирный (Ctrl+B)", self._toggle_bold, bold=True)
+        self.btn_bold = self._create_tool_btn("B", t("editor_bold"), self._toggle_bold, bold=True)
         tb_layout.addWidget(self.btn_bold)
 
-        self.btn_italic = self._create_tool_btn("I", "Курсив (Ctrl+I)", self._toggle_italic, italic=True)
+        self.btn_italic = self._create_tool_btn("I", t("editor_italic"), self._toggle_italic, italic=True)
         tb_layout.addWidget(self.btn_italic)
 
-        self.btn_underline = self._create_tool_btn("U", "Подчеркнутый (Ctrl+U)", self._toggle_underline, underline=True)
+        self.btn_underline = self._create_tool_btn("U", t("editor_underline"), self._toggle_underline, underline=True)
         tb_layout.addWidget(self.btn_underline)
 
-        self.btn_strike = self._create_tool_btn("S", "Зачеркнутый", self._toggle_strike, strike=True)
+        self.btn_strike = self._create_tool_btn("S", t("editor_strike"), self._toggle_strike, strike=True)
         tb_layout.addWidget(self.btn_strike)
 
         self._add_separator(tb_layout)
 
         # Headings & Paragraph
-        btn_h1 = self._create_tool_btn("H1", "Заголовок 1 (Крупный)", lambda: self._apply_heading(1), bold=True)
+        btn_h1 = self._create_tool_btn("H1", t("editor_h1"), lambda: self._apply_heading(1), bold=True)
         tb_layout.addWidget(btn_h1)
 
-        btn_h2 = self._create_tool_btn("H2", "Заголовок 2 (Средний)", lambda: self._apply_heading(2), bold=True)
+        btn_h2 = self._create_tool_btn("H2", t("editor_h2"), lambda: self._apply_heading(2), bold=True)
         tb_layout.addWidget(btn_h2)
 
-        btn_p = self._create_tool_btn("P", "Обычный текст", self._apply_normal_text)
+        btn_p = self._create_tool_btn("P", t("editor_p"), self._apply_normal_text)
         tb_layout.addWidget(btn_p)
 
         self._add_separator(tb_layout)
 
         # Lists & Blocks
-        btn_bullet = self._create_tool_btn("•", "Маркированный список", self._toggle_bullet_list, bold=True)
+        btn_bullet = self._create_tool_btn("•", t("editor_bullet"), self._toggle_bullet_list, bold=True)
         tb_layout.addWidget(btn_bullet)
 
-        btn_num = self._create_tool_btn("1.", "Нумерованный список", self._toggle_number_list, bold=True)
+        btn_num = self._create_tool_btn("1.", t("editor_num"), self._toggle_number_list, bold=True)
         tb_layout.addWidget(btn_num)
 
-        btn_code = self._create_tool_btn("{ }", "Блок кода / Monospace", self._apply_code_block, bold=True)
+        btn_code = self._create_tool_btn("{ }", t("editor_code"), self._apply_code_block, bold=True)
         tb_layout.addWidget(btn_code)
 
         btn_quote = QPushButton()
         btn_quote.setIcon(get_icon("quote", COLORS['text_primary'], 18))
         btn_quote.setIconSize(QSize(18, 18))
-        btn_quote.setToolTip("Блок цитаты")
+        btn_quote.setToolTip(t("editor_quote"))
         btn_quote.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn_quote.setFixedSize(34, 32)
         btn_quote.setStyleSheet(f"""
@@ -248,7 +249,7 @@ class RichEditor(QWidget):
         color_btn.setIcon(get_icon("palette", "#FFFFFF", 18))
         color_btn.setIconSize(QSize(18, 18))
         color_btn.setFixedSize(36, 32)
-        color_btn.setToolTip("Цвет текста")
+        color_btn.setToolTip(t("editor_text_color"))
         color_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         color_btn.setStyleSheet(f"""
             QPushButton {{
@@ -283,12 +284,12 @@ class RichEditor(QWidget):
             }}
         """)
         for name, hex_val in [
-            ("По умолчанию (Белый)", "#FFFFFF"),
-            ("Небесный голубой", "#38BDF8"),
-            ("Изумрудный зеленый", "#10B981"),
-            ("Янтарный золотой", "#F59E0B"),
-            ("Коралловый красный", "#FB7185"),
-            ("Фиолетовый", "#A78BFA"),
+            (t("editor_color_default"), "#FFFFFF"),
+            (t("editor_color_sky"), "#38BDF8"),
+            (t("editor_color_emerald"), "#10B981"),
+            (t("editor_color_amber"), "#F59E0B"),
+            (t("editor_color_coral"), "#FB7185"),
+            (t("editor_color_purple"), "#A78BFA"),
         ]:
             act = color_menu.addAction(name)
             act.triggered.connect(lambda ch, c=hex_val: self._set_text_color(c))
@@ -300,17 +301,17 @@ class RichEditor(QWidget):
         hl_btn.setIcon(get_icon("highlighter", "#FFFFFF", 18))
         hl_btn.setIconSize(QSize(18, 18))
         hl_btn.setFixedSize(36, 32)
-        hl_btn.setToolTip("Выделить маркером")
+        hl_btn.setToolTip(t("editor_highlight"))
         hl_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         hl_btn.setStyleSheet(color_btn.styleSheet())
         hl_menu = QMenu(self)
         hl_menu.setStyleSheet(color_menu.styleSheet())
         for name, hex_val in [
-            ("Без фона (Снять выделение)", "transparent"),
-            ("Желтый маркер", "rgba(245, 158, 11, 0.35)"),
-            ("Зеленый маркер", "rgba(16, 185, 129, 0.35)"),
-            ("Голубой маркер", "rgba(56, 189, 248, 0.35)"),
-            ("Фиолетовый маркер", "rgba(99, 102, 241, 0.35)"),
+            (t("editor_hl_none"), "transparent"),
+            (t("editor_hl_yellow"), "rgba(245, 158, 11, 0.35)"),
+            (t("editor_hl_green"), "rgba(16, 185, 129, 0.35)"),
+            (t("editor_hl_blue"), "rgba(56, 189, 248, 0.35)"),
+            (t("editor_hl_purple"), "rgba(99, 102, 241, 0.35)"),
         ]:
             act = hl_menu.addAction(name)
             act.triggered.connect(lambda ch, bg=hex_val: self._set_highlight(bg))
@@ -322,7 +323,7 @@ class RichEditor(QWidget):
         clear_btn.setIcon(get_icon("close", COLORS['text_muted'], 16))
         clear_btn.setIconSize(QSize(16, 16))
         clear_btn.setFixedSize(34, 32)
-        clear_btn.setToolTip("Сбросить форматирование")
+        clear_btn.setToolTip(t("editor_clear"))
         clear_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         clear_btn.setStyleSheet(f"""
             QPushButton {{
@@ -347,7 +348,7 @@ class RichEditor(QWidget):
         img_btn.setIcon(get_icon("image", COLORS['sky'], 18))
         img_btn.setIconSize(QSize(18, 18))
         img_btn.setFixedSize(36, 32)
-        img_btn.setToolTip("Вставить фото или скриншот (или нажмите Ctrl+V)")
+        img_btn.setToolTip(t("editor_insert_img"))
         img_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         img_btn.setStyleSheet(f"""
             QPushButton {{
@@ -374,7 +375,7 @@ class RichEditor(QWidget):
         export_btn.setIcon(get_icon("export", COLORS['sky'], 18))
         export_btn.setIconSize(QSize(18, 18))
         export_btn.setFixedSize(36, 32)
-        export_btn.setToolTip("Экспортировать конспект в файл (.md, .html)")
+        export_btn.setToolTip(t("editor_export_tt"))
         export_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         export_btn.setStyleSheet(f"""
             QPushButton {{
@@ -392,9 +393,9 @@ class RichEditor(QWidget):
         """)
         exp_menu = QMenu(self)
         exp_menu.setStyleSheet(color_menu.styleSheet())
-        act_md = exp_menu.addAction(get_icon("file_text", COLORS['sky'], 16), "Экспорт в Markdown (.md)")
+        act_md = exp_menu.addAction(get_icon("file_text", COLORS['sky'], 16), t("editor_export_md"))
         act_md.triggered.connect(lambda: self._export_file("md"))
-        act_html = exp_menu.addAction(get_icon("export", COLORS['sky'], 16), "Экспорт в HTML (.html)")
+        act_html = exp_menu.addAction(get_icon("export", COLORS['sky'], 16), t("editor_export_html"))
         act_html.triggered.connect(lambda: self._export_file("html"))
         export_btn.setMenu(exp_menu)
         tb_layout.addWidget(export_btn)
@@ -404,7 +405,7 @@ class RichEditor(QWidget):
         focus_btn.setIcon(get_icon("focus", COLORS['emerald'], 18))
         focus_btn.setIconSize(QSize(18, 18))
         focus_btn.setFixedSize(36, 32)
-        focus_btn.setToolTip("Развернуть редактор на весь экран (Zen Mode)")
+        focus_btn.setToolTip(t("editor_zen"))
         focus_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         focus_btn.setStyleSheet(f"""
             QPushButton {{
@@ -449,14 +450,14 @@ class RichEditor(QWidget):
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(6, 0, 6, 0)
 
-        self.stats_label = QLabel("0 слов • ~0 мин чтения")
+        self.stats_label = QLabel(t("editor_stats", words=0, minutes=0))
         self.stats_label.setFont(QFont("Segoe UI", 9))
         self.stats_label.setStyleSheet(f"color: {COLORS['text_muted']};")
         footer_layout.addWidget(self.stats_label)
 
         footer_layout.addStretch()
 
-        self.save_status_label = QLabel("● Сохранено")
+        self.save_status_label = QLabel(t("editor_saved"))
         self.save_status_label.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
         self.save_status_label.setStyleSheet(f"color: {COLORS['emerald']};")
         footer_layout.addWidget(self.save_status_label)
@@ -558,7 +559,7 @@ class RichEditor(QWidget):
         self._block_signals = False
         
         self._update_stats()
-        self.save_status_label.setText("● Сохранено")
+        self.save_status_label.setText(t("editor_saved"))
         self.save_status_label.setStyleSheet(f"color: {COLORS['emerald']};")
         self._update_toolbar_states()
 
@@ -574,14 +575,14 @@ class RichEditor(QWidget):
         self.content_changed.emit(title, html, plain)
 
     def mark_saved(self):
-        self.save_status_label.setText("● Сохранено")
+        self.save_status_label.setText(t("editor_saved"))
         self.save_status_label.setStyleSheet(f"color: {COLORS['emerald']};")
 
     def _update_stats(self):
         text = self.editor.toPlainText().strip()
         words = len(text.split()) if text else 0
         read_time = max(1, words // 180) if words > 0 else 0
-        self.stats_label.setText(f"{words} слов • ~{read_time} мин чтения")
+        self.stats_label.setText(t("editor_stats", words=words, minutes=read_time))
 
     def _update_toolbar_states(self):
         fmt = self.editor.currentCharFormat()

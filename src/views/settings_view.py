@@ -90,12 +90,12 @@ class SettingsView(QWidget):
         title_box = QVBoxLayout()
         title_box.setSpacing(4)
         
-        main_title = QLabel("Настройки")
+        main_title = QLabel(t("settings_title"))
         main_title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         main_title.setStyleSheet(f"color: {COLORS['text_primary']};")
         title_box.addWidget(main_title)
 
-        sub_title = QLabel("Управление внешним видом, автозапуском Windows и резервными копиями")
+        sub_title = QLabel(t("settings_subtitle"))
         sub_title.setFont(QFont("Segoe UI", 10))
         sub_title.setStyleSheet(f"color: {COLORS['text_muted']};")
         title_box.addWidget(sub_title)
@@ -126,12 +126,12 @@ class SettingsView(QWidget):
         content_layout.addWidget(self.lang_card)
 
         # 2. Section: Appearance (Theme Switching)
-        theme_card = SettingsCard("Внешний вид и тема", "Выберите цветовую схему рабочего пространства")
+        theme_card = SettingsCard(t("card_appearance"), t("card_appearance_sub"))
         theme_row = QHBoxLayout()
         theme_row.setSpacing(16)
 
         # Dark Mode Card Button
-        self.dark_btn = QPushButton("Тёмная (Dark Slate)")
+        self.dark_btn = QPushButton(t("theme_dark"))
         self.dark_btn.setCheckable(True)
         self.dark_btn.setIcon(get_icon("moon", "#FFFFFF", 18))
         self.dark_btn.setIconSize(QSize(18, 18))
@@ -140,7 +140,7 @@ class SettingsView(QWidget):
         self.dark_btn.clicked.connect(lambda: self._select_theme("dark"))
 
         # Light Mode Card Button
-        self.light_btn = QPushButton("Светлая (Light Clean)")
+        self.light_btn = QPushButton(t("theme_light"))
         self.light_btn.setCheckable(True)
         self.light_btn.setIcon(get_icon("sun", "#F59E0B", 18))
         self.light_btn.setIconSize(QSize(18, 18))
@@ -164,11 +164,11 @@ class SettingsView(QWidget):
         content_layout.addWidget(theme_card)
 
         # 3. Section: Windows Autostart
-        startup_card = SettingsCard("Интеграция с Windows", "Автоматический запуск программы при входе в систему")
+        startup_card = SettingsCard(t("card_autostart"), t("card_autostart_sub"))
         startup_row = QHBoxLayout()
         startup_row.setSpacing(12)
 
-        self.autostart_cb = QCheckBox("Запускать WorkBOXig автоматически при старте Windows")
+        self.autostart_cb = QCheckBox(t("autostart_cb"))
         self.autostart_cb.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
         self.autostart_cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.autostart_cb.setChecked(is_autostart_enabled())
@@ -184,11 +184,11 @@ class SettingsView(QWidget):
         content_layout.addWidget(startup_card)
 
         # 4. Section: Focus & Timer Preferences
-        focus_card = SettingsCard("Фокус и таймер Pomodoro", "Звуковые оповещения и интервалы продуктивности")
+        focus_card = SettingsCard(t("card_focus"), t("card_focus_sub"))
         
         sound_row = QHBoxLayout()
         sound_row.setSpacing(12)
-        self.sound_cb = QCheckBox("Звуковой сигнал (Windows Beep) при завершении таймера")
+        self.sound_cb = QCheckBox(t("sound_alert_cb"))
         self.sound_cb.setFont(QFont("Segoe UI", 10))
         self.sound_cb.setChecked(self.storage.get_setting("sound_alert", True))
         self.sound_cb.toggled.connect(lambda ch: self.storage.set_setting("sound_alert", ch))
@@ -199,7 +199,7 @@ class SettingsView(QWidget):
         timer_config_row = QHBoxLayout()
         timer_config_row.setSpacing(16)
 
-        f_lbl = QLabel("Длительность фокуса:")
+        f_lbl = QLabel(t("focus_duration_lbl"))
         f_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         timer_config_row.addWidget(f_lbl)
 
@@ -212,7 +212,7 @@ class SettingsView(QWidget):
         self.focus_combo.currentIndexChanged.connect(self._on_focus_time_changed)
         timer_config_row.addWidget(self.focus_combo)
 
-        b_lbl = QLabel("Длительность отдыха:")
+        b_lbl = QLabel(t("break_duration_lbl"))
         b_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         timer_config_row.addWidget(b_lbl)
 
@@ -230,18 +230,18 @@ class SettingsView(QWidget):
         content_layout.addWidget(focus_card)
 
         # 5. Section: Desktop Notifications
-        notif_card = SettingsCard("Всплывающие уведомления", "Напоминания о начале занятий, дедлайнах и таймере фокуса")
+        notif_card = SettingsCard(t("card_notifications"), t("card_notifications_sub"))
         
         notif_row = QHBoxLayout()
         notif_row.setSpacing(12)
-        self.notif_lessons_cb = QCheckBox("Напоминать о занятиях за 15 минут до начала")
+        self.notif_lessons_cb = QCheckBox(t("notif_lessons_cb"))
         self.notif_lessons_cb.setFont(QFont("Segoe UI", 10))
         self.notif_lessons_cb.setChecked(self.storage.get_setting("notif_lessons", True))
         self.notif_lessons_cb.toggled.connect(lambda ch: self.storage.set_setting("notif_lessons", ch))
         notif_row.addWidget(self.notif_lessons_cb)
         notif_row.addStretch()
 
-        test_notif_btn = QPushButton("Проверить уведомление")
+        test_notif_btn = QPushButton(t("test_notif_btn"))
         test_notif_btn.setIcon(get_icon("zap", COLORS['primary_light'], 16))
         test_notif_btn.setIconSize(QSize(16, 16))
         test_notif_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -251,7 +251,7 @@ class SettingsView(QWidget):
 
         tasks_notif_row = QHBoxLayout()
         tasks_notif_row.setSpacing(12)
-        self.notif_tasks_cb = QCheckBox("Оповещать о дедлайнах срочных задач")
+        self.notif_tasks_cb = QCheckBox(t("notif_tasks_cb"))
         self.notif_tasks_cb.setFont(QFont("Segoe UI", 10))
         self.notif_tasks_cb.setChecked(self.storage.get_setting("notif_tasks", True))
         self.notif_tasks_cb.toggled.connect(lambda ch: self.storage.set_setting("notif_tasks", ch))
@@ -262,23 +262,23 @@ class SettingsView(QWidget):
         content_layout.addWidget(notif_card)
 
         # 6. Section: Data, Backups & Files
-        data_card = SettingsCard("Резервное копирование и данные", "Сохранение и перенос всех конспектов, расписания и заметок")
+        data_card = SettingsCard(t("card_data"), t("card_data_sub"))
         data_actions = QHBoxLayout()
         data_actions.setSpacing(12)
 
-        export_btn = QPushButton("Экспорт всех данных (.json)")
+        export_btn = QPushButton(t("export_btn"))
         export_btn.setIcon(get_icon("database", COLORS['sky'], 16))
         export_btn.setIconSize(QSize(16, 16))
         export_btn.clicked.connect(self._export_backup)
         data_actions.addWidget(export_btn)
 
-        import_btn = QPushButton("Импорт из бэкапа (.json)")
+        import_btn = QPushButton(t("import_btn"))
         import_btn.setIcon(get_icon("folder", COLORS['amber'], 16))
         import_btn.setIconSize(QSize(16, 16))
         import_btn.clicked.connect(self._import_backup)
         data_actions.addWidget(import_btn)
 
-        open_folder_btn = QPushButton("Открыть папку данных в проводнике")
+        open_folder_btn = QPushButton(t("open_folder_btn"))
         open_folder_btn.setIcon(get_icon("export", COLORS['text_muted'], 16))
         open_folder_btn.setIconSize(QSize(16, 16))
         open_folder_btn.clicked.connect(self._open_data_folder)
@@ -289,7 +289,7 @@ class SettingsView(QWidget):
         content_layout.addWidget(data_card)
 
         # 6. Section: About
-        about_card = SettingsCard("О программе WorkBOXig", "Версия и статус локального хранилища")
+        about_card = SettingsCard(t("card_about"), t("card_about_sub"))
         about_l = QVBoxLayout()
         about_l.setSpacing(6)
 
@@ -298,7 +298,7 @@ class SettingsView(QWidget):
         ver_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         about_l.addWidget(ver_lbl)
 
-        priv_lbl = QLabel("● 100% локальное хранение данных. Без телеметрии, облачных трекеров и рекламы.")
+        priv_lbl = QLabel(t("about_privacy"))
         priv_lbl.setFont(QFont("Segoe UI", 9))
         priv_lbl.setStyleSheet(f"color: {COLORS['emerald']};")
         about_l.addWidget(priv_lbl)
@@ -323,7 +323,7 @@ class SettingsView(QWidget):
 
     def _update_autostart_status_pill(self, enabled: bool):
         if enabled:
-            self.autostart_status.setText("● АВТОЗАПУСК АКТИВЕН")
+            self.autostart_status.setText(t("autostart_active"))
             self.autostart_status.setStyleSheet(f"""
                 color: {COLORS['emerald']};
                 background-color: {COLORS['emerald_subtle']};
@@ -332,7 +332,7 @@ class SettingsView(QWidget):
                 padding: 4px 10px;
             """)
         else:
-            self.autostart_status.setText("○ ОТКЛЮЧЕНО")
+            self.autostart_status.setText(t("autostart_disabled"))
             self.autostart_status.setStyleSheet(f"""
                 color: {COLORS['text_muted']};
                 background-color: {COLORS['bg_input']};
@@ -345,22 +345,22 @@ class SettingsView(QWidget):
         success = set_autostart_enabled(checked)
         if success:
             self._update_autostart_status_pill(checked)
-            msg = "Автозапуск WorkBOXig с Windows включен!" if checked else "Автозапуск отключен."
+            msg = t("autostart_on_msg") if checked else t("autostart_off_msg")
             self.toast_requested.emit(msg, "check" if checked else "zap")
         else:
             self.autostart_cb.setChecked(not checked)
-            self.toast_requested.emit("Не удалось изменить статус автозапуска", "warning")
+            self.toast_requested.emit(t("autostart_error"), "warning")
 
     def _select_theme(self, theme_name: str):
         self.storage.set_setting("theme", theme_name)
         self._update_theme_buttons(theme_name)
         self.theme_changed.emit(theme_name)
         theme_names = {
-            "dark": "Тёмная (Dark Slate)",
-            "light": "Светлая (Light Clean)",
+            "dark": t("theme_dark"),
+            "light": t("theme_light"),
             "cyberpunk": "Cyberpunk Neon (Edgerunner)"
         }
-        self.toast_requested.emit(f"Установлена тема: {theme_names.get(theme_name, theme_name)}", "check")
+        self.toast_requested.emit(t("theme_applied", theme=theme_names.get(theme_name, theme_name)), "check")
 
     def _update_theme_buttons(self, active_theme: str):
         is_dark = (active_theme == "dark")
@@ -427,46 +427,46 @@ class SettingsView(QWidget):
         tasks_count = len(self.storage.get_tasks())
         events_count = len(self.storage.get_events())
         self.stats_lbl.setText(
-            f"В локальной базе: {nb_count} тетрадей · {notes_count} заметок · {tasks_count} задач · {events_count} уроков"
+            t("local_db_stats", nb=nb_count, notes=notes_count, tasks=tasks_count, events=events_count)
         )
 
     def _export_backup(self):
         path, _ = QFileDialog.getSaveFileName(
             self,
-            "Экспорт полной резервной копии WorkBOXig",
+            t("backup_export_title"),
             f"WorkBOXig_backup_{os.path.basename(self.storage.file_path)}",
             "JSON Files (*.json)"
         )
         if path:
             try:
                 self.storage.export_full_backup(path)
-                self.toast_requested.emit("Резервная копия успешно сохранена!", "check")
+                self.toast_requested.emit(t("backup_exported"), "check")
             except Exception as e:
-                QMessageBox.critical(self, "Ошибка экспорта", f"Не удалось сохранить бэкап: {e}")
+                QMessageBox.critical(self, t("card_data"), f"{t('backup_save_error')} {e}")
 
     def _import_backup(self):
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Импорт резервной копии WorkBOXig",
+            t("backup_import_title"),
             "",
             "JSON Files (*.json)"
         )
         if path:
             confirm = QMessageBox.question(
                 self,
-                "Подтверждение восстановления",
-                "Восстановление из резервной копии заменит текущие задачи, тетради и расписание.\n\nПродолжить?",
+                t("backup_confirm_title"),
+                t("backup_confirm_msg"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if confirm == QMessageBox.StandardButton.Yes:
                 try:
                     if self.storage.import_full_backup(path):
                         self._refresh_stats()
-                        self.toast_requested.emit("Данные успешно восстановлены!", "check")
+                        self.toast_requested.emit(t("backup_imported"), "check")
                     else:
-                        QMessageBox.warning(self, "Ошибка", "Файл поврежден или имеет неверный формат.")
+                        QMessageBox.warning(self, t("card_data"), t("backup_corrupt_error"))
                 except Exception as e:
-                    QMessageBox.critical(self, "Ошибка импорта", f"Не удалось прочитать файл: {e}")
+                    QMessageBox.critical(self, t("card_data"), f"{t('backup_read_error')} {e}")
 
     def _open_data_folder(self):
         folder = self.storage.base_dir

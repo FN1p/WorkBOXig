@@ -12,6 +12,7 @@ from PyQt6.QtGui import QFont, QColor, QKeyEvent
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 
 
 class CommandItemWidget(QWidget):
@@ -114,7 +115,7 @@ class CommandPalette(QDialog):
         search_box.addWidget(icon_lbl)
 
         self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Поиск задач, конспектов, заметок или команд...")
+        self.input_field.setPlaceholderText(t("palette_placeholder"))
         self.input_field.setFont(QFont("Segoe UI", 12))
         self.input_field.setStyleSheet(f"""
             QLineEdit {{
@@ -127,7 +128,7 @@ class CommandPalette(QDialog):
         self.input_field.textChanged.connect(self._on_search_changed)
         search_box.addWidget(self.input_field, stretch=1)
 
-        esc_hint = QLabel("ESC чтобы закрыть")
+        esc_hint = QLabel(t("palette_esc"))
         esc_hint.setFont(QFont("Segoe UI", 8))
         esc_hint.setStyleSheet(f"""
             color: {COLORS['text_muted']};
@@ -170,7 +171,7 @@ class CommandPalette(QDialog):
 
         # Bottom hint bar
         footer_layout = QHBoxLayout()
-        hint = QLabel("↑↓ для выбора • Enter для перехода • Tab для переключения")
+        hint = QLabel(t("palette_hint"))
         hint.setFont(QFont("Segoe UI", 8))
         hint.setStyleSheet(f"color: {COLORS['text_muted']};")
         footer_layout.addWidget(hint)
@@ -213,36 +214,36 @@ class CommandPalette(QDialog):
 
         # Standard navigation & actions
         static_actions = [
-            {"cat": "action", "title": "Создать задачу или ДЗ", "sub": "Добавить новую задачу с дедлайном", "badge": "Действие", "type": "create_task", "data": {}},
-            {"cat": "action", "title": "Создать быструю заметку", "sub": "Открыть чистый холст для записей", "badge": "Действие", "type": "create_note", "data": {}},
-            {"cat": "action", "title": "Создать новую тетрадь", "sub": "Добавить предмет или модуль", "badge": "Действие", "type": "create_notebook", "data": {}},
-            {"cat": "action", "title": "Запустить таймер фокуса", "sub": "Сессия продуктивности 25 минут", "badge": "Фокус", "type": "start_pomodoro", "data": {}},
-            {"cat": "action", "title": "Переключить тему оформления", "sub": "Переключить между Dark, Light и Cyberpunk Neon", "badge": "Тема", "type": "toggle_theme", "data": {}},
-            {"cat": "action", "title": "Тема: Cyberpunk Neon (Edgerunner)", "sub": "Неоновый высококонтрастный кибер-стиль", "badge": "Тема", "type": "set_theme", "data": {"theme": "cyberpunk"}},
-            {"cat": "action", "title": "Тема: Тёмная (Dark Slate)", "sub": "Строгий современный тёмный интерфейс", "badge": "Тема", "type": "set_theme", "data": {"theme": "dark"}},
-            {"cat": "action", "title": "Тема: Светлая (Light Clean)", "sub": "Чистый светлый интерфейс", "badge": "Тема", "type": "set_theme", "data": {"theme": "light"}},
-            {"cat": "action", "title": "Экспорт расписания в iCalendar (.ics)", "sub": "Файл для Google, Apple и Яндекс Календаря", "badge": "Экспорт", "type": "export_calendar_ics", "data": {}},
-            {"cat": "nav", "title": "Открыть Настройки", "sub": "Темы оформления, автозапуск Windows и бэкапы", "badge": "Навигация", "type": "navigate", "data": {"tab": "settings"}},
-            {"cat": "nav", "title": "Открыть Календарь", "sub": "Перейти к сетке расписания и дедлайнов", "badge": "Навигация", "type": "navigate", "data": {"tab": "calendar"}},
-            {"cat": "nav", "title": "Открыть Задачи и ДЗ", "sub": "Перейти к трекеру домашних заданий", "badge": "Навигация", "type": "navigate", "data": {"tab": "tasks"}},
-            {"cat": "nav", "title": "Открыть Тетради и конспекты", "sub": "Перейти к конспектам лекций", "badge": "Навигация", "type": "navigate", "data": {"tab": "notebooks"}},
-            {"cat": "nav", "title": "Открыть Заметки", "sub": "Перейти к быстрым мыслям", "badge": "Навигация", "type": "navigate", "data": {"tab": "notes"}},
-            {"cat": "nav", "title": "Открыть Дашборд", "sub": "Обзор дня, метрики и расписание", "badge": "Навигация", "type": "navigate", "data": {"tab": "dashboard"}},
+            {"cat": "action", "title": t("act_create_task_title"), "sub": t("act_create_task_sub"), "badge": t("action"), "type": "create_task", "data": {}},
+            {"cat": "action", "title": t("act_create_note_title"), "sub": t("act_create_note_sub"), "badge": t("action"), "type": "create_note", "data": {}},
+            {"cat": "action", "title": t("act_create_nb_title"), "sub": t("act_create_nb_sub"), "badge": t("action"), "type": "create_notebook", "data": {}},
+            {"cat": "action", "title": t("act_pomo_title"), "sub": t("act_pomo_sub"), "badge": t("pomo_focus_badge"), "type": "start_pomodoro", "data": {}},
+            {"cat": "action", "title": t("act_toggle_theme_title"), "sub": t("act_toggle_theme_sub"), "badge": t("card_appearance"), "type": "toggle_theme", "data": {}},
+            {"cat": "action", "title": t("theme_cyber"), "sub": "Cyberpunk Neon HUD", "badge": t("card_appearance"), "type": "set_theme", "data": {"theme": "cyberpunk"}},
+            {"cat": "action", "title": t("theme_dark"), "sub": "Modern Slate Mode", "badge": t("card_appearance"), "type": "set_theme", "data": {"theme": "dark"}},
+            {"cat": "action", "title": t("theme_light"), "sub": "Clean Studio Mode", "badge": t("card_appearance"), "type": "set_theme", "data": {"theme": "light"}},
+            {"cat": "action", "title": t("act_export_ics_title"), "sub": t("act_export_ics_sub"), "badge": t("export_ics"), "type": "export_calendar_ics", "data": {}},
+            {"cat": "nav", "title": t("act_open_settings_title"), "sub": t("act_open_settings_sub"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "settings"}},
+            {"cat": "nav", "title": t("nav_calendar"), "sub": t("calendar_subtitle"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "calendar"}},
+            {"cat": "nav", "title": t("nav_tasks"), "sub": t("tasks_subtitle"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "tasks"}},
+            {"cat": "nav", "title": t("nav_notebooks"), "sub": t("notebooks_subtitle"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "notebooks"}},
+            {"cat": "nav", "title": t("nav_notes"), "sub": t("notes_subtitle"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "notes"}},
+            {"cat": "nav", "title": t("nav_dashboard"), "sub": t("dashboard_subtitle"), "badge": t("palette_category_nav"), "type": "navigate", "data": {"tab": "dashboard"}},
         ]
 
         # 1. Search Tasks
-        for t in self.storage.get_tasks():
-            t_title = t.get("title", "")
-            t_sub = t.get("subject", "")
+        for task_item in self.storage.get_tasks():
+            t_title = task_item.get("title", "")
+            t_sub = task_item.get("subject", "")
             if not query or query in t_title.lower() or query in t_sub.lower():
-                status = "Выполнено" if t.get("completed") else f"До {t.get('due_date', '')}"
+                status = t("task_stat_done") if task_item.get("completed") else f"{t('task_due_lbl')} {task_item.get('due_date', '')}"
                 results.append({
                     "cat": "task",
                     "title": t_title,
-                    "sub": f"Предмет: {t_sub} • {status}",
-                    "badge": "Задача",
+                    "sub": f"{t('task_subject_lbl')} {t_sub} • {status}",
+                    "badge": t("nav_tasks"),
                     "type": "open_task",
-                    "data": {"task_id": t["id"]}
+                    "data": {"task_id": task_item["id"]}
                 })
 
         # 2. Search Notebooks & Pages
@@ -251,9 +252,9 @@ class CommandPalette(QDialog):
             if not query or query in nb_title.lower():
                 results.append({
                     "cat": "notebook",
-                    "title": f"Тетрадь: {nb_title}",
-                    "sub": f"Страниц: {len(nb.get('pages', []))}",
-                    "badge": "Тетрадь",
+                    "title": f"{t('nb_col_title')}: {nb_title}",
+                    "sub": f"{t('nb_pages_title')}: {len(nb.get('pages', []))}",
+                    "badge": t("nav_notebooks"),
                     "type": "open_notebook",
                     "data": {"nb_id": nb["id"]}
                 })
@@ -263,9 +264,9 @@ class CommandPalette(QDialog):
                 if query and (query in p_title.lower() or query in p_plain.lower()):
                     results.append({
                         "cat": "page",
-                        "title": p_title or "Без названия",
-                        "sub": f"В тетради: {nb_title}",
-                        "badge": "Конспект",
+                        "title": p_title or t("untitled_page"),
+                        "sub": f"{t('nb_col_title')}: {nb_title}",
+                        "badge": t("nav_notebooks"),
                         "type": "open_page",
                         "data": {"nb_id": nb["id"], "page_id": p["id"]}
                     })
@@ -277,9 +278,9 @@ class CommandPalette(QDialog):
             if not query or query in n_title.lower() or query in n_body.lower():
                 results.append({
                     "cat": "note",
-                    "title": n_title or "Без названия",
+                    "title": n_title or t("untitled_page"),
                     "sub": n_body.replace("\n", " ")[:60],
-                    "badge": "Заметка",
+                    "badge": t("nav_notes"),
                     "type": "open_note",
                     "data": {"note_id": n["id"]}
                 })

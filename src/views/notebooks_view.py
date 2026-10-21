@@ -13,6 +13,7 @@ from PyQt6.QtGui import QFont, QIcon, QColor, QCursor
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 from src.components.rich_editor import RichEditor
 
 
@@ -20,7 +21,7 @@ class NotebookItemWidget(QWidget):
     """Custom item in Notebooks column."""
     def __init__(self, title: str, color_hex: str, page_count: int, parent=None):
         super().__init__(parent)
-        self.setToolTip(f"{title} ({page_count} стр.)")
+        self.setToolTip(f"{title} ({page_count} {t('nb_pages_title').lower()})")
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
@@ -57,7 +58,7 @@ class PageItemWidget(QWidget):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(4)
 
-        title_lbl = QLabel(title or "Без названия")
+        title_lbl = QLabel(title or t("untitled_page"))
         title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
         layout.addWidget(title_lbl)
@@ -109,15 +110,15 @@ class NotebooksView(QWidget):
         nb_col_layout.setSpacing(12)
 
         nb_header = QHBoxLayout()
-        nb_title = QLabel("Тетради")
+        nb_title = QLabel(t("nb_col_title"))
         nb_title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         nb_header.addWidget(nb_title)
         nb_header.addStretch()
 
-        add_nb_btn = QPushButton("Предмет")
+        add_nb_btn = QPushButton(t("nb_add_btn"))
         add_nb_btn.setIcon(get_icon("plus", "#FFFFFF", 16))
         add_nb_btn.setIconSize(QSize(16, 16))
-        add_nb_btn.setToolTip("Создать новую тетрадь/предмет")
+        add_nb_btn.setToolTip(t("nb_add_tooltip"))
         add_nb_btn.setObjectName("primary-btn")
         add_nb_btn.setFixedHeight(32)
         add_nb_btn.clicked.connect(self._create_notebook)
@@ -140,12 +141,12 @@ class NotebooksView(QWidget):
         pages_col_layout.setSpacing(12)
 
         pages_header = QHBoxLayout()
-        self.pages_col_title = QLabel("Страницы")
+        self.pages_col_title = QLabel(t("nb_pages_title"))
         self.pages_col_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         pages_header.addWidget(self.pages_col_title)
         pages_header.addStretch()
 
-        self.add_page_btn = QPushButton("Страница")
+        self.add_page_btn = QPushButton(t("nb_add_page_btn"))
         self.add_page_btn.setIcon(get_icon("plus", "#FFFFFF", 16))
         self.add_page_btn.setIconSize(QSize(16, 16))
         self.add_page_btn.setObjectName("primary-btn")
@@ -156,7 +157,7 @@ class NotebooksView(QWidget):
 
         # Search bar for pages
         self.page_search_input = QLineEdit()
-        self.page_search_input.setPlaceholderText("Поиск по страницам...")
+        self.page_search_input.setPlaceholderText(t("nb_search_pages"))
         self.page_search_input.textChanged.connect(self._filter_pages)
         pages_col_layout.addWidget(self.page_search_input)
 
@@ -209,7 +210,7 @@ class NotebooksView(QWidget):
         
         if not notebooks:
             self.current_nb_id = None
-            self.pages_col_title.setText("Страницы")
+            self.pages_col_title.setText(t("nb_pages_title"))
             self.add_page_btn.setEnabled(False)
             self.pages_list_widget.clear()
             self.rich_editor.show_empty()
@@ -239,7 +240,7 @@ class NotebooksView(QWidget):
         if 0 <= row < len(notebooks):
             nb = notebooks[row]
             self.current_nb_id = nb["id"]
-            self.pages_col_title.setText(nb.get("title", "Страницы"))
+            self.pages_col_title.setText(nb.get("title", t("nb_pages_title")))
             self._refresh_pages_list()
         else:
             self.current_nb_id = None
@@ -323,10 +324,10 @@ class NotebooksView(QWidget):
                 if item:
                     widget = self.pages_list_widget.itemWidget(item)
                     if isinstance(widget, PageItemWidget):
-                        widget.findChild(QLabel).setText(title or "Без названия")
+                        widget.findChild(QLabel).setText(title or t("untitled_page"))
 
     def _create_notebook(self):
-        title, ok = QInputDialog.getText(self, "Новая тетрадь", "Название предмета или темы:")
+        title, ok = QInputDialog.getText(self, t("nb_dialog_new_title"), t("nb_dialog_new_prompt"))
         if ok and title.strip():
             colors = ["#6366F1", "#10B981", "#3B82F6", "#F59E0B", "#EC4899", "#8B5CF6"]
             color = colors[len(self.storage.get_notebooks()) % len(colors)]
@@ -337,7 +338,7 @@ class NotebooksView(QWidget):
     def _create_page(self):
         if not self.current_nb_id:
             return
-        page = self.storage.add_page(self.current_nb_id, title="Новая страница", content_html="<p></p>")
+        page = self.storage.add_page(self.current_nb_id, title=t("nb_page_default_title"), content_html="<p></p>")
         if page:
             self.current_page_id = page["id"]
             self._refresh_pages_list()
@@ -372,17 +373,17 @@ class NotebooksView(QWidget):
             }}
         """)
 
-        rename_act = menu.addAction(get_icon("edit", COLORS['text_primary'], 16), "Переименовать")
-        delete_act = menu.addAction(get_icon("trash", "#F87171", 16), "Удалить тетрадь")
+        rename_act = menu.addAction(get_icon("edit", COLORS['text_primary'], 16), t("nb_rename"))
+        delete_act = menu.addAction(get_icon("trash", "#F87171", 16), t("nb_delete"))
 
         action = menu.exec(self.nb_list_widget.mapToGlobal(pos))
         if action == rename_act:
-            new_title, ok = QInputDialog.getText(self, "Переименовать тетрадь", "Новое название:", text=nb.get("title", ""))
+            new_title, ok = QInputDialog.getText(self, t("nb_rename_title"), t("nb_new_name"), text=nb.get("title", ""))
             if ok and new_title.strip():
                 self.storage.update_notebook(nb["id"], title=new_title.strip())
                 self._refresh_notebooks_list()
         elif action == delete_act:
-            if QMessageBox.question(self, "Подтверждение", f"Удалить тетрадь '{nb.get('title')}' и все страницы в ней?") == QMessageBox.StandardButton.Yes:
+            if QMessageBox.question(self, t("nb_delete_confirm_title"), t("nb_delete_confirm_msg", title=nb.get("title"))) == QMessageBox.StandardButton.Yes:
                 self.storage.delete_notebook(nb["id"])
                 self.current_nb_id = None
                 self._refresh_notebooks_list()
@@ -411,7 +412,7 @@ class NotebooksView(QWidget):
                 color: {COLORS['primary_light']};
             }}
         """)
-        del_act = menu.addAction(get_icon("trash", "#F87171", 16), "Удалить страницу")
+        del_act = menu.addAction(get_icon("trash", "#F87171", 16), t("nb_del_page"))
         action = menu.exec(self.pages_list_widget.mapToGlobal(pos))
         if action == del_act:
             if self.current_nb_id and page_id:

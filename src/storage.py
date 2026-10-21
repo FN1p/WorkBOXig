@@ -11,6 +11,7 @@ import tempfile
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
+from src.i18n import t
 
 
 DEFAULT_DATA = {
@@ -152,14 +153,14 @@ class StorageManager(QObject):
     def get_tasks(self) -> List[Dict[str, Any]]:
         return self._data.get("tasks", [])
 
-    def add_task(self, title: str, description: str = "", subject: str = "Общее",
+    def add_task(self, title: str, description: str = "", subject: str = "",
                  due_date: Optional[str] = None, due_time: str = "12:00",
                  priority: str = "medium") -> Dict[str, Any]:
         task = {
             "id": str(uuid.uuid4()),
             "title": title.strip(),
             "description": description.strip(),
-            "subject": subject.strip() or "Общее",
+            "subject": subject.strip() or t("general"),
             "due_date": due_date or date.today().isoformat(),
             "due_time": due_time or "12:00",
             "priority": priority,
@@ -206,16 +207,16 @@ class StorageManager(QObject):
     def add_notebook(self, title: str, color: str = "#6366F1", icon: str = "book") -> Dict[str, Any]:
         nb = {
             "id": str(uuid.uuid4()),
-            "title": title.strip() or "Новая тетрадь",
+            "title": title.strip() or t("nb_dialog_new_title"),
             "color": color,
             "icon": icon,
             "created_at": datetime.now().isoformat(),
             "pages": [
                 {
                     "id": str(uuid.uuid4()),
-                    "title": "Первая страница",
-                    "content_html": "<p>Начните писать конспект здесь...</p>",
-                    "content_plain": "Начните писать конспект здесь...",
+                    "title": t("nb_page_default_title"),
+                    "content_html": f"<p>{t('editor_empty_prompt')}</p>",
+                    "content_plain": t('editor_empty_prompt'),
                     "created_at": datetime.now().isoformat(),
                     "updated_at": datetime.now().isoformat()
                 }
@@ -243,12 +244,12 @@ class StorageManager(QObject):
             return True
         return False
 
-    def add_page(self, nb_id: str, title: str = "Новая страница", content_html: str = "") -> Optional[Dict[str, Any]]:
+    def add_page(self, nb_id: str, title: str = "", content_html: str = "") -> Optional[Dict[str, Any]]:
         for nb in self._data.get("notebooks", []):
             if nb["id"] == nb_id:
                 page = {
                     "id": str(uuid.uuid4()),
-                    "title": title.strip() or "Новая страница",
+                    "title": title.strip() or t("nb_page_default_title"),
                     "content_html": content_html or "<p></p>",
                     "content_plain": "",
                     "created_at": datetime.now().isoformat(),
@@ -294,11 +295,11 @@ class StorageManager(QObject):
         notes = self._data.get("notes", [])
         return sorted(notes, key=lambda n: (not n.get("pinned", False), n.get("updated_at", "")), reverse=False)
 
-    def add_note(self, title: str = "Новая заметка", content: str = "",
+    def add_note(self, title: str = "", content: str = "",
                  color: str = "#6366F1", tags: Optional[List[str]] = None) -> Dict[str, Any]:
         note = {
             "id": str(uuid.uuid4()),
-            "title": title.strip() or "Без названия",
+            "title": title.strip() or t("untitled_page"),
             "content": content,
             "color": color,
             "pinned": False,
@@ -346,10 +347,10 @@ class StorageManager(QObject):
     def add_event(self, title: str, date_str: str, time_str: str = "10:00",
                   end_time_str: str = "11:00", description: str = "",
                   color: str = "#6366F1", event_type: str = "lesson",
-                  subject: str = "", badge: str = "Урок", room: str = "") -> Dict[str, Any]:
+                  subject: str = "", badge: str = "", room: str = "") -> Dict[str, Any]:
         evt = {
             "id": str(uuid.uuid4()),
-            "title": title.strip() or "Урок",
+            "title": title.strip() or t("cal_badge_lesson"),
             "subject": subject.strip() or title.strip(),
             "description": description.strip(),
             "date": date_str,

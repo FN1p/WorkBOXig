@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint, p
 from PyQt6.QtGui import QFont, QColor, QCursor, QScreen
 from src.styles import COLORS
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 
 
 class DesktopNotification(QWidget):
@@ -75,12 +76,12 @@ class DesktopNotification(QWidget):
         self.icon_lbl.setFixedSize(22, 22)
         top_row.addWidget(self.icon_lbl)
 
-        self.title_lbl = QLabel("Напоминание")
+        self.title_lbl = QLabel(t("notif_remind_title"))
         self.title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
         top_row.addWidget(self.title_lbl, stretch=1)
 
-        self.badge_lbl = QLabel("Урок")
+        self.badge_lbl = QLabel(t("cal_badge_lesson"))
         self.badge_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.badge_lbl.setStyleSheet(f"""
             color: {COLORS['sky']};
@@ -115,7 +116,7 @@ class DesktopNotification(QWidget):
         card_layout.addLayout(top_row)
 
         # Body message
-        self.body_lbl = QLabel("Через 15 минут начинается занятие по расписанию.")
+        self.body_lbl = QLabel(t("notif_test_msg"))
         self.body_lbl.setFont(QFont("Segoe UI", 9))
         self.body_lbl.setStyleSheet("color: #CBD5E1; background: transparent;")
         self.body_lbl.setWordWrap(True)
@@ -127,7 +128,7 @@ class DesktopNotification(QWidget):
 
         actions_row.addStretch()
 
-        self.snooze_btn = QPushButton("Отложить (10 мин)")
+        self.snooze_btn = QPushButton(t("notif_snooze_btn"))
         self.snooze_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.snooze_btn.setStyleSheet("""
             QPushButton {
@@ -146,7 +147,7 @@ class DesktopNotification(QWidget):
         self.snooze_btn.clicked.connect(self._on_snooze_clicked)
         actions_row.addWidget(self.snooze_btn)
 
-        self.action_btn = QPushButton("Перейти →")
+        self.action_btn = QPushButton(t("notif_go_btn"))
         self.action_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.action_btn.setStyleSheet(f"""
             QPushButton {{
@@ -194,13 +195,13 @@ class DesktopNotification(QWidget):
 
         # Icon and accent styling based on category
         cat_configs = {
-            "lesson": ("calendar", COLORS['sky'], badge_text or "Расписание"),
-            "task": ("tasks", COLORS['amber'], badge_text or "Дедлайн"),
-            "focus": ("play", COLORS['emerald'], badge_text or "Фокус"),
-            "success": ("check", COLORS['emerald'], badge_text or "Успешно"),
+            "lesson": ("calendar", COLORS['sky'], badge_text or t("nav_calendar")),
+            "task": ("tasks", COLORS['amber'], badge_text or t("notif_deadline_badge")),
+            "focus": ("play", COLORS['emerald'], badge_text or t("pomo_focus_badge")),
+            "success": ("check", COLORS['emerald'], badge_text or t("success")),
             "info": ("zap", COLORS['primary_light'], badge_text or "WorkBOXig"),
         }
-        icon_name, accent_col, badge_ru = cat_configs.get(category, ("zap", COLORS['primary_light'], "Уведомление"))
+        icon_name, accent_col, badge_ru = cat_configs.get(category, ("zap", COLORS['primary_light'], t("notif_remind_title")))
 
         self.icon_lbl.setPixmap(get_pixmap(icon_name, accent_col, 20))
         self.badge_lbl.setText(badge_ru)

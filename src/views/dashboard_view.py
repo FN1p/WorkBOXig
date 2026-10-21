@@ -192,7 +192,7 @@ class DashboardView(QWidget):
         # Status row
         status_row = QHBoxLayout()
         status_row.setSpacing(8)
-        sys_pill = QLabel("● Онлайн")
+        sys_pill = QLabel(t("online_status"))
         sys_pill.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         sys_pill.setStyleSheet(f"""
             color: {COLORS['emerald']};
@@ -203,7 +203,7 @@ class DashboardView(QWidget):
         """)
         status_row.addWidget(sys_pill)
 
-        self.mode_pill = QLabel("Локальный профиль")
+        self.mode_pill = QLabel(t("workspace_local"))
         self.mode_pill.setFont(QFont("Segoe UI", 8))
         self.mode_pill.setStyleSheet(f"color: {COLORS['text_muted']};")
         status_row.addWidget(self.mode_pill)
@@ -211,22 +211,22 @@ class DashboardView(QWidget):
         g_layout.addLayout(status_row)
 
         now = datetime.now()
-        greeting_text = "Добро пожаловать в WorkBOXig"
+        greeting_text = t("welcome_msg")
         if 5 <= now.hour < 12:
-            greeting_text = "Доброе утро!"
+            greeting_text = t("good_morning")
         elif 12 <= now.hour < 18:
-            greeting_text = "Добрый день!"
+            greeting_text = t("good_afternoon")
         elif 18 <= now.hour < 23:
-            greeting_text = "Добрый вечер!"
+            greeting_text = t("good_evening")
         else:
-            greeting_text = "Доброй ночи!"
+            greeting_text = t("good_night")
 
         self.greeting_lbl = QLabel(greeting_text)
         self.greeting_lbl.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         self.greeting_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         g_layout.addWidget(self.greeting_lbl)
 
-        self.summary_lbl = QLabel("Загрузка актуального статуса...")
+        self.summary_lbl = QLabel(t("loading_status"))
         self.summary_lbl.setFont(QFont("Segoe UI", 10))
         self.summary_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
         self.summary_lbl.setWordWrap(True)
@@ -240,7 +240,7 @@ class DashboardView(QWidget):
         is_cyber = (COLORS.get('primary') == '#FCEE0A')
         btn_fg = '#000000' if is_cyber else '#FFFFFF'
 
-        self.focus_btn = QPushButton("Начать фокус (25 мин)")
+        self.focus_btn = QPushButton(t("start_focus_btn"))
         self.focus_btn.setIcon(get_icon("play", btn_fg, 16))
         self.focus_btn.setIconSize(QSize(16, 16))
         self.focus_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -261,7 +261,7 @@ class DashboardView(QWidget):
         self.focus_btn.clicked.connect(self._on_start_focus_clicked)
         banner_actions.addWidget(self.focus_btn)
 
-        self.add_t_btn = QPushButton("Новая задача")
+        self.add_t_btn = QPushButton(t("btn_new_task"))
         self.add_t_btn.setIcon(get_icon("plus", COLORS['text_secondary'], 16))
         self.add_t_btn.setIconSize(QSize(16, 16))
         self.add_t_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -284,7 +284,7 @@ class DashboardView(QWidget):
         self.add_t_btn.clicked.connect(lambda: self.navigate_requested.emit("tasks"))
         banner_actions.addWidget(self.add_t_btn)
 
-        self.add_l_btn = QPushButton("Календарь занятий")
+        self.add_l_btn = QPushButton(t("nav_calendar"))
         self.add_l_btn.setIcon(get_icon("calendar", COLORS['text_secondary'], 16))
         self.add_l_btn.setIconSize(QSize(16, 16))
         self.add_l_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -347,7 +347,7 @@ class DashboardView(QWidget):
         self.date_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         dc_layout.addWidget(self.date_sub)
 
-        self.streak_chip = QLabel("3 дня ударного режима")
+        self.streak_chip = QLabel(t("streak_format", count=3))
         self.streak_chip.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
         self.streak_chip.setStyleSheet(f"""
             color: {COLORS['amber']};
@@ -420,7 +420,7 @@ class DashboardView(QWidget):
         self.sc_icon.setPixmap(get_pixmap("calendar", COLORS['sky'], 16))
         sb_header.addWidget(self.sc_icon)
 
-        self.sc_title = QLabel("Расписание")
+        self.sc_title = QLabel(t("section_today_schedule"))
         self.sc_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.sc_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         sb_header.addWidget(self.sc_title)
@@ -437,7 +437,7 @@ class DashboardView(QWidget):
         sb_header.addWidget(self.sched_badge_lbl)
         sb_header.addStretch()
 
-        view_cal_btn = QPushButton("Сетка →")
+        view_cal_btn = QPushButton(t("view_all_schedule"))
         view_cal_btn.setObjectName("ghost-btn")
         view_cal_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         view_cal_btn.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent; border: none; font-size: 11px;")
@@ -480,7 +480,7 @@ class DashboardView(QWidget):
         self.h_icon.setPixmap(get_pixmap("tasks", COLORS['primary_light'], 16))
         lb_header.addWidget(self.h_icon)
 
-        self.t_title = QLabel("Задачи и ДЗ")
+        self.t_title = QLabel(t("tasks_title"))
         self.t_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.t_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         lb_header.addWidget(self.t_title)
@@ -497,7 +497,7 @@ class DashboardView(QWidget):
         lb_header.addWidget(self.task_badge_lbl)
         lb_header.addStretch()
 
-        view_all_btn = QPushButton("Все →")
+        view_all_btn = QPushButton(t("view_all_tasks"))
         view_all_btn.setObjectName("ghost-btn")
         view_all_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         view_all_btn.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent; border: none; font-size: 11px;")
@@ -540,20 +540,20 @@ class DashboardView(QWidget):
         self.th_icon.setPixmap(get_pixmap("zap", COLORS['amber'], 16))
         rb_header.addWidget(self.th_icon)
 
-        self.rb_title = QLabel("Быстрая мысль")
+        self.rb_title = QLabel(t("section_quick_note"))
         self.rb_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.rb_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         rb_header.addWidget(self.rb_title)
         rb_header.addStretch()
         rb_layout.addLayout(rb_header)
 
-        self.rb_desc = QLabel("Мгновенно записать идею в один клик:")
+        self.rb_desc = QLabel(t("quick_note_desc"))
         self.rb_desc.setFont(QFont("Segoe UI", 9))
         self.rb_desc.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
         rb_layout.addWidget(self.rb_desc)
 
         self.quick_note_title = QLineEdit()
-        self.quick_note_title.setPlaceholderText("Тема мысли...")
+        self.quick_note_title.setPlaceholderText(t("quick_note_title_ph"))
         rb_layout.addWidget(self.quick_note_title)
 
         # Quick Tag Chips
@@ -584,10 +584,10 @@ class DashboardView(QWidget):
         rb_layout.addLayout(chips_row)
 
         self.quick_note_body = QTextEdit()
-        self.quick_note_body.setPlaceholderText("Текст быстрой мысли...")
+        self.quick_note_body.setPlaceholderText(t("quick_note_placeholder"))
         rb_layout.addWidget(self.quick_note_body, stretch=1)
 
-        self.quick_save_btn = QPushButton("Сохранить в Заметки")
+        self.quick_save_btn = QPushButton(t("quick_note_save"))
         self.quick_save_btn.setIcon(get_icon("notes", btn_fg, 16))
         self.quick_save_btn.setIconSize(QSize(16, 16))
         self.quick_save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -620,7 +620,7 @@ class DashboardView(QWidget):
 
     def _on_start_focus_clicked(self):
         self.start_pomodoro_requested.emit()
-        self.toast_requested.emit("Фокус-сессия запущена!", "info")
+        self.toast_requested.emit(t("focus_started"), "info")
 
     def refresh_theme(self):
         self._update_banner_style()
@@ -835,12 +835,12 @@ class DashboardView(QWidget):
             es_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             es_layout.setSpacing(8)
 
-            es_msg = QLabel("На сегодня занятий нет")
+            es_msg = QLabel(t("no_classes_today"))
             es_msg.setFont(QFont("Segoe UI", 10))
             es_msg.setStyleSheet(f"color: {COLORS['text_muted']};")
             es_layout.addWidget(es_msg)
 
-            add_btn = QPushButton("+ Добавить урок")
+            add_btn = QPushButton(t("btn_add_event"))
             add_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             add_btn.setStyleSheet(f"""
                 QPushButton {{
@@ -863,11 +863,11 @@ class DashboardView(QWidget):
         # 2. Update Today Tasks list
         clear_layout(self.today_tasks_layout)
 
-        pending_tasks = [t for t in tasks if not t.get("completed")]
+        pending_tasks = [task_item for task_item in tasks if not task_item.get("completed")]
         sorted_pending = sorted(pending_tasks, key=lambda x: (x.get("due_date", "9999-99-99"), x.get("priority") != "urgent"))[:6]
 
         if not sorted_pending:
-            empty_lbl = QLabel("Все задачи выполнены! Отличная работа.")
+            empty_lbl = QLabel(t("no_tasks_today"))
             empty_lbl.setFont(QFont("Segoe UI", 10))
             empty_lbl.setStyleSheet(f"color: {COLORS['emerald']}; padding: 20px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -881,8 +881,8 @@ class DashboardView(QWidget):
             "low": COLORS['emerald'],
         }
 
-        for t in sorted_pending:
-            prio = t.get("priority", "medium")
+        for task_card in sorted_pending:
+            prio = task_card.get("priority", "medium")
             p_color = priority_colors.get(prio, COLORS['primary_light'])
 
             row = QFrame()
@@ -906,7 +906,7 @@ class DashboardView(QWidget):
 
             cb = QCheckBox()
             cb.setChecked(False)
-            cb.toggled.connect(lambda checked, tid=t["id"]: self._toggle_task(tid))
+            cb.toggled.connect(lambda checked, tid=task_card["id"]: self._toggle_task(tid))
             r_layout.addWidget(cb)
 
             t_lbl = QLabel(t.get("title", ""))

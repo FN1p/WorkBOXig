@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont, QCursor, QIcon
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 from src.utils.shortcuts import clear_layout
 
 
@@ -30,7 +31,7 @@ class TaskDialog(QDialog):
     """Dialog to create or edit a task / homework entry."""
     def __init__(self, existing_task=None, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Редактирование задачи" if existing_task else "Новая задача или ДЗ")
+        self.setWindowTitle(t("task_edit_title") if existing_task else t("task_new_title"))
         self.setFixedSize(520, 580)
         self.setStyleSheet(f"""
             QDialog {{
@@ -44,7 +45,7 @@ class TaskDialog(QDialog):
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(14)
 
-        dlg_title = QLabel("Новое задание или задача" if not existing_task else "Редактирование задачи")
+        dlg_title = QLabel(t("task_new_title") if not existing_task else t("task_edit_title"))
         dlg_title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         dlg_title.setStyleSheet(f"color: {COLORS['text_primary']};")
         layout.addWidget(dlg_title)
@@ -52,12 +53,12 @@ class TaskDialog(QDialog):
         # Title
         self.title_input = QLineEdit()
         self.title_input.setFixedHeight(38)
-        self.title_input.setPlaceholderText("Название задачи (например: Лабораторная работа №3)...")
+        self.title_input.setPlaceholderText(t("task_title_ph"))
         layout.addWidget(self.title_input)
 
         # Subject / Category
         subj_layout = QHBoxLayout()
-        s_lbl = QLabel("Предмет:")
+        s_lbl = QLabel(t("task_subject_lbl"))
         s_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         s_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         self.subj_input = QComboBox()
@@ -70,7 +71,7 @@ class TaskDialog(QDialog):
 
         # Date & Time linked to calendar
         dt_layout = QHBoxLayout()
-        d_lbl = QLabel("Срок сдачи:")
+        d_lbl = QLabel(t("task_due_lbl"))
         d_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         d_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         
@@ -92,15 +93,15 @@ class TaskDialog(QDialog):
 
         # Priority
         p_layout = QHBoxLayout()
-        p_lbl = QLabel("Приоритет:")
+        p_lbl = QLabel(t("task_priority_lbl"))
         p_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         p_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         self.p_combo = QComboBox()
         self.p_combo.setFixedHeight(38)
-        self.p_combo.addItem("Срочно (Дедлайн)", "urgent")
-        self.p_combo.addItem("Высокий приоритет", "high")
-        self.p_combo.addItem("Средний приоритет", "medium")
-        self.p_combo.addItem("Низкий приоритет", "low")
+        self.p_combo.addItem(t("task_priority_urgent"), "urgent")
+        self.p_combo.addItem(t("task_priority_high"), "high")
+        self.p_combo.addItem(t("task_priority_med"), "medium")
+        self.p_combo.addItem(t("task_priority_low"), "low")
         self.p_combo.setCurrentIndex(2)
         p_layout.addWidget(p_lbl)
         p_layout.addWidget(self.p_combo, stretch=1)
@@ -108,19 +109,19 @@ class TaskDialog(QDialog):
 
         # Description
         self.desc_input = QTextEdit()
-        self.desc_input.setPlaceholderText("Подробности задания, список вопросов, ссылки на литературу...")
+        self.desc_input.setPlaceholderText(t("task_desc_ph"))
         self.desc_input.setFixedHeight(85)
         layout.addWidget(self.desc_input)
 
         # Buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
-        cancel_btn = QPushButton("Отмена")
+        cancel_btn = QPushButton(t("cancel"))
         cancel_btn.setObjectName("ghost-btn")
         cancel_btn.setFixedHeight(38)
         cancel_btn.clicked.connect(self.reject)
 
-        save_btn = QPushButton("Сохранить задачу")
+        save_btn = QPushButton(t("task_save_btn"))
         save_btn.setObjectName("primary-btn")
         save_btn.setFixedHeight(38)
         save_btn.setObjectName("primary-btn")
@@ -265,7 +266,7 @@ class TaskItemWidget(QFrame):
         due_date_str = task.get("due_date", "")
         due_time_str = task.get("due_time", "")
         
-        date_badge_text = f"Срок: {due_date_str}"
+        date_badge_text = t("task_due_exact", date=due_date_str)
         date_bg = COLORS['bg_input']
         date_fg = COLORS['text_muted']
 
@@ -274,23 +275,23 @@ class TaskItemWidget(QFrame):
                 task_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
                 diff = (task_date - date.today()).days
                 if is_done:
-                    date_badge_text = "Выполнено"
+                    date_badge_text = t("task_stat_done")
                     date_bg = COLORS['emerald_subtle']
                     date_fg = COLORS['emerald']
                 elif diff < 0:
-                    date_badge_text = f"Просрочено на {abs(diff)} дн. ({due_date_str})"
+                    date_badge_text = t("task_due_overdue", days=abs(diff), date=due_date_str)
                     date_bg = COLORS['rose_subtle']
                     date_fg = COLORS['rose']
                 elif diff == 0:
-                    date_badge_text = f"Срок сегодня в {due_time_str}"
+                    date_badge_text = t("task_due_today", time=due_time_str)
                     date_bg = COLORS['amber_subtle']
                     date_fg = COLORS['amber']
                 elif diff == 1:
-                    date_badge_text = f"Срок завтра в {due_time_str}"
+                    date_badge_text = t("task_due_tomorrow", time=due_time_str)
                     date_bg = COLORS['sky_subtle']
                     date_fg = COLORS['sky']
                 else:
-                    date_badge_text = f"Через {diff} дн. ({due_date_str})"
+                    date_badge_text = t("task_due_in_days", days=diff, date=due_date_str)
                     date_fg = COLORS['text_secondary']
             except Exception:
                 pass
@@ -318,7 +319,7 @@ class TaskItemWidget(QFrame):
         edit_btn.setIcon(get_icon("edit", "#CBD5E1", 16))
         edit_btn.setIconSize(QSize(16, 16))
         edit_btn.setFixedSize(32, 32)
-        edit_btn.setToolTip("Редактировать")
+        edit_btn.setToolTip(t("edit"))
         edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         edit_btn.setStyleSheet(f"""
             QPushButton {{
@@ -340,7 +341,7 @@ class TaskItemWidget(QFrame):
         del_btn.setIcon(get_icon("trash", "#F87171", 16))
         del_btn.setIconSize(QSize(16, 16))
         del_btn.setFixedSize(32, 32)
-        del_btn.setToolTip("Удалить")
+        del_btn.setToolTip(t("delete"))
         del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         del_btn.setStyleSheet(f"""
             QPushButton {{
@@ -379,10 +380,10 @@ class TasksView(QWidget):
         metrics_grid = QGridLayout()
         metrics_grid.setSpacing(14)
 
-        self.card_total = self._create_stat_card("tasks", "Всего задач", "0", COLORS['primary_light'])
-        self.card_pending = self._create_stat_card("clock", "В процессе", "0", COLORS['sky'])
-        self.card_today = self._create_stat_card("alert_circle", "Дедлайн сегодня", "0", COLORS['amber'])
-        self.card_done = self._create_stat_card("check_circle", "Завершено", "0", COLORS['emerald'])
+        self.card_total = self._create_stat_card("tasks", t("task_stat_total"), "0", COLORS['primary_light'])
+        self.card_pending = self._create_stat_card("clock", t("task_stat_pending"), "0", COLORS['sky'])
+        self.card_today = self._create_stat_card("alert_circle", t("task_stat_today"), "0", COLORS['amber'])
+        self.card_done = self._create_stat_card("check_circle", t("task_stat_done"), "0", COLORS['emerald'])
 
         metrics_grid.addWidget(self.card_total, 0, 0)
         metrics_grid.addWidget(self.card_pending, 0, 1)
@@ -397,12 +398,12 @@ class TasksView(QWidget):
 
         self.filter_buttons = {}
         filters_list = [
-            ("all", "Все"),
-            ("today", "Сегодня"),
-            ("upcoming", "Предстоящие"),
-            ("overdue", "Просроченные"),
-            ("urgent", "Срочные"),
-            ("done", "Выполненные")
+            ("all", t("filter_all")),
+            ("today", t("task_stat_today")),
+            ("upcoming", t("task_stat_pending")),
+            ("overdue", t("task_priority_urgent")),
+            ("urgent", t("task_priority_urgent")),
+            ("done", t("task_stat_done"))
         ]
 
         for f_id, text in filters_list:
@@ -417,7 +418,7 @@ class TasksView(QWidget):
         self._style_filter_buttons()
         row1_layout.addStretch()
 
-        add_task_btn = QPushButton("Новая задача")
+        add_task_btn = QPushButton(t("btn_new_task"))
         add_task_btn.setIcon(get_icon("plus", "#FFFFFF", 16))
         add_task_btn.setIconSize(QSize(16, 16))
         add_task_btn.setObjectName("primary-btn")
@@ -431,17 +432,17 @@ class TasksView(QWidget):
         row2_layout = QHBoxLayout()
         row2_layout.setSpacing(12)
 
-        s_lbl = QLabel("Категория:")
+        s_lbl = QLabel(t("category"))
         s_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; font-weight: 500;")
         row2_layout.addWidget(s_lbl)
 
         self.subj_filter = QComboBox()
-        self.subj_filter.addItem("Все предметы", "all")
+        self.subj_filter.addItem(t("filter_all"), "all")
         self.subj_filter.setFixedWidth(200)
         self.subj_filter.currentIndexChanged.connect(self._on_subject_filter_changed)
         row2_layout.addWidget(self.subj_filter)
 
-        clear_done_btn = QPushButton("Очистить завершенные")
+        clear_done_btn = QPushButton(t("clear_completed"))
         clear_done_btn.setIcon(get_icon("trash", COLORS['text_muted'], 16))
         clear_done_btn.setIconSize(QSize(16, 16))
         clear_done_btn.setObjectName("ghost-btn")
@@ -451,7 +452,7 @@ class TasksView(QWidget):
         row2_layout.addStretch()
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Поиск по задачам и описаниям...")
+        self.search_input.setPlaceholderText(t("search_tasks_ph"))
         self.search_input.setFixedWidth(280)
         self.search_input.textChanged.connect(self._render_tasks)
         row2_layout.addWidget(self.search_input)
@@ -556,11 +557,11 @@ class TasksView(QWidget):
         current = self.subj_filter.currentData()
         self.subj_filter.blockSignals(True)
         self.subj_filter.clear()
-        self.subj_filter.addItem("Все предметы", "all")
+        self.subj_filter.addItem(t("filter_all"), "all")
         
         subjects = set()
-        for t in self.storage.get_tasks():
-            s = t.get("subject")
+        for task_record in self.storage.get_tasks():
+            s = task_record.get("subject")
             if s:
                 subjects.add(s)
 
@@ -581,9 +582,9 @@ class TasksView(QWidget):
 
         # Compute metrics
         total = len(tasks)
-        done = sum(1 for t in tasks if t.get("completed"))
+        done = sum(1 for task_item in tasks if task_item.get("completed"))
         pending = total - done
-        today_due = sum(1 for t in tasks if not t.get("completed") and t.get("due_date") == today_iso)
+        today_due = sum(1 for task_item in tasks if not task_item.get("completed") and task_item.get("due_date") == today_iso)
 
         self.card_total.findChild(QLabel, "stat_value").setText(str(total))
         self.card_pending.findChild(QLabel, "stat_value").setText(str(pending))
@@ -592,18 +593,18 @@ class TasksView(QWidget):
 
         # Filter tasks
         filtered = []
-        for t in tasks:
-            is_done = t.get("completed", False)
-            d_date = t.get("due_date", "")
-            priority = t.get("priority", "medium")
-            subj = t.get("subject", "")
+        for single_task in tasks:
+            is_done = single_task.get("completed", False)
+            d_date = single_task.get("due_date", "")
+            priority = single_task.get("priority", "medium")
+            subj = single_task.get("subject", "")
 
             # Subject filter
             if self.active_subject != "all" and subj != self.active_subject:
                 continue
 
             # Query filter
-            if query and (query not in t.get("title", "").lower() and query not in t.get("description", "").lower()):
+            if query and (query not in single_task.get("title", "").lower() and query not in single_task.get("description", "").lower()):
                 continue
 
             # Status filter
@@ -623,12 +624,12 @@ class TasksView(QWidget):
                 if not is_done:
                     continue
 
-            filtered.append(t)
+            filtered.append(single_task)
 
         sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), x.get("due_date", "9999-99-99")))
 
         if not sorted_tasks:
-            empty_lbl = QLabel("Задач по выбранному фильтру не найдено. Нажмите «+ Новая задача», чтобы создать.")
+            empty_lbl = QLabel(t("no_tasks"))
             empty_lbl.setFont(QFont("Segoe UI", 11))
             empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 48px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -658,7 +659,7 @@ class TasksView(QWidget):
             self._render_tasks()
 
     def _on_task_edited(self, task_id: str):
-        task = next((t for t in self.storage.get_tasks() if t["id"] == task_id), None)
+        task = next((task_item for task_item in self.storage.get_tasks() if task_item["id"] == task_id), None)
         if not task:
             return
         dlg = TaskDialog(existing_task=task, parent=self)
@@ -673,16 +674,16 @@ class TasksView(QWidget):
         self._render_tasks()
 
     def _on_task_deleted(self, task_id: str):
-        if QMessageBox.question(self, "Удаление", "Удалить эту задачу?") == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, t("delete"), t("delete_task_confirm")) == QMessageBox.StandardButton.Yes:
             self.storage.delete_task(task_id)
             self._render_tasks()
 
     def _clear_completed_tasks(self):
         tasks = self.storage.get_tasks()
-        completed = [t for t in tasks if t.get("completed")]
+        completed = [task_item for task_item in tasks if task_item.get("completed")]
         if not completed:
             return
-        if QMessageBox.question(self, "Очистка", f"Удалить {len(completed)} выполненных задач?") == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, t("clear_completed"), t("clear_completed_confirm", count=len(completed))) == QMessageBox.StandardButton.Yes:
             for t in completed:
                 self.storage.delete_task(t["id"])
             self._render_tasks()

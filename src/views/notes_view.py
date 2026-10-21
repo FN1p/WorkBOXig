@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont, QColor, QIcon
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.i18n import t
 from src.utils.shortcuts import clear_layout
 
 
@@ -40,7 +41,7 @@ class NoteCardItemWidget(QWidget):
         top_layout = QHBoxLayout()
         top_layout.setSpacing(6)
 
-        title_lbl = QLabel(title or "Без названия")
+        title_lbl = QLabel(title or t("untitled_page"))
         title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         top_layout.addWidget(title_lbl, stretch=1)
@@ -135,12 +136,12 @@ class NotesView(QWidget):
         left_layout.setSpacing(12)
 
         header_l = QHBoxLayout()
-        title_lbl = QLabel("Быстрые заметки")
+        title_lbl = QLabel(t("notes_col_title"))
         title_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         header_l.addWidget(title_lbl)
         header_l.addStretch()
 
-        new_btn = QPushButton("Заметка")
+        new_btn = QPushButton(t("notes_add_btn"))
         new_btn.setIcon(get_icon("plus", "#FFFFFF", 16))
         new_btn.setIconSize(QSize(16, 16))
         new_btn.setObjectName("primary-btn")
@@ -150,7 +151,7 @@ class NotesView(QWidget):
 
         # Search bar
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Поиск по заметкам и тегам...")
+        self.search_input.setPlaceholderText(t("notes_search_ph"))
         self.search_input.textChanged.connect(self._refresh_list)
         left_layout.addWidget(self.search_input)
 
@@ -213,7 +214,7 @@ class NotesView(QWidget):
 
         tb_layout.addStretch()
 
-        self.pin_btn = QPushButton("Закрепить")
+        self.pin_btn = QPushButton(t("notes_pin"))
         self.pin_btn.setIcon(get_icon("pin", COLORS['text_secondary'], 16))
         self.pin_btn.setIconSize(QSize(16, 16))
         self.pin_btn.setStyleSheet(f"""
@@ -231,21 +232,21 @@ class NotesView(QWidget):
         self.pin_btn.clicked.connect(self._toggle_pin)
         tb_layout.addWidget(self.pin_btn)
 
-        copy_btn = QPushButton("Скопировать")
+        copy_btn = QPushButton(t("notes_copy"))
         copy_btn.setIcon(get_icon("copy", COLORS['text_secondary'], 16))
         copy_btn.setIconSize(QSize(16, 16))
         copy_btn.setStyleSheet(self.pin_btn.styleSheet())
         copy_btn.clicked.connect(self._copy_note_text)
         tb_layout.addWidget(copy_btn)
 
-        export_btn = QPushButton("Экспорт")
+        export_btn = QPushButton(t("notes_export"))
         export_btn.setIcon(get_icon("export", COLORS['text_secondary'], 16))
         export_btn.setIconSize(QSize(16, 16))
         export_btn.setStyleSheet(self.pin_btn.styleSheet())
         export_btn.clicked.connect(self._export_note)
         tb_layout.addWidget(export_btn)
 
-        del_btn = QPushButton("Удалить")
+        del_btn = QPushButton(t("notes_delete"))
         del_btn.setIcon(get_icon("trash", "#F87171", 16))
         del_btn.setIconSize(QSize(16, 16))
         del_btn.setObjectName("danger-btn")
@@ -256,7 +257,7 @@ class NotesView(QWidget):
 
         # Note Title
         self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("Заголовок заметки...")
+        self.title_input.setPlaceholderText(t("notes_title_ph"))
         self.title_input.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         self.title_input.setStyleSheet(f"""
             QLineEdit {{
@@ -275,11 +276,11 @@ class NotesView(QWidget):
 
         # Tags input
         tags_layout = QHBoxLayout()
-        tags_lbl = QLabel("Теги:")
+        tags_lbl = QLabel(t("notes_tags_lbl"))
         tags_lbl.setFont(QFont("Segoe UI", 9))
         tags_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
         self.tags_input = QLineEdit()
-        self.tags_input.setPlaceholderText("учеба, проект, идеи (через запятую)")
+        self.tags_input.setPlaceholderText(t("notes_tags_ph"))
         self.tags_input.setFont(QFont("Segoe UI", 9))
         self.tags_input.setStyleSheet(f"""
             QLineEdit {{
@@ -296,7 +297,7 @@ class NotesView(QWidget):
 
         # Scratchpad Body
         self.body_edit = QTextEdit()
-        self.body_edit.setPlaceholderText("Быстро запишите любую мысль, формулу, ссылку или черновик текста...")
+        self.body_edit.setPlaceholderText(t("notes_body_ph"))
         self.body_edit.setFont(QFont("Segoe UI", 12))
         self.body_edit.setStyleSheet(f"""
             QTextEdit {{
@@ -312,14 +313,14 @@ class NotesView(QWidget):
 
         # Footer
         footer_layout = QHBoxLayout()
-        self.save_lbl = QLabel("● Сохранено")
+        self.save_lbl = QLabel(t("editor_saved"))
         self.save_lbl.setFont(QFont("Segoe UI", 9))
         self.save_lbl.setStyleSheet(f"color: {COLORS['emerald']};")
         footer_layout.addWidget(self.save_lbl)
 
         footer_layout.addStretch()
 
-        self.char_count_lbl = QLabel("0 знаков")
+        self.char_count_lbl = QLabel(f"0 {t('characters')}")
         self.char_count_lbl.setFont(QFont("Segoe UI", 9))
         self.char_count_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
         footer_layout.addWidget(self.char_count_lbl)
@@ -338,13 +339,13 @@ class NotesView(QWidget):
         icon_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_l.addWidget(icon_ph)
 
-        title_ph = QLabel("Выберите или создайте заметку")
+        title_ph = QLabel(t("notes_select_prompt"))
         title_ph.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title_ph.setStyleSheet(f"color: {COLORS['text_primary']};")
         title_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_l.addWidget(title_ph)
 
-        create_btn_ph = QPushButton("Новая заметка")
+        create_btn_ph = QPushButton(t("btn_new_note"))
         create_btn_ph.setIcon(get_icon("plus", "#FFFFFF", 16))
         create_btn_ph.setIconSize(QSize(16, 16))
         create_btn_ph.setObjectName("primary-btn")
@@ -371,24 +372,24 @@ class NotesView(QWidget):
         # Collect unique tags
         tags = set()
         for n in self.storage.get_notes():
-            for t in n.get("tags", []):
-                if t.strip():
-                    tags.add(t.strip())
+            for tag_item in n.get("tags", []):
+                if tag_item.strip():
+                    tags.add(tag_item.strip())
 
         # "Все" chip
-        all_btn = QPushButton("Все")
+        all_btn = QPushButton(t("filter_all"))
         all_btn.setCheckable(True)
         all_btn.setChecked(self.selected_tag == "all")
         self._style_chip_button(all_btn, self.selected_tag == "all")
         all_btn.clicked.connect(lambda: self._select_tag("all"))
         self.tags_chip_layout.addWidget(all_btn)
 
-        for t in sorted(tags):
-            btn = QPushButton(f"#{t}")
+        for tag_name in sorted(tags):
+            btn = QPushButton(f"#{tag_name}")
             btn.setCheckable(True)
-            btn.setChecked(self.selected_tag == t)
-            self._style_chip_button(btn, self.selected_tag == t)
-            btn.clicked.connect(lambda ch, tag=t: self._select_tag(tag))
+            btn.setChecked(self.selected_tag == tag_name)
+            self._style_chip_button(btn, self.selected_tag == tag_name)
+            btn.clicked.connect(lambda ch, tag=tag_name: self._select_tag(tag))
             self.tags_chip_layout.addWidget(btn)
 
         self.tags_chip_layout.addStretch()
@@ -495,11 +496,11 @@ class NotesView(QWidget):
             self.tags_input.setText(", ".join(note.get("tags", [])))
             self.body_edit.setText(note.get("content", ""))
             is_pinned = note.get("pinned", False)
-            self.pin_btn.setText("Открепить" if is_pinned else "Закрепить")
+            self.pin_btn.setText(t("notes_unpin") if is_pinned else t("notes_pin"))
             self.pin_btn.setIcon(get_icon("pin", COLORS['amber'] if is_pinned else COLORS['text_secondary'], 16))
-            self.save_lbl.setText("● Сохранено")
+            self.save_lbl.setText(t("editor_saved"))
             self.save_lbl.setStyleSheet(f"color: {COLORS['emerald']};")
-            self.char_count_lbl.setText(f"{len(note.get('content', ''))} знаков")
+            self.char_count_lbl.setText(f"{len(note.get('content', ''))} {t('characters')}")
         else:
             self.canvas_stack.setCurrentWidget(self.empty_page)
         self._block_signals = False
@@ -508,7 +509,7 @@ class NotesView(QWidget):
         if self._block_signals or not self.current_note_id:
             return
         
-        self.save_lbl.setText("● Сохранение...")
+        self.save_lbl.setText(t("saving"))
         self.save_lbl.setStyleSheet(f"color: {COLORS['amber']};")
         
         content = self.body_edit.toPlainText()
@@ -534,7 +535,7 @@ class NotesView(QWidget):
                     widget.findChild(QLabel).setText(title)
 
     def _create_note(self):
-        new_note = self.storage.add_note(title="Новая заметка", content="", color=COLORS['primary'])
+        new_note = self.storage.add_note(title=t("btn_new_note"), content="", color=COLORS['primary'])
         self.current_note_id = new_note["id"]
         self._refresh_tag_chips()
         self._refresh_list()
@@ -551,7 +552,7 @@ class NotesView(QWidget):
         if not self.current_note_id:
             return
         is_pinned = self.storage.toggle_pin_note(self.current_note_id)
-        self.pin_btn.setText("Открепить" if is_pinned else "Закрепить")
+        self.pin_btn.setText(t("notes_unpin") if is_pinned else t("notes_pin"))
         self.pin_btn.setIcon(get_icon("pin", COLORS['amber'] if is_pinned else COLORS['text_secondary'], 16))
         self._refresh_list()
 

@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PyQt6.QtGui import QColor
 from src.styles import COLORS
 from src.icons import get_pixmap
+from src.i18n import t
 
 
 class ToastNotification(QWidget):
@@ -27,7 +28,7 @@ class ToastNotification(QWidget):
         self.icon_label.setPixmap(get_pixmap("check", COLORS['emerald'], 16))
         layout.addWidget(self.icon_label)
 
-        self.text_label = QLabel("Успешно")
+        self.text_label = QLabel(t("success"))
         self.text_label.setStyleSheet("font-size: 13px; font-weight: 500; color: #FFFFFF;")
         layout.addWidget(self.text_label)
 
