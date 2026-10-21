@@ -1,0 +1,48 @@
+# ==========================================
+# Git ignore rules for WorkBOXig
+# ==========================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Distribution & Build Artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.manifest
+*.spec.bak
+
+# Local data & backups (Never commit personal schedules/notes)
+data/
+*.db
+*.sqlite3
+backup_*.json
+workboxig_backup_*.json
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs & Temporary files
+*.log
+temp/
+tmp/
+*.tmp

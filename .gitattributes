@@ -1,0 +1,18 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Source code files
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.spec text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+# Binary media files
+*.png binary
+*.ico binary
+*.jpg binary
+*.jpeg binary
+*.exe binary
