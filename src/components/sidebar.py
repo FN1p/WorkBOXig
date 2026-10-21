@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve, QSize
 from PyQt6.QtGui import QFont, QCursor
 from src.styles import COLORS
 from src.icons import get_pixmap, get_icon
+from src.i18n import t, get_i18n
 
 
 class NavItem(QPushButton):
@@ -91,6 +92,14 @@ class NavItem(QPushButton):
             else:
                 self.shortcut_lbl.show()
         self.update_style(self.is_active)
+
+    def set_label_text(self, text: str):
+        self.item_text = text
+        self.text_lbl.setText(text)
+        if self.is_collapsed:
+            self.setToolTip(f"{self.item_text} ({self.shortcut_str})")
+        else:
+            self.setToolTip("")
 
     def set_badge(self, count: int):
         if count > 0:
@@ -277,7 +286,7 @@ class Sidebar(QWidget):
         self.main_layout.addLayout(self.brand_layout)
 
         # Section label
-        self.sec_lbl = QLabel("РАЗДЕЛЫ")
+        self.sec_lbl = QLabel(t("sections"))
         self.sec_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.sec_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding-left: 6px; margin-bottom: 4px; letter-spacing: 1px;")
         self.main_layout.addWidget(self.sec_lbl)
@@ -285,12 +294,12 @@ class Sidebar(QWidget):
         # Navigation items
         self.nav_items = {}
         items_config = [
-            ("dashboard", "Дашборд", "Ctrl+1", "dashboard"),
-            ("calendar", "Календарь", "Ctrl+2", "calendar"),
-            ("notebooks", "Тетради", "Ctrl+3", "notebooks"),
-            ("notes", "Заметки", "Ctrl+4", "notes"),
-            ("tasks", "Задачи и ДЗ", "Ctrl+5", "tasks"),
-            ("settings", "Настройки", "Ctrl+,", "settings"),
+            ("dashboard", t("nav_dashboard"), "Ctrl+1", "dashboard"),
+            ("calendar", t("nav_calendar"), "Ctrl+2", "calendar"),
+            ("notebooks", t("nav_notebooks"), "Ctrl+3", "notebooks"),
+            ("notes", t("nav_notes"), "Ctrl+4", "notes"),
+            ("tasks", t("nav_tasks"), "Ctrl+5", "tasks"),
+            ("settings", t("nav_settings"), "Ctrl+,", "settings"),
         ]
 
         for icon_name, label_text, shortcut_str, tab_id in items_config:
@@ -334,11 +343,11 @@ class Sidebar(QWidget):
         u_info = QVBoxLayout(self.user_info_widget)
         u_info.setContentsMargins(0, 0, 0, 0)
         u_info.setSpacing(1)
-        self.name_lbl = QLabel("Личное пространство")
+        self.name_lbl = QLabel(t("workspace_personal"))
         self.name_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         self.name_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent; border: none; padding: 0px;")
         
-        self.status_text = QLabel("● Локально")
+        self.status_text = QLabel(f"● {t('workspace_local')}")
         self.status_text.setFont(QFont("Segoe UI", 8))
         self.status_text.setStyleSheet(f"color: {COLORS['emerald']}; background: transparent; border: none; padding: 0px;")
         
@@ -347,6 +356,8 @@ class Sidebar(QWidget):
         self.s_layout.addWidget(self.user_info_widget, stretch=1)
 
         self.main_layout.addWidget(self.status_card)
+
+        get_i18n().language_changed.connect(self._on_language_changed)
 
         # Set default active
         self.select_tab("dashboard")
@@ -468,3 +479,20 @@ class Sidebar(QWidget):
     def update_task_count(self, pending_count: int):
         if "tasks" in self.nav_items:
             self.nav_items["tasks"].set_badge(pending_count)
+
+    def _on_language_changed(self, lang: str):
+        self.sec_lbl.setText(t("sections"))
+        self.name_lbl.setText(t("workspace_personal"))
+        self.status_text.setText(f"● {t('workspace_local')}")
+        self.toggle_btn.setToolTip(t("collapse_sidebar"))
+        titles = {
+            "dashboard": t("nav_dashboard"),
+            "calendar": t("nav_calendar"),
+            "notebooks": t("nav_notebooks"),
+            "notes": t("nav_notes"),
+            "tasks": t("nav_tasks"),
+            "settings": t("nav_settings")
+        }
+        for tab_id, btn in self.nav_items.items():
+            if tab_id in titles:
+                btn.set_label_text(titles[tab_id])

@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QCursor
 
 from src.styles import COLORS, CURRENT_THEME
+from src.i18n import t, get_i18n, get_language, set_language
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
 from src.utils.autostart import (
@@ -101,6 +102,28 @@ class SettingsView(QWidget):
         header_box.addLayout(title_box)
         header_box.addStretch()
         content_layout.addLayout(header_box)
+
+                # Language Section Card
+        self.lang_card = SettingsCard("Язык интерфейса / Interface Language", "Выберите язык приложения / Select interface language")
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(16)
+
+        self.ru_btn = QPushButton("🇷🇺 Русский")
+        self.ru_btn.setCheckable(True)
+        self.ru_btn.setFixedHeight(48)
+        self.ru_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.ru_btn.clicked.connect(lambda: self._select_language("ru"))
+
+        self.en_btn = QPushButton("🇬🇧 English")
+        self.en_btn.setCheckable(True)
+        self.en_btn.setFixedHeight(48)
+        self.en_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.en_btn.clicked.connect(lambda: self._select_language("en"))
+
+        lang_row.addWidget(self.ru_btn)
+        lang_row.addWidget(self.en_btn)
+        self.lang_card.add_layout(lang_row)
+        content_layout.addWidget(self.lang_card)
 
         # 2. Section: Appearance (Theme Switching)
         theme_card = SettingsCard("Внешний вид и тема", "Выберите цветовую схему рабочего пространства")
@@ -294,8 +317,9 @@ class SettingsView(QWidget):
         scroll.setWidget(content_widget)
         root_layout.addWidget(scroll)
 
-        # Refresh theme button visual states
+        # Refresh theme & language button visual states
         self._update_theme_buttons(self.storage.get_setting("theme", "dark"))
+        self._update_lang_buttons(self.storage.get_setting("language", "ru"))
 
     def _update_autostart_status_pill(self, enabled: bool):
         if enabled:
@@ -450,3 +474,31 @@ class SettingsView(QWidget):
             subprocess.Popen(f'explorer "{folder}"')
         else:
             subprocess.Popen(["xdg-open", folder])
+
+    def _select_language(self, lang: str):
+        self.storage.set_setting("language", lang)
+        set_language(lang)
+        self._update_lang_buttons(lang)
+        msg = "Язык изменён на Русский" if lang == "ru" else "Language switched to English"
+        self.toast_requested.emit(msg, "check")
+
+    def _update_lang_buttons(self, active_lang: str):
+        is_ru = (active_lang == "ru")
+        is_en = (active_lang == "en")
+        self.ru_btn.setChecked(is_ru)
+        self.en_btn.setChecked(is_en)
+        for btn, active in [(self.ru_btn, is_ru), (self.en_btn, is_en)]:
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_card_selected'] if active else COLORS['bg_input']};
+                    color: {COLORS['text_primary']};
+                    border: 2px solid {COLORS['primary'] if active else COLORS['border_subtle']};
+                    border-radius: 10px;
+                    font-weight: {'bold' if active else 'normal'};
+                    font-size: 13px;
+                    padding: 8px 18px;
+                }}
+                QPushButton:hover {{
+                    border-color: {COLORS['primary_border']};
+                }}
+            """)

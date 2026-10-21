@@ -4,13 +4,17 @@
 
 ### *Executive Work & Study OS for Windows*
 
+<p>
+  🇬🇧 <b>English</b> • <a href="README_RU.md">🇷🇺 <b>Русский</b></a>
+</p>
+
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green.svg?logo=qt&logoColor=white)](https://www.riverbankcomputing.com/software/pyqt/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://microsoft.com)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-21%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-25%20Passing-brightgreen.svg)]()
 
-**WorkBOXig** — это современная, быстрая и эстетичная рабочая среда для учёбы, проектов и повседневной продуктивности. Программа объединяет недельное расписание, тетради с конспектами, трекер задач, таймер Pomodoro, нативные уведомления Windows и Spotlight Command Palette (`Ctrl+K`).
+**WorkBOXig** is a modern, high-performance, and aesthetically crafted desktop workspace engineered for academics, projects, and personal productivity. Built with PyQt6, it unifies an interactive timetable with real-time tracking, hierarchical notebooks, an assignment and task manager, a Pomodoro focus suite with Zen mode, native Windows desktop alerts, bilingual localization (EN / RU), and a Raycast-style Spotlight Command Palette (`Ctrl+K`).
 
 ---
 
@@ -20,168 +24,174 @@
 
 ---
 
-## ✨ Основные возможности
+## ✨ Key Features
 
-### 📊 Дашборд продуктивности
-- **Метрики дня**: количество горящих дедлайнов, расписание на сегодня, статус заметок и счётчик ударного режима (streak).
-- **Быстрая мысль**: мгновенная фиксация идеи или формулы в один клик прямо с главного экрана.
-- **Интерактивные виджеты**: быстрый запуск сессии фокуса и добавление задач.
+### 📊 Productivity Command Dashboard
+- **Daily Executive Metrics**: Instant overview of today's classes, active assignments, urgent deadlines, and study streaks.
+- **Quick Thought Scratchpad**: Rapid formula and idea capture with one-click storage right from the home screen (`Ctrl+Enter`).
+- **Interactive Action Cards**: Launch Pomodoro focus intervals, register assignments, and jump directly to timetable events.
 
-### 📅 Интерактивный недельный календарь
-- **Поминутная полоса текущего времени**: неоновый индикатор времени с маркером и автопрокруткой к текущему часу.
-- **Экспорт в iCalendar (`.ics`)**: полная совместимость с Google Календарём, Apple Calendar и Яндекс Календарём (RFC 5545).
-- **Два режима отображения**: недельная таймлайн-сетка уроков/пар и классический обзор месяца.
+### 📅 Real-Time Interactive Timetable & Calendar
+- **Live Minute-Accurate Time Indicator**: Neon timeline marker tracking the current hour and automatically scrolling into view.
+- **RFC 5545 iCalendar (`.ics`) Export**: Seamless one-click sync with Google Calendar, Apple Calendar, and Microsoft Outlook.
+- **Dual Perspective Views**: Switch between granular weekly timetable schedule and comprehensive monthly calendar grid.
 
-### 📓 Тетради и конспекты
-- Иерархическая структура: модули/предметы и страницы.
-- **Rich-text редактор**: заголовки, списки, выделение цветом, цитаты, выравнивание.
-- **Вставка изображений и диаграмм**: поддержка скриншотов и иллюстраций без потерь форматирования.
+### 📓 Structured Notebooks & Knowledge Base
+- **Hierarchical Taxonomy**: Organize courses, modules, lectures, and sub-pages in an intuitive tree structure.
+- **Rich-Text Canvas**: Formatted headers, styled lists, blockquotes, syntax-friendly styling, and color highlights.
+- **Inline Image & Diagram Embedding**: Insert screenshots, formulas, and visual diagrams without layout degradation.
 
-### ✅ Задачи и домашние задания
-- Фильтрация по статусу, предмету и срочности (*Срочно*, *Высокий*, *Обычный*).
-- Автоматический подсчёт оставшегося времени до дедлайна.
-- Быстрый ввод задач прямо из интерфейса или через Command Palette.
+### ✅ Task & Assignment Tracker
+- **Multi-Level Priority Matrix**: Categorize items as *Urgent/High*, *Medium*, or *Low* with visual glowing pills.
+- **Smart Deadline Countdown**: Real-time calculation of remaining days and hours until submission.
+- **Instant Filtering**: Filter by status (*All*, *In Progress*, *Completed*) or subject tags.
 
-### ⏱ Таймер фокуса Pomodoro
-- Встроенный в верхнюю панель таймер фокуса (25 минут работы / 5 минут отдыха).
-- **Полноэкранный Zen Mode** (`Ctrl+T`): максимальная концентрация без отвлекающих факторов.
-- Звуковые оповещения об окончании интервалов.
+### ⏱ Pomodoro Focus Engine & Zen Mode
+- **Persistent Header Capsule**: Integrated 25-minute focus and 5-minute break timers.
+- **Fullscreen Zen Mode (`Ctrl+T`)**: Minimalist distraction-free full-screen display for deep concentration sessions.
+- **Auditory Notifications**: Configurable interval completion alerts.
 
-### 🎨 3 темы оформления с переключением на лету
-1. **Dark (Executive Slate)**: строгая премиальная тёмная палитра в духе Linear и Raycast.
-2. **Light (Clean Studio)**: мягкая светлая тема с высокой контрастностью и комфортом для глаз.
-3. **Cyberpunk Neon (Edgerunner Style)**:
-   - **Настоящая аниме-рисовка кнопок**: скошенные углы под 45° (chamfered corners), предупреждающая штриховка (`///`), неоновые рамки Cyan (`#00F0FF`) и акценты Sandevistan Yellow (`#FCEE0A`).
-   - 100% юридическая чистота без использования защищенных товарных знаков и чужих логотипов.
+### 🎨 3 Handcrafted Themes with Zero-Restart Switching
+1. **Dark (Executive Slate)**: Minimalist, low-strain slate aesthetic inspired by Linear and Raycast.
+2. **Light (Clean Studio)**: High-contrast daylight workspace crafted for bright office environments.
+3. **Cyberpunk Neon (Edgerunner Anime Aesthetic)**:
+   - **Procedural Vector Button Engine**: 45° chamfered cut corners, hazard warning diagonal slashes (`///`), Sandevistan Yellow (`#FCEE0A`) accents, and Cyber Cyan (`#00F0FF`) borders.
+   - 100% original and legally clean vector geometry without third-party trademark infringement.
 
-### 🔔 Нативные уведомления Windows
-- Всплывающие карточки в правом нижнем углу экрана с поддержкой анимации и звука.
-- Автоматические напоминания о парах за 15 минут до начала.
-- Предупреждения о дедлайнах горящих задач на сегодня.
+### 🌐 Bilingual Localization (EN / RU)
+- Reactive language switching directly within Settings without restarting the application.
+- Full native translation covering all menus, dialogs, formatting, and notifications.
+
+### 🔔 Native Windows Desktop Notifications
+- Modern glassmorphic desktop notification toasts positioned at the bottom-right of your screen.
+- Automated reminders triggered 15 minutes before scheduled lectures and classes.
+- Urgent deadline alerts for pending assignments due today.
 
 ### ⚡ Universal Spotlight (`Ctrl+K`)
-- Мгновенный глобальный поиск по всем задачам, тетрадям, конспектам и заметкам.
-- Быстрое переключение тем, запуск фокуса и навигация по разделам.
+- Instant fuzzy search traversing tasks, notebook pages, courses, and quick notes.
+- Quick navigation, theme switching, and utility command triggers via keyboard.
 
 ---
 
-## 📸 Галерея скриншотов
+## 📸 Screenshots Showcase
 
-| Недельный календарь (Cyberpunk) | Настройки и выбор тем |
+| Weekly Timetable (Cyberpunk HUD) | Theme & Preferences Settings |
 | :---: | :---: |
 | ![Calendar Cyberpunk](assets/cyberpunk_calendar_preview.png) | ![Settings Cyberpunk](assets/cyberpunk_settings_preview.png) |
 
-| Тёмная классическая тема (Slate) | Светлая тема (Light Clean) |
+| Slate Dark Mode | Clean Studio Light Mode |
 | :---: | :---: |
 | ![Dashboard Dark](assets/dashboard_preview.png) | ![Dashboard Light](assets/light_dashboard_preview.png) |
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 Quick Start
 
-### Требования
-- **ОС**: Windows 10 или Windows 11 (64-bit)
-- **Python**: 3.10 или новее (при запуске из исходного кода)
+### System Requirements
+- **Operating System**: Windows 10 or Windows 11 (64-bit)
+- **Python**: 3.10+ (only required if building or running from source)
 
-### 1. Установка из готового установщика
-Скачайте готовый автономный файл установки из [Releases](https://github.com/) или соберите его самостоятельно:
-- `dist/WorkBOXig_Setup.exe` — графический установщик с выбором пути, созданием ярлыков и опцией автозапуска.
-- `dist/WorkBOXig.exe` — портативный исполняемый файл (не требует установки).
+### 1. Download Pre-Compiled Executables
+Grab the latest standalone release from [GitHub Releases](https://github.com/FN1p/WorkBOXig/releases):
+- 📥 **`WorkBOXig_Setup.exe`** (~82 MB): Graphical Windows Installer with desktop shortcuts, start menu integration, and optional Windows autostart.
+- 🚀 **`WorkBOXig.exe`** (~40 MB): Zero-installation standalone portable executable.
 
-### 2. Запуск из исходного кода
+### 2. Run from Source Code
 ```bash
-# Клонируйте репозиторий
-git clone https://github.com/your-username/WorkBOXig.git
+# Clone the repository
+git clone https://github.com/FN1p/WorkBOXig.git
 cd WorkBOXig
 
-# Создайте и активируйте виртуальное окружение
+# Create and activate a Python virtual environment
 python -m venv venv
 venv\Scripts\activate
 
-# Установите зависимости
+# Install required dependencies
 pip install -r requirements.txt
 
-# Запустите приложение
+# Launch WorkBOXig
 python main.py
 ```
 
 ---
 
-## 🛠️ Сборка собственного `.exe`
+## 🛠️ Building Standalone Binaries
 
-Для сборки автономного бинарника и инсталлятора используется PyInstaller:
+The project includes pre-configured PyInstaller specs for compiling both the standalone executable and the setup installer:
 
 ```bash
-# 1. Сборка основного исполняемого файла WorkBOXig.exe
+# 1. Compile the portable standalone WorkBOXig.exe
 pyinstaller WorkBOXig.spec --noconfirm
 
-# 2. Сборка графического установщика WorkBOXig_Setup.exe
+# 2. Compile the graphical setup installer WorkBOXig_Setup.exe
 pyinstaller installer.spec --noconfirm
 ```
 
-Готовые файлы появятся в директории `dist/`.
+Compiled binaries will be generated inside the `dist/` directory.
 
 ---
 
-## ⌨️ Горячие клавиши
+## ⌨️ Global Keyboard Shortcuts
 
-| Сочетание клавиш | Действие |
+| Shortcut | Description |
 | :--- | :--- |
-| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Открыть командную строку Spotlight (быстрый поиск) |
-| <kbd>Ctrl</kbd> + <kbd>T</kbd> | Открыть Zen-режим таймера Pomodoro |
-| <kbd>Ctrl</kbd> + <kbd>B</kbd> | Свернуть / развернуть боковое меню (компактный режим) |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd> | Перейти в **Дашборд** |
-| <kbd>Ctrl</kbd> + <kbd>2</kbd> | Перейти в **Календарь и расписание** |
-| <kbd>Ctrl</kbd> + <kbd>3</kbd> | Перейти в **Тетради и конспекты** |
-| <kbd>Ctrl</kbd> + <kbd>4</kbd> | Перейти в **Заметки** |
-| <kbd>Ctrl</kbd> + <kbd>5</kbd> | Перейти в **Задачи и ДЗ** |
-| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Открыть **Настройки** |
-| <kbd>Ctrl</kbd> + <kbd>N</kbd> | Создать новую быструю заметку |
-| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Принудительно сохранить все данные на диск |
+| <kbd>Ctrl</kbd> + <kbd>K</kbd> | Open Spotlight Command Palette (Global search & quick actions) |
+| <kbd>Ctrl</kbd> + <kbd>T</kbd> | Toggle Pomodoro Zen Mode (Distraction-free focus) |
+| <kbd>Ctrl</kbd> + <kbd>B</kbd> | Toggle Sidebar (Expand / Collapse to icon-only mode) |
+| <kbd>Ctrl</kbd> + <kbd>1</kbd> | Navigate to **Dashboard** |
+| <kbd>Ctrl</kbd> + <kbd>2</kbd> | Navigate to **Calendar & Schedule** |
+| <kbd>Ctrl</kbd> + <kbd>3</kbd> | Navigate to **Notebooks & Courses** |
+| <kbd>Ctrl</kbd> + <kbd>4</kbd> | Navigate to **Quick Notes** |
+| <kbd>Ctrl</kbd> + <kbd>5</kbd> | Navigate to **Tasks & Homework** |
+| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open **Settings** |
+| <kbd>Ctrl</kbd> + <kbd>N</kbd> | Create a new Quick Note |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Trigger manual atomic flush to disk |
 
 ---
 
-## 📁 Структура проекта
+## 📁 Repository Structure
 
 ```
 WorkBOXig/
-├── assets/                 # Векторные и растровые иконки, скриншоты
+├── assets/                 # High-resolution vector & raster icons, previews
 ├── src/
-│   ├── components/         # Переиспользуемые UI-компоненты
-│   │   ├── command_palette.py      # Spotlight поиск (Ctrl+K)
-│   │   ├── desktop_notification.py # Всплывающие алерты Windows
-│   │   ├── pomodoro.py             # Pomodoro таймер и Zen Mode
-│   │   ├── rich_editor.py          # Редактор конспектов с поддержкой картинок
-│   │   ├── sidebar.py              # Боковая навигация с анимацией
-│   │   └── toast.py                # Внутриоконные тосты
-│   ├── views/              # Экраны приложения
-│   │   ├── calendar_view.py        # Недельная сетка и iCalendar (.ics) экспорт
-│   │   ├── dashboard_view.py       # Главный обзор дня и метрики
-│   │   ├── notebooks_view.py       # Тетради и страницы
-│   │   ├── notes_view.py           # Быстрые заметки
-│   │   ├── settings_view.py        # Настройки тем, автозапуска и бэкапов
-│   │   └── tasks_view.py           # Менеджер домашних заданий
-│   ├── utils/              # Системные утилиты
-│   │   └── autostart.py            # Управление автозапуском Windows (winreg)
-│   ├── icons.py            # Движок векторных SVG-иконок
-│   ├── main_window.py      # Главное окно координатор
-│   ├── storage.py          # Локальное хранилище данных (атомарный JSON)
-│   ├── styles.py           # Дизайн-системы Dark и Light
-│   └── styles_cyber.py     # Аниме-движок отрисовки кнопок Edgerunners
-├── tests/                  # Набор unit-тестов (21 тест)
-├── scripts/                # Утилиты захвата превью и тестирования
-├── installer.py            # Исходный код собственного инсталлятора
-├── WorkBOXig.spec          # Спецификация сборки приложения
-├── installer.spec          # Спецификация сборки инсталлятора
-├── requirements.txt        # Список зависимостей Python
-└── README.md
+│   ├── components/         # Reusable UI widgets & engines
+│   │   ├── command_palette.py      # Raycast-style Spotlight search (Ctrl+K)
+│   │   ├── desktop_notification.py # Windows native desktop alert cards
+│   │   ├── pomodoro.py             # Pomodoro focus timer & Zen Mode
+│   │   ├── rich_editor.py          # Rich-text editor with inline image embedding
+│   │   ├── sidebar.py              # Animated collapsible sidebar navigation
+│   │   └── toast.py                # Subtle status toast alerts
+│   ├── views/              # Primary application screens
+│   │   ├── calendar_view.py        # Weekly timetable & iCalendar (.ics) export
+│   │   ├── dashboard_view.py       # Executive overview dashboard & metrics
+│   │   ├── notebooks_view.py       # Hierarchical notebooks & lecture canvas
+│   │   ├── notes_view.py           # Instant scratchpad notes
+│   │   ├── settings_view.py        # Language, themes, autostart & backups
+│   │   └── tasks_view.py           # Assignment & task tracker
+│   ├── utils/              # Operating system integration
+│   │   ├── autostart.py            # Windows registry autostart manager
+│   │   └── shortcuts.py            # Safe widget lifecycle & layout cleanup
+│   ├── icons.py            # Procedural SVG vector icon generator
+│   ├── i18n.py             # Dual-language internationalization engine (EN/RU)
+│   ├── main_window.py      # Root application coordinator window
+│   ├── storage.py          # Atomic JSON local persistence engine
+│   ├── styles.py           # Modern Slate & Light Clean design systems
+│   └── styles_cyber.py     # Edgerunners procedural anime HUD button painter
+├── tests/                  # Automated test suite (25 unit tests)
+├── installer.py            # Standalone GUI installer application source
+├── WorkBOXig.spec          # Standalone app PyInstaller build specification
+├── installer.spec          # Setup installer PyInstaller build specification
+├── requirements.txt        # Python dependency manifest
+├── README_RU.md            # Russian documentation
+└── README.md               # English documentation
 ```
 
 ---
 
-## 🧪 Запуск тестов
+## 🧪 Automated Testing
 
-Проект покрыт автоматическими тестами:
+WorkBOXig features automated unit and integration tests covering data serialization, UI layout lifecycle, calendar export, i18n formatting, and painter rendering:
 
 ```bash
 python -m unittest tests/test_app.py
@@ -189,7 +199,7 @@ python -m unittest tests/test_app.py
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-Проект распространяется под открытой лицензией [MIT](LICENSE).
-Каждый может свободно использовать, модифицировать и собирать проект для любых целей.
+This project is licensed under the [MIT License](LICENSE).  
+You are free to use, modify, distribute, and compile this software for personal or commercial purposes.

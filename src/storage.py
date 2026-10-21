@@ -17,6 +17,7 @@ DEFAULT_DATA = {
     "version": "1.0.0",
     "settings": {
         "theme": "dark",
+        "language": "ru",
         "font_size": 14,
         "auto_save_interval": 1000
     },

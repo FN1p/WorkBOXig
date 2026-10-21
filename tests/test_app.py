@@ -102,6 +102,8 @@ class TestUIWidgets(unittest.TestCase):
 
     def tearDown(self):
         self.window.close()
+        self.window.deleteLater()
+        app.processEvents()
         set_storage_instance(None)
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
@@ -295,6 +297,55 @@ class TestUIWidgets(unittest.TestCase):
         finally:
             painter.end()
 
+
+
+    def test_settings_language_reactive_switch(self):
+        settings = self.window.settings_view
+        sidebar = self.window.sidebar
+        
+        # Switch to English
+        settings._select_language("en")
+        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Dashboard")
+        self.assertEqual(sidebar.nav_items["calendar"].item_text, "Calendar")
+        self.assertEqual(sidebar.nav_items["settings"].item_text, "Settings")
+        
+        # Switch back to Russian
+        settings._select_language("ru")
+        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Дашборд")
+        self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
+        self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
+
+class TestI18n(unittest.TestCase):
+    def test_i18n_translation_and_formatting(self):
+        from src.i18n import set_language, get_language, t, format_lessons, format_tasks, format_days
+        
+        # Test Russian
+        set_language("ru")
+        self.assertEqual(get_language(), "ru")
+        self.assertEqual(t("nav_dashboard"), "Дашборд")
+        self.assertEqual(format_lessons(1), "1 урок")
+        self.assertEqual(format_lessons(3), "3 урока")
+        self.assertEqual(format_lessons(5), "5 уроков")
+        self.assertEqual(format_tasks(1), "1 задача")
+        self.assertEqual(format_tasks(4), "4 задачи")
+        self.assertEqual(format_tasks(10), "10 задач")
+        self.assertEqual(format_days(1), "1 день")
+        self.assertEqual(format_days(2), "2 дня")
+        self.assertEqual(format_days(7), "7 дней")
+
+        # Test English
+        set_language("en")
+        self.assertEqual(get_language(), "en")
+        self.assertEqual(t("nav_dashboard"), "Dashboard")
+        self.assertEqual(format_lessons(1), "1 class")
+        self.assertEqual(format_lessons(3), "3 classes")
+        self.assertEqual(format_tasks(1), "1 task")
+        self.assertEqual(format_tasks(5), "5 tasks")
+        self.assertEqual(format_days(1), "1 day")
+        self.assertEqual(format_days(5), "5 days")
+
+        # Revert
+        set_language("ru")
 
 if __name__ == "__main__":
     unittest.main()

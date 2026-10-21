@@ -17,6 +17,7 @@ from src.styles import THEME_STYLESHEET, COLORS, set_active_theme, get_theme_sty
 from src.styles_cyber import CyberpunkButtonFilter
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon, clear_icon_cache
+from src.i18n import t, get_i18n, set_language
 from src.components.sidebar import Sidebar
 from src.components.toast import ToastNotification
 from src.components.desktop_notification import DesktopNotification
@@ -35,7 +36,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("WorkBOXig — Work & Study Studio")
+        self.setWindowTitle(t("app_title"))
         self.resize(1260, 820)
         self.setMinimumSize(1020, 680)
 
@@ -48,6 +49,9 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.storage = get_storage()
+        saved_lang = self.storage.get_setting("language", "ru")
+        set_language(saved_lang)
+        get_i18n().language_changed.connect(self._on_language_changed)
 
         # Central Layout
         central_widget = QWidget(self)
@@ -86,7 +90,7 @@ class MainWindow(QMainWindow):
         self.sidebar_toggle_btn = QPushButton()
         self.sidebar_toggle_btn.setIcon(get_icon("panel_left", COLORS['text_secondary'], 16))
         self.sidebar_toggle_btn.setFixedSize(32, 32)
-        self.sidebar_toggle_btn.setToolTip("Свернуть / развернуть меню (Ctrl+B)")
+        self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
         self.sidebar_toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.sidebar_toggle_btn.setStyleSheet(f"""
             QPushButton {{
@@ -111,14 +115,14 @@ class MainWindow(QMainWindow):
         self.page_icon_lbl.setStyleSheet("background: transparent;")
         breadcrumb_layout.addWidget(self.page_icon_lbl)
 
-        self.page_title_lbl = QLabel("Дашборд")
+        self.page_title_lbl = QLabel(t("nav_dashboard"))
         self.page_title_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.page_title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         breadcrumb_layout.addWidget(self.page_title_lbl)
         tb_layout.addLayout(breadcrumb_layout)
 
         # Spotlight Search Button (Raycast / Mac style)
-        self.search_btn = QPushButton("  Поиск или команда...   Ctrl+K")
+        self.search_btn = QPushButton(t("search_placeholder"))
         self.search_btn.setIcon(get_icon("search", COLORS['text_muted'], 14))
         self.search_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.search_btn.setFixedHeight(30)
@@ -166,7 +170,7 @@ class MainWindow(QMainWindow):
         streak_icon.setPixmap(get_pixmap("streak", COLORS['amber'], 14))
         streak_icon.setStyleSheet("background: transparent;")
         streak_l.addWidget(streak_icon)
-        streak_text = QLabel("3 дня ударного режима")
+        streak_text = QLabel(t("streak_format", count=3))
         streak_text.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         streak_text.setStyleSheet(f"color: {COLORS['amber']}; background: transparent;")
         streak_l.addWidget(streak_text)
@@ -208,13 +212,13 @@ class MainWindow(QMainWindow):
             }}
         """)
 
-        act_task = quick_menu.addAction(get_icon("tasks", COLORS["primary_light"], 16), "Новая задача / ДЗ")
+        act_task = quick_menu.addAction(get_icon("tasks", COLORS["primary_light"], 16), t("add_task_menu"))
         act_task.triggered.connect(self._quick_add_task)
 
-        act_note = quick_menu.addAction(get_icon("notes", COLORS["amber"], 16), "Новая заметка")
+        act_note = quick_menu.addAction(get_icon("notes", COLORS["amber"], 16), t("add_note_menu"))
         act_note.triggered.connect(self._quick_add_note)
 
-        act_nb = quick_menu.addAction(get_icon("notebooks", COLORS["sky"], 16), "Новая тетрадь")
+        act_nb = quick_menu.addAction(get_icon("notebooks", COLORS["sky"], 16), t("btn_new_notebook"))
         act_nb.triggered.connect(self._quick_add_notebook)
 
         self.quick_add_btn.setMenu(quick_menu)
@@ -297,12 +301,12 @@ class MainWindow(QMainWindow):
     def _switch_page(self, tab_id: str):
         if tab_id in self.views:
             titles = {
-                "dashboard": ("dashboard", "Дашборд"),
-                "calendar": ("calendar", "Календарь"),
-                "notebooks": ("notebooks", "Тетради"),
-                "notes": ("notes", "Заметки"),
-                "tasks": ("tasks", "Задачи и ДЗ"),
-                "settings": ("settings", "Настройки")
+                "dashboard": ("dashboard", t("nav_dashboard")),
+                "calendar": ("calendar", t("nav_calendar")),
+                "notebooks": ("notebooks", t("nav_notebooks")),
+                "notes": ("notes", t("nav_notes")),
+                "tasks": ("tasks", t("nav_tasks")),
+                "settings": ("settings", t("nav_settings"))
             }
             icon_name, title_text = titles.get(tab_id, ("dashboard", "WorkBOXig"))
             self.page_icon_lbl.setPixmap(get_pixmap(icon_name, COLORS['primary_light'], 18))
@@ -569,3 +573,11 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "toast") and self.toast.isVisible():
             self.toast._reposition()
+
+    def _on_language_changed(self, lang: str):
+        self.setWindowTitle(t("app_title"))
+        self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.search_btn.setText(t("search_placeholder"))
+        self.quick_add_btn.setToolTip(t("quick_add"))
+        cur_tab = self.sidebar.current_tab if hasattr(self.sidebar, "current_tab") else "dashboard"
+        self._switch_page(cur_tab)

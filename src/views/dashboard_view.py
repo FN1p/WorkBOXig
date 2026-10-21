@@ -15,6 +15,7 @@ from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
 from src.utils.shortcuts import clear_layout
+from src.i18n import t, get_i18n, format_lessons, format_tasks, format_days
 
 
 def format_lessons_ru(n: int) -> str:
@@ -158,6 +159,7 @@ class DashboardView(QWidget):
 
         self._init_ui()
         self.storage.data_changed.connect(self._refresh_all)
+        get_i18n().language_changed.connect(lambda l: self._on_language_changed())
         self._refresh_all()
 
     def _update_banner_style(self):
@@ -948,4 +950,21 @@ class DashboardView(QWidget):
         self.quick_note_title.clear()
         self.quick_note_body.clear()
         self.toast_requested.emit("Заметка успешно сохранена!", "success")
+        self._refresh_all()
+
+    def _on_language_changed(self):
+        if hasattr(self, "card_today_tasks"):
+            self.card_today_tasks.t_lbl.setText(t("metric_tasks"))
+            self.card_today_tasks.sub_lbl.setText(t("metric_tasks_sub"))
+        if hasattr(self, "card_events"):
+            self.card_events.t_lbl.setText(t("metric_classes"))
+            self.card_events.sub_lbl.setText(t("metric_classes_sub"))
+        if hasattr(self, "card_notebooks"):
+            self.card_notebooks.t_lbl.setText(t("notebooks_title"))
+            self.card_notebooks.sub_lbl.setText(t("metric_notes_sub"))
+        if hasattr(self, "card_notes"):
+            self.card_notes.t_lbl.setText(t("notes_title"))
+            self.card_notes.sub_lbl.setText(t("notes_subtitle"))
+        if hasattr(self, "streak_chip"):
+            self.streak_chip.setText(t("streak_format", count=3))
         self._refresh_all()
