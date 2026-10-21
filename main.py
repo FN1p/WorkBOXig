@@ -16,6 +16,7 @@ from PyQt6.QtGui import QIcon, QFont
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from src.main_window import MainWindow
+from src.version import __version__
 
 
 def setup_windows_app_id():
@@ -64,7 +65,8 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("WorkBOXig")
     app.setOrganizationName("WorkBOXig")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(__version__)
+    app.setQuitOnLastWindowClosed(False)
 
     # Set Application Icon
     icon_path = os.path.join(os.path.dirname(__file__), "assets", "icon.ico")

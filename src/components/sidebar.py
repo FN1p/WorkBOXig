@@ -240,7 +240,7 @@ class Sidebar(QWidget):
             padding: 6px;
         """)
         self.logo_box.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.logo_box.setToolTip("WorkBOXig (Нажмите для переключения меню)")
+        self.logo_box.setToolTip(t("sidebar_logo_tt"))
         self.logo_box.mousePressEvent = lambda e: self.toggle_collapse()
         self.brand_layout.addWidget(self.logo_box)
 
@@ -267,7 +267,7 @@ class Sidebar(QWidget):
         self.toggle_btn.setIcon(get_icon("panel_left", COLORS['text_muted'], 18))
         self.toggle_btn.setIconSize(QSize(18, 18))
         self.toggle_btn.setFixedSize(32, 32)
-        self.toggle_btn.setToolTip("Свернуть меню (Ctrl+B)")
+        self.toggle_btn.setToolTip(t("collapse_sidebar"))
         self.toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.toggle_btn.setStyleSheet(f"""
             QPushButton {{
@@ -396,13 +396,13 @@ class Sidebar(QWidget):
             self.user_info_widget.hide()
             self.toggle_btn.hide()
             self.logo_box.setFixedSize(42, 42)
-            self.logo_box.setToolTip("Развернуть меню (Ctrl+B)")
+            self.logo_box.setToolTip(t("collapse_sidebar"))
             self.brand_layout.setContentsMargins(0, 0, 0, 14)
             self.brand_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.main_layout.setContentsMargins(8, 16, 8, 16)
             self.main_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             self.status_card.setFixedSize(44, 44)
-            self.status_card.setToolTip("Личное пространство (Локально)")
+            self.status_card.setToolTip(t("sidebar_space_tt"))
             self.s_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.s_layout.setContentsMargins(0, 0, 0, 0)
         else:
@@ -412,7 +412,7 @@ class Sidebar(QWidget):
             self.toggle_btn.show()
             self.toggle_btn.setIcon(get_icon("panel_left", COLORS['text_muted'], 18))
             self.toggle_btn.setIconSize(QSize(18, 18))
-            self.toggle_btn.setToolTip("Свернуть меню (Ctrl+B)")
+            self.toggle_btn.setToolTip(t("collapse_sidebar"))
             self.logo_box.setFixedSize(38, 38)
             self.logo_box.setToolTip("WorkBOXig")
             self.brand_layout.setContentsMargins(2, 0, 2, 14)

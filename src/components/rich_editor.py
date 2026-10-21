@@ -476,13 +476,13 @@ class RichEditor(QWidget):
         icon_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(icon_ph)
 
-        title_ph = QLabel("Выберите или создайте страницу конспекта")
+        title_ph = QLabel(t("editor_empty_title"))
         title_ph.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         title_ph.setStyleSheet("color: #FFFFFF;")
         title_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(title_ph)
 
-        desc_ph = QLabel("Используйте панель слева, чтобы открыть конспект по предмету или создать новую тему.")
+        desc_ph = QLabel(t("editor_empty_desc"))
         desc_ph.setFont(QFont("Segoe UI", 10))
         desc_ph.setStyleSheet(f"color: {COLORS['text_muted']};")
         desc_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -704,23 +704,23 @@ class RichEditor(QWidget):
     def _choose_and_insert_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Выберите фото или скриншот",
+            t("editor_image_select_title"),
             "",
-            "Изображения (*.png *.jpg *.jpeg *.webp *.bmp *.gif);;Все файлы (*.*)"
+            t("editor_image_filter")
         )
         if file_path:
             img = QImage(file_path)
             if not img.isNull():
                 self.editor.insert_qimage(img, source_path=file_path)
-                self.save_status_label.setText("● Фото вставлено!")
+                self.save_status_label.setText(t("editor_image_inserted"))
                 self.save_status_label.setStyleSheet(f"color: {COLORS['emerald']};")
 
     def _export_file(self, fmt_type: str):
-        title = self.title_input.text().strip() or "Конспект"
+        title = self.title_input.text().strip() or t("editor_default_note_title")
         default_filename = f"{title}.{fmt_type}"
         
         file_filter = "Markdown (*.md)" if fmt_type == "md" else "HTML (*.html)"
-        path, _ = QFileDialog.getSaveFileName(self, "Экспортировать конспект", default_filename, file_filter)
+        path, _ = QFileDialog.getSaveFileName(self, t("editor_export_dialog_title"), default_filename, file_filter)
         if not path:
             return
 
@@ -732,7 +732,7 @@ class RichEditor(QWidget):
                 else:
                     html_content = f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>{title}</title></head><body><h1>{title}</h1>{self.editor.toHtml()}</body></html>"
                     f.write(html_content)
-            self.save_status_label.setText("● Экспортировано!")
+            self.save_status_label.setText(t("editor_exported"))
             self.save_status_label.setStyleSheet(f"color: {COLORS['sky']};")
         except Exception as e:
             print(f"[Export Error]: {e}")

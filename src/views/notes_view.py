@@ -513,9 +513,9 @@ class NotesView(QWidget):
         self.save_lbl.setStyleSheet(f"color: {COLORS['amber']};")
         
         content = self.body_edit.toPlainText()
-        self.char_count_lbl.setText(f"{len(content)} знаков")
+        self.char_count_lbl.setText(f"{len(content)} {t('characters')}")
 
-        title = self.title_input.text().strip() or "Без названия"
+        title = self.title_input.text().strip() or t("notes_untitled")
         raw_tags = [t.strip() for t in self.tags_input.text().split(",") if t.strip()]
 
         self.storage.update_note(
@@ -559,13 +559,13 @@ class NotesView(QWidget):
     def _copy_note_text(self):
         text = f"{self.title_input.text()}\n\n{self.body_edit.toPlainText()}"
         QApplication.clipboard().setText(text)
-        self.save_lbl.setText("● Скопировано в буфер!")
+        self.save_lbl.setText(t("notes_copied_toast"))
         self.save_lbl.setStyleSheet(f"color: {COLORS['sky']};")
 
     def _delete_current_note(self):
         if not self.current_note_id:
             return
-        if QMessageBox.question(self, "Удаление", "Удалить эту заметку?") == QMessageBox.StandardButton.Yes:
+        if QMessageBox.question(self, t("notes_delete_confirm_title"), t("notes_delete_confirm_msg")) == QMessageBox.StandardButton.Yes:
             self.storage.delete_note(self.current_note_id)
             self.current_note_id = None
             self._refresh_tag_chips()
@@ -574,14 +574,14 @@ class NotesView(QWidget):
     def _export_note(self):
         if not self.current_note_id:
             return
-        title = self.title_input.text().strip() or "Заметка"
-        path, _ = QFileDialog.getSaveFileName(self, "Экспорт заметки", f"{title}.md", "Markdown (*.md);;Текст (*.txt)")
+        title = self.title_input.text().strip() or t("notes_default_title")
+        path, _ = QFileDialog.getSaveFileName(self, t("notes_export_title"), f"{title}.md", "Markdown (*.md);;Текст (*.txt)")
         if not path:
             return
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(f"# {title}\n\n{self.body_edit.toPlainText()}")
-            self.save_lbl.setText("● Заметка экспортирована!")
+            self.save_lbl.setText(t("notes_exported_status"))
             self.save_lbl.setStyleSheet(f"color: {COLORS['sky']};")
         except Exception as e:
             print(f"[Note Export Error]: {e}")

@@ -306,12 +306,12 @@ class GoogleSyncDialog(QDialog):
     def _start_sync(self):
         url = self.url_input.text().strip()
         if not url:
-            QMessageBox.warning(self, t("google_dialog_title"), "Пожалуйста, вставьте ссылку на секретный адрес iCal.")
+            QMessageBox.warning(self, t("google_dialog_title"), t("google_url_empty_warn"))
             return
 
         clean_url = normalize_calendar_url(url)
         if not clean_url.startswith("https://"):
-            QMessageBox.warning(self, t("google_dialog_title"), "Некорректная ссылка. Ссылка должна начинаться с https:// или webcal://")
+            QMessageBox.warning(self, t("google_dialog_title"), t("google_url_invalid_warn"))
             return
 
         self.sync_btn.setEnabled(False)
@@ -342,7 +342,7 @@ class GoogleSyncDialog(QDialog):
         confirm = QMessageBox.question(
             self,
             t("google_clear_btn"),
-            "Вы уверены, что хотите отвязать Google Календарь и удалить импортированные события?",
+            t("google_disconnect_confirm"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if confirm == QMessageBox.StandardButton.Yes:

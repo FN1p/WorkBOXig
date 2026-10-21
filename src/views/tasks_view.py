@@ -19,12 +19,19 @@ from src.i18n import t
 from src.utils.shortcuts import clear_layout
 
 
-PRIORITY_CONFIG = {
-    "urgent": {"label": "Срочно", "color": "#EF4444", "bg": "rgba(239, 68, 68, 0.18)"},
-    "high": {"label": "Высокий", "color": "#F59E0B", "bg": "rgba(245, 158, 11, 0.18)"},
-    "medium": {"label": "Средний", "color": "#38BDF8", "bg": "rgba(56, 189, 248, 0.18)"},
-    "low": {"label": "Низкий", "color": "#10B981", "bg": "rgba(16, 185, 129, 0.18)"},
-}
+def get_priority_config(priority: str) -> dict:
+    colors = {
+        "urgent": ("#EF4444", "rgba(239, 68, 68, 0.18)"),
+        "high": ("#F59E0B", "rgba(245, 158, 11, 0.18)"),
+        "medium": ("#38BDF8", "rgba(56, 189, 248, 0.18)"),
+        "low": ("#10B981", "rgba(16, 185, 129, 0.18)"),
+    }
+    col, bg = colors.get(priority, colors["medium"])
+    return {
+        "label": t(f"priority_{priority}_badge"),
+        "color": col,
+        "bg": bg
+    }
 
 
 class TaskDialog(QDialog):
@@ -64,7 +71,7 @@ class TaskDialog(QDialog):
         self.subj_input = QComboBox()
         self.subj_input.setFixedHeight(38)
         self.subj_input.setEditable(True)
-        self.subj_input.addItems(["Информатика & Python", "Математический анализ", "Физика", "Иностранный язык", "Общие задачи"])
+        self.subj_input.addItems([t("task_preset_cs"), t("task_preset_math"), t("task_preset_physics"), t("task_preset_lang"), t("task_preset_general")])
         subj_layout.addWidget(s_lbl)
         subj_layout.addWidget(self.subj_input, stretch=1)
         layout.addLayout(subj_layout)
@@ -134,7 +141,7 @@ class TaskDialog(QDialog):
 
         if existing_task:
             self.title_input.setText(existing_task.get("title", ""))
-            self.subj_input.setCurrentText(existing_task.get("subject", "Общие задачи"))
+            self.subj_input.setCurrentText(existing_task.get("subject", t("task_preset_general")))
             self.desc_input.setText(existing_task.get("description", ""))
             if existing_task.get("due_date"):
                 try:
@@ -161,7 +168,7 @@ class TaskDialog(QDialog):
     def get_data(self):
         return {
             "title": self.title_input.text().strip(),
-            "subject": self.subj_input.currentText().strip() or "Общее",
+            "subject": self.subj_input.currentText().strip() or t("task_default_subj"),
             "description": self.desc_input.toPlainText().strip(),
             "due_date": self.date_edit.date().toString(Qt.DateFormat.ISODate),
             "due_time": self.time_edit.time().toString("HH:mm"),
@@ -180,7 +187,7 @@ class TaskItemWidget(QFrame):
         self.task_id = task["id"]
         is_done = task.get("completed", False)
         priority = task.get("priority", "medium")
-        p_cfg = PRIORITY_CONFIG.get(priority, PRIORITY_CONFIG["medium"])
+        p_cfg = get_priority_config(priority)
 
         self.setObjectName("taskCard")
         border_col = COLORS['emerald'] if is_done else p_cfg['color']
@@ -225,7 +232,7 @@ class TaskItemWidget(QFrame):
         top_row.addWidget(self.title_lbl)
 
         # Subject badge pill
-        subj_lbl = QLabel(f"#{task.get('subject', 'Общее')}")
+        subj_lbl = QLabel(f"#{task.get('subject', t('task_default_subj'))}")
         subj_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
         subj_lbl.setStyleSheet(f"""
             background-color: {COLORS['primary_subtle']};

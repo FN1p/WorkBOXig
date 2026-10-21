@@ -144,7 +144,7 @@ class TestUIWidgets(unittest.TestCase):
     def test_command_palette_search(self):
         palette = CommandPalette(self.window)
         # Test searching static actions (always present)
-        palette._populate_results("задач")
+        from src.i18n import get_language; palette._populate_results("task" if get_language() == "en" else "задач")
         self.assertTrue(palette.results_list.count() > 0)
         # Test empty query returns actions
         palette._populate_results("")

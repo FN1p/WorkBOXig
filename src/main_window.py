@@ -8,7 +8,8 @@ import os
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QStackedWidget, QLabel, QPushButton, QMenu, QFrame, QApplication
+    QStackedWidget, QLabel, QPushButton, QMenu, QFrame, QApplication,
+    QSystemTrayIcon
 )
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QFont, QCursor
@@ -18,6 +19,8 @@ from src.styles_cyber import CyberpunkButtonFilter
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon, clear_icon_cache
 from src.i18n import t, get_i18n, set_language
+from src.version import __version__, APP_NAME
+from src.components.close_dialog import CloseActionDialog
 from src.components.sidebar import Sidebar
 from src.components.toast import ToastNotification
 from src.components.desktop_notification import DesktopNotification
@@ -52,7 +55,7 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.storage = get_storage()
-        saved_lang = self.storage.get_setting("language", "ru")
+        saved_lang = self.storage.get_setting("language", "en")
         set_language(saved_lang)
         get_i18n().language_changed.connect(self._on_language_changed)
 
@@ -330,6 +333,10 @@ class MainWindow(QMainWindow):
         self.mini_widget = DesktopMiniWidget(self.pomodoro, self)
         self.mini_widget.expand_requested.connect(self._restore_from_mini_widget)
 
+        # 11. System Tray Icon & Close Handling
+        self.tray_icon = None
+        self._setup_tray_icon()
+
     def _check_startup_google_sync(self):
         cal_url = self.storage.get_setting("google_calendar_url", "")
         if cal_url:
@@ -366,6 +373,139 @@ class MainWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
+    def _setup_tray_icon(self):
+        """Initializes system tray icon with context menu and activation handlers."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray_icon = None
+            return
+
+        icon_path = os.path.join(os.path.dirname(__file__), "..", "assets", "icon.ico")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(os.path.dirname(__file__), "..", "assets", "icon.png")
+
+        self.tray_icon = QSystemTrayIcon(QIcon(icon_path), self)
+        self.tray_icon.setToolTip(f"{APP_NAME} v{__version__}")
+
+        tray_menu = QMenu()
+        tray_menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_light']};
+                border-radius: 8px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 6px 14px;
+                border-radius: 4px;
+                color: {COLORS['text_primary']};
+            }}
+            QMenu::item:selected {{
+                background-color: {COLORS['primary_subtle']};
+                color: {COLORS['primary_light']};
+            }}
+        """)
+
+        act_show = tray_menu.addAction(get_icon("dashboard", COLORS["primary_light"], 16), t("tray_open"))
+        act_show.triggered.connect(self._restore_main_window)
+
+        act_widget = tray_menu.addAction(get_icon("widget", COLORS["cyan"], 16), t("tray_mini_widget"))
+        act_widget.triggered.connect(self.toggle_mini_widget)
+
+        act_update = tray_menu.addAction(get_icon("zap", COLORS["amber"], 16), t("tray_check_updates"))
+        act_update.triggered.connect(self._check_for_updates)
+
+        tray_menu.addSeparator()
+
+        act_quit = tray_menu.addAction(get_icon("trash", COLORS["rose"], 16), t("tray_quit"))
+        act_quit.triggered.connect(self._force_quit)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        self.tray_icon.show()
+
+    def _restore_main_window(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _on_tray_activated(self, reason):
+        if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
+            if self.isVisible() and not self.isMinimized() and self.isActiveWindow():
+                self.hide()
+            else:
+                self._restore_main_window()
+
+    def _notify_tray_minimized_once(self):
+        """Shows informative balloon message when minimized to tray for first time."""
+        if hasattr(self, "tray_icon") and self.tray_icon and self.tray_icon.isVisible():
+            if not self.storage.get_setting("tray_balloon_notified", False):
+                self.tray_icon.showMessage(
+                    t("tray_minimized_title"),
+                    t("tray_minimized_msg"),
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2500
+                )
+                self.storage.set_setting("tray_balloon_notified", True)
+
+    def _check_for_updates(self):
+        """Trigger update check via settings view."""
+        self._restore_main_window()
+        self._navigate_to("settings")
+        if hasattr(self, "settings_view") and hasattr(self.settings_view, "_check_for_updates"):
+            self.settings_view._check_for_updates()
+
+    def _force_quit(self):
+        """Force application exit, saving state and dismissing tray/widgets."""
+        try:
+            self.storage.save_immediately()
+        except Exception:
+            pass
+        if hasattr(self, "tray_icon") and self.tray_icon:
+            self.tray_icon.hide()
+        if hasattr(self, "mini_widget") and self.mini_widget:
+            self.mini_widget.close()
+        QApplication.instance().quit()
+
+    def closeEvent(self, event):
+        """Intercepts window close to either minimize to tray or quit according to preferences."""
+        close_action = self.storage.get_setting("close_action", "ask")
+
+        if close_action == "tray":
+            event.ignore()
+            self.hide()
+            self._notify_tray_minimized_once()
+            return
+        elif close_action == "exit":
+            self._force_quit()
+            event.accept()
+            return
+
+        # In headless/offscreen test environments, don't block unless explicitly requested
+        if os.environ.get("QT_QPA_PLATFORM") == "offscreen" and not getattr(self, "_force_close_dialog", False):
+            event.accept()
+            return
+
+        # Show prompt dialog
+        dialog = CloseActionDialog(self)
+        if dialog.exec():
+            action = dialog.action
+            if dialog.remember_cb.isChecked() and action in ("tray", "exit"):
+                self.storage.set_setting("close_action", action)
+                if hasattr(self, "settings_view") and hasattr(self.settings_view, "_refresh_close_action_ui"):
+                    self.settings_view._refresh_close_action_ui()
+
+            if action == "tray":
+                event.ignore()
+                self.hide()
+                self._notify_tray_minimized_once()
+            elif action == "exit":
+                self._force_quit()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.ignore()
 
     def _on_sidebar_toggled(self, is_collapsed: bool):
         icon_name = "panel_left_open" if is_collapsed else "panel_left"
@@ -461,8 +601,10 @@ class MainWindow(QMainWindow):
         self.sidebar.select_tab(tab_id)
         self._switch_page(tab_id)
 
-    def _show_toast(self, message: str, level: str = "success"):
+    def _show_toast(self, message: str, level: str = "success", icon_type: str = ""):
         self.toast.show_message(message, level)
+
+    show_toast = _show_toast
 
     def _on_pomodoro_completed(self, mode: str):
         if mode == "focus":
@@ -544,13 +686,13 @@ class MainWindow(QMainWindow):
         # 2. Task Deadlines (Urgent due today)
         if self.storage.get_setting("notif_tasks", True):
             for task_item in self.storage.get_tasks():
-                t_id = t.get("id")
-                if not task_item.get("completed") and task_item.get("priority") == "urgent" and t.get("due_date") == today_iso and t_id not in self._notified_tasks:
+                t_id = task_item.get("id")
+                if not task_item.get("completed") and task_item.get("priority") == "urgent" and task_item.get("due_date") == today_iso and t_id not in self._notified_tasks:
                     self._notified_tasks.add(t_id)
-                    due_txt = f" {t.get('due_time')}" if t.get('due_time') else ""
+                    due_txt = f" {task_item.get('due_time')}" if task_item.get('due_time') else ""
                     self.desktop_notification.notify(
                         title=t("notif_deadline_title"),
-                        message=f"{t.get('title')}{due_txt}",
+                        message=f"{task_item.get('title')}{due_txt}",
                         category="task",
                         badge_text=t("notif_deadline_badge"),
                         action_type="open_tasks",
@@ -609,7 +751,7 @@ class MainWindow(QMainWindow):
 
     def _update_badges(self):
         tasks = self.storage.get_tasks()
-        pending = sum(1 for t in tasks if not task_item.get("completed"))
+        pending = sum(1 for tsk in tasks if not tsk.get("completed"))
         self.sidebar.update_task_count(pending)
 
     def _quick_add_task(self):

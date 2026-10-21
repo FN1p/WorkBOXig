@@ -19,21 +19,11 @@ from src.i18n import t, get_i18n, format_lessons, format_tasks, format_days
 
 
 def format_lessons_ru(n: int) -> str:
-    if n % 10 == 1 and n % 100 != 11:
-        return f"{n} урок"
-    elif 2 <= n % 10 <= 4 and (n % 100 < 10 or n % 100 >= 20):
-        return f"{n} урока"
-    else:
-        return f"{n} уроков"
+    return format_lessons(n)
 
 
 def format_tasks_ru(n: int) -> str:
-    if n % 10 == 1 and n % 100 != 11:
-        return f"{n} задача"
-    elif 2 <= n % 10 <= 4 and (n % 100 < 10 or n % 100 >= 20):
-        return f"{n} задачи"
-    else:
-        return f"{n} задач"
+    return format_tasks(n)
 
 
 class MetricCard(QFrame):
@@ -328,12 +318,19 @@ class DashboardView(QWidget):
         dc_layout.setSpacing(4)
         dc_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        months_ru = ["", "Января", "Февраля", "Марта", "Апреля", "Мая", "Июня",
-                     "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"]
-        days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
-
-        day_str = f"{now.day} {months_ru[now.month]}"
-        weekday_str = days_ru[now.weekday()]
+        from src.i18n import get_language
+        if get_language() == "en":
+            months_en = ["", "January", "February", "March", "April", "May", "June",
+                         "July", "August", "September", "October", "November", "December"]
+            days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            day_str = f"{months_en[now.month]} {now.day}"
+            weekday_str = days_en[now.weekday()]
+        else:
+            months_ru = ["", "Января", "Февраля", "Марта", "Апреля", "Мая", "Июня",
+                         "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"]
+            days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+            day_str = f"{now.day} {months_ru[now.month]}"
+            weekday_str = days_ru[now.weekday()]
 
         self.date_big = QLabel(day_str)
         self.date_big.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
@@ -756,17 +753,17 @@ class DashboardView(QWidget):
 
         # Update summary text
         pending_count = sum(1 for t in tasks if not t.get("completed"))
-        self.task_badge_lbl.setText(f"{pending_count} активных")
+        self.task_badge_lbl.setText(f"{pending_count} {t('active_tasks_count')}")
         self.sched_badge_lbl.setText(format_lessons_ru(len(today_events)))
         
         if len(today_events) > 0 and urgent_or_today > 0:
-            self.summary_lbl.setText(f"Сегодня {format_lessons_ru(len(today_events))} по расписанию • {format_tasks_ru(urgent_or_today)} требуют внимания")
+            self.summary_lbl.setText(t("dashboard_summary_classes_and_tasks", classes=format_lessons(len(today_events)), tasks=format_tasks(urgent_or_today)))
         elif len(today_events) > 0:
-            self.summary_lbl.setText(f"Сегодня {format_lessons_ru(len(today_events))} по расписанию • Все срочные задачи закрыты!")
+            self.summary_lbl.setText(t("dashboard_summary_classes_all_done", classes=format_lessons(len(today_events))))
         elif pending_count > 0:
-            self.summary_lbl.setText(f"На сегодня уроков нет • {format_tasks_ru(pending_count)} в трекере")
+            self.summary_lbl.setText(t("dashboard_summary_no_classes", tasks=format_tasks(pending_count)))
         else:
-            self.summary_lbl.setText("Все задачи выполнены! Отличное время для чтения конспектов или отдыха.")
+            self.summary_lbl.setText(t("dashboard_summary_all_done"))
 
         # 1. Update Today's Schedule List
         clear_layout(self.today_sched_layout)
@@ -935,11 +932,11 @@ class DashboardView(QWidget):
 
     def _toggle_task(self, task_id: str):
         self.storage.toggle_task(task_id)
-        self.toast_requested.emit("Задача отмечена как выполненная!", "success")
+        self.toast_requested.emit(t("task_marked_done"), "success")
         self._refresh_all()
 
     def _save_quick_note(self):
-        title = self.quick_note_title.text().strip() or "Быстрая мысль"
+        title = self.quick_note_title.text().strip() or t("quick_thought_default")
         body = self.quick_note_body.toPlainText().strip()
         if not body:
             self.quick_note_body.setFocus()
@@ -949,10 +946,32 @@ class DashboardView(QWidget):
         self.storage.add_note(title=title, content=body, color=COLORS['primary'], tags=tags)
         self.quick_note_title.clear()
         self.quick_note_body.clear()
-        self.toast_requested.emit("Заметка успешно сохранена!", "success")
+        self.toast_requested.emit(t("note_saved_toast"), "success")
         self._refresh_all()
 
+    def _update_date_card_text(self):
+        now = datetime.now()
+        from src.i18n import get_language
+        if get_language() == "en":
+            months_en = ["", "January", "February", "March", "April", "May", "June",
+                         "July", "August", "September", "October", "November", "December"]
+            days_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            day_str = f"{months_en[now.month]} {now.day}"
+            weekday_str = days_en[now.weekday()]
+        else:
+            months_ru = ["", "Января", "Февраля", "Марта", "Апреля", "Мая", "Июня",
+                         "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"]
+            days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+            day_str = f"{now.day} {months_ru[now.month]}"
+            weekday_str = days_ru[now.weekday()]
+
+        if hasattr(self, "date_big"):
+            self.date_big.setText(day_str)
+        if hasattr(self, "date_sub"):
+            self.date_sub.setText(f"{weekday_str} • {now.year}")
+
     def _on_language_changed(self):
+        self._update_date_card_text()
         if hasattr(self, "card_today_tasks"):
             self.card_today_tasks.t_lbl.setText(t("metric_tasks"))
             self.card_today_tasks.sub_lbl.setText(t("metric_tasks_sub"))

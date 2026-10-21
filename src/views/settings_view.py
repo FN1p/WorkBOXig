@@ -186,6 +186,31 @@ class SettingsView(QWidget):
         startup_card.add_layout(startup_row)
         content_layout.addWidget(startup_card)
 
+        # 3b. Section: Window Close Behavior
+        self.close_action_card = SettingsCard(t("card_close_action"), t("card_close_action_sub"))
+        close_row = QHBoxLayout()
+        close_row.setSpacing(16)
+
+        c_lbl = QLabel(t("card_close_action") + ":")
+        c_lbl.setFont(QFont("Segoe UI", 10))
+        c_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        close_row.addWidget(c_lbl)
+
+        self.close_combo = QComboBox()
+        self.close_combo.addItem(t("close_action_ask"), "ask")
+        self.close_combo.addItem(t("close_action_tray"), "tray")
+        self.close_combo.addItem(t("close_action_exit"), "exit")
+        saved_action = self.storage.get_setting("close_action", "ask")
+        idx_close = self.close_combo.findData(saved_action)
+        if idx_close >= 0:
+            self.close_combo.setCurrentIndex(idx_close)
+        self.close_combo.currentIndexChanged.connect(self._on_close_action_changed)
+        close_row.addWidget(self.close_combo)
+        close_row.addStretch()
+
+        self.close_action_card.add_layout(close_row)
+        content_layout.addWidget(self.close_action_card)
+
         # 4. Section: Focus & Timer Preferences
         focus_card = SettingsCard(t("card_focus"), t("card_focus_sub"))
         
@@ -207,11 +232,13 @@ class SettingsView(QWidget):
         timer_config_row.addWidget(f_lbl)
 
         self.focus_combo = QComboBox()
-        self.focus_combo.addItems(["20 минут", "25 минут", "30 минут", "45 минут", "50 минут", "60 минут"])
+        for m in [20, 25, 30, 45, 50, 60]:
+            self.focus_combo.addItem(f"{m} {t('settings_min')}", m)
         saved_f = self.storage.get_setting("focus_minutes", 25)
-        idx_f = self.focus_combo.findText(f"{saved_f} минут")
-        if idx_f >= 0:
-            self.focus_combo.setCurrentIndex(idx_f)
+        for i in range(self.focus_combo.count()):
+            if self.focus_combo.itemData(i) == saved_f:
+                self.focus_combo.setCurrentIndex(i)
+                break
         self.focus_combo.currentIndexChanged.connect(self._on_focus_time_changed)
         timer_config_row.addWidget(self.focus_combo)
 
@@ -220,11 +247,13 @@ class SettingsView(QWidget):
         timer_config_row.addWidget(b_lbl)
 
         self.break_combo = QComboBox()
-        self.break_combo.addItems(["5 минут", "10 минут", "15 минут"])
+        for m in [5, 10, 15]:
+            self.break_combo.addItem(f"{m} {t('settings_min')}", m)
         saved_b = self.storage.get_setting("break_minutes", 5)
-        idx_b = self.break_combo.findText(f"{saved_b} минут")
-        if idx_b >= 0:
-            self.break_combo.setCurrentIndex(idx_b)
+        for i in range(self.break_combo.count()):
+            if self.break_combo.itemData(i) == saved_b:
+                self.break_combo.setCurrentIndex(i)
+                break
         self.break_combo.currentIndexChanged.connect(self._on_break_time_changed)
         timer_config_row.addWidget(self.break_combo)
         timer_config_row.addStretch()
@@ -368,7 +397,7 @@ class SettingsView(QWidget):
 
         # Refresh theme & language button visual states
         self._update_theme_buttons(self.storage.get_setting("theme", "dark"))
-        self._update_lang_buttons(self.storage.get_setting("language", "ru"))
+        self._update_lang_buttons(self.storage.get_setting("language", "en"))
 
     def _update_autostart_status_pill(self, enabled: bool):
         if enabled:
@@ -528,7 +557,42 @@ class SettingsView(QWidget):
         self.storage.set_setting("language", lang)
         set_language(lang)
         self._update_lang_buttons(lang)
-        msg = "Язык изменён на Русский" if lang == "ru" else "Language switched to English"
+        if hasattr(self, "close_combo"):
+            saved_data = self.close_combo.currentData()
+            self.close_combo.blockSignals(True)
+            self.close_combo.clear()
+            self.close_combo.addItem(t("close_action_ask"), "ask")
+            self.close_combo.addItem(t("close_action_tray"), "tray")
+            self.close_combo.addItem(t("close_action_exit"), "exit")
+            idx = self.close_combo.findData(saved_data)
+            if idx >= 0:
+                self.close_combo.setCurrentIndex(idx)
+            self.close_combo.blockSignals(False)
+        if hasattr(self, "focus_combo"):
+            saved_f = self.storage.get_setting("focus_minutes", 25)
+            self.focus_combo.blockSignals(True)
+            self.focus_combo.clear()
+            for m in [20, 25, 30, 45, 50, 60]:
+                self.focus_combo.addItem(f"{m} {t('settings_min')}", m)
+            for i in range(self.focus_combo.count()):
+                if self.focus_combo.itemData(i) == saved_f:
+                    self.focus_combo.setCurrentIndex(i)
+                    break
+            self.focus_combo.blockSignals(False)
+
+        if hasattr(self, "break_combo"):
+            saved_b = self.storage.get_setting("break_minutes", 5)
+            self.break_combo.blockSignals(True)
+            self.break_combo.clear()
+            for m in [5, 10, 15]:
+                self.break_combo.addItem(f"{m} {t('settings_min')}", m)
+            for i in range(self.break_combo.count()):
+                if self.break_combo.itemData(i) == saved_b:
+                    self.break_combo.setCurrentIndex(i)
+                    break
+            self.break_combo.blockSignals(False)
+
+        msg = "Language switched to English" if lang == "en" else "Язык изменён на Русский"
         self.toast_requested.emit(msg, "check")
 
     def _update_lang_buttons(self, active_lang: str):
@@ -581,6 +645,22 @@ class SettingsView(QWidget):
 
     def _on_update_check_error(self, err_msg: str):
         self.check_updates_btn.setEnabled(True)
-        self.update_status_pill.setText(f"Ошибка проверки сети")
+        self.update_status_pill.setText(t("settings_network_err"))
         self.update_status_pill.setStyleSheet(f"color: {COLORS['rose']}; background-color: rgba(244, 63, 94, 0.12); padding: 4px 10px; border-radius: 6px;")
         self.toast_requested.emit(f"{t('update_error_title')}: {err_msg}", "alert")
+
+    _check_for_updates = _check_updates
+
+    def _on_close_action_changed(self, index: int):
+        val = self.close_combo.itemData(index)
+        if val:
+            self.storage.set_setting("close_action", val)
+
+    def _refresh_close_action_ui(self):
+        if hasattr(self, "close_combo"):
+            saved = self.storage.get_setting("close_action", "ask")
+            idx = self.close_combo.findData(saved)
+            if idx >= 0 and self.close_combo.currentIndex() != idx:
+                self.close_combo.blockSignals(True)
+                self.close_combo.setCurrentIndex(idx)
+                self.close_combo.blockSignals(False)

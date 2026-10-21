@@ -328,6 +328,26 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "card_about_sub": "Версия и статус локального хранилища",
         "about_privacy": "● 100% локальное хранение данных. Без телеметрии, облачных трекеров и рекламы.",
         
+        # Tray & Close Behavior
+        "tray_open": "Развернуть WorkBOXig",
+        "tray_mini_widget": "Мини-виджет (Spotify HUD)",
+        "tray_check_updates": "Проверить обновления...",
+        "tray_quit": "Выход из программы",
+        "tray_minimized_title": "WorkBOXig свёрнут в трей",
+        "tray_minimized_msg": "Приложение продолжает работать в фоновом режиме. Кликните по иконке для открытия.",
+        "card_close_action": "Действие при закрытии окна",
+        "card_close_action_sub": "Выберите, что делать при нажатии кнопки закрытия [✕]",
+        "close_action_ask": "Спрашивать каждый раз",
+        "close_action_tray": "Сворачивать в системный трей",
+        "close_action_exit": "Закрывать приложение полностью",
+        "close_dialog_title": "Закрытие WorkBOXig",
+        "close_dialog_msg": "Что сделать при закрытии программы?",
+        "close_dialog_desc": "При сворачивании в трей фоновый таймер Pomodoro, напоминания об уроках и синхронизация продолжат работать.",
+        "close_dialog_remember": "Запомнить мой выбор (можно изменить в Настройках)",
+        "close_btn_tray": "Свернуть в трей",
+        "close_btn_exit": "Закрыть полностью",
+        "close_btn_cancel": "Отмена",
+        
         # Command Palette
         "palette_placeholder": "Поиск задач, конспектов, заметок или команд...",
         "palette_esc": "ESC чтобы закрыть",
@@ -401,6 +421,50 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "backup_read_error": "Не удалось прочитать файл резервной копии.",
         "backup_save_error": "Не удалось сохранить файл резервной копии.",
         "autostart_error": "Не удалось изменить статус автозапуска.",
+        
+        # Dialogs & Components
+        "google_url_empty_warn": "Пожалуйста, вставьте ссылку на секретный адрес iCal.",
+        "google_url_invalid_warn": "Некорректная ссылка. Ссылка должна начинаться с https:// или webcal://",
+        "google_disconnect_title": "Отключение Google Календаря",
+        "google_disconnect_confirm": "Вы уверены, что хотите отвязать Google Календарь и удалить импортированные события?",
+        "editor_empty_title": "Выберите или создайте страницу конспекта",
+        "editor_empty_desc": "Используйте панель слева, чтобы открыть конспект по предмету или создать новую тему.",
+        "editor_image_select_title": "Выберите фото или скриншот",
+        "editor_image_filter": "Изображения (*.png *.jpg *.jpeg *.webp *.bmp *.gif);;Все файлы (*.*)",
+        "editor_image_inserted": "● Фото вставлено!",
+        "editor_default_note_title": "Конспект",
+        "editor_export_dialog_title": "Экспортировать конспект",
+        "editor_exported": "● Экспортировано!",
+        "notes_char_count": "{count} знаков",
+        "notes_copied_toast": "● Скопировано в буфер!",
+        "notes_delete_confirm_title": "Удаление",
+        "notes_delete_confirm_msg": "Удалить эту заметку?",
+        "notes_export_title": "Экспорт заметки",
+        "notes_exported_status": "● Заметка экспортирована!",
+        "notes_all_chip": "Все",
+        "notes_untitled": "Без названия",
+        "notes_default_title": "Заметка",
+        "priority_urgent_badge": "Срочно",
+        "priority_high_badge": "Высокий",
+        "priority_medium_badge": "Средний",
+        "priority_low_badge": "Низкий",
+        "task_preset_cs": "Информатика & Python",
+        "task_preset_math": "Математический анализ",
+        "task_preset_physics": "Физика",
+        "task_preset_lang": "Иностранный язык",
+        "task_preset_general": "Общие задачи",
+        "task_default_subj": "Общее",
+        "settings_min": "минут",
+        "settings_network_err": "Ошибка проверки сети",
+        "dashboard_summary_classes_and_tasks": "Сегодня {classes} по расписанию • {tasks} требуют внимания",
+        "dashboard_summary_classes_all_done": "Сегодня {classes} по расписанию • Все срочные задачи закрыты!",
+        "dashboard_summary_no_classes": "На сегодня уроков нет • {tasks} в трекере",
+        "dashboard_summary_all_done": "Все задачи выполнены! Отличное время для чтения конспектов или отдыха.",
+        "task_marked_done": "Задача отмечена как выполненная!",
+        "note_saved_toast": "Заметка успешно сохранена!",
+        "quick_thought_default": "Быстрая мысль",
+        "sidebar_logo_tt": "WorkBOXig (Нажмите для переключения меню)",
+        "sidebar_space_tt": "Личное пространство (Локально)",
     },
     "en": {
         # App & Brand
@@ -723,6 +787,26 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "card_about_sub": "Version, engine, and local storage status",
         "about_privacy": "● 100% offline local storage. No telemetry, no cloud trackers, no ads.",
         
+        # Tray & Close Behavior
+        "tray_open": "Open WorkBOXig",
+        "tray_mini_widget": "Mini-Widget (Spotify HUD)",
+        "tray_check_updates": "Check for Updates...",
+        "tray_quit": "Exit WorkBOXig",
+        "tray_minimized_title": "WorkBOXig minimized to tray",
+        "tray_minimized_msg": "Application is still running in background. Click icon to restore.",
+        "card_close_action": "Window Close Action",
+        "card_close_action_sub": "Choose what happens when clicking the [✕] close button",
+        "close_action_ask": "Ask every time",
+        "close_action_tray": "Minimize to system tray",
+        "close_action_exit": "Quit application completely",
+        "close_dialog_title": "Close WorkBOXig",
+        "close_dialog_msg": "What would you like to do?",
+        "close_dialog_desc": "Minimizing to tray keeps focus timers, schedule alerts, and calendar sync active in background.",
+        "close_dialog_remember": "Remember my choice (can be changed in Settings)",
+        "close_btn_tray": "Minimize to Tray",
+        "close_btn_exit": "Quit Completely",
+        "close_btn_cancel": "Cancel",
+        
         # Command Palette
         "palette_placeholder": "Type a command or search tasks, notes, courses...",
         "palette_esc": "ESC to close",
@@ -796,6 +880,50 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "backup_read_error": "Failed to read the backup file.",
         "backup_save_error": "Failed to save the backup file.",
         "autostart_error": "Failed to modify autostart status.",
+        
+        # Dialogs & Components
+        "google_url_empty_warn": "Please paste your secret Google Calendar iCal link.",
+        "google_url_invalid_warn": "Invalid URL format. Link must start with https:// or webcal://",
+        "google_disconnect_title": "Disconnect Google Calendar",
+        "google_disconnect_confirm": "Are you sure you want to disconnect Google Calendar and remove synced events?",
+        "editor_empty_title": "Select or create a notebook page",
+        "editor_empty_desc": "Use the sidebar on the left to select a subject notebook or start a new page.",
+        "editor_image_select_title": "Choose Image or Screenshot",
+        "editor_image_filter": "Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif);;All Files (*.*)",
+        "editor_image_inserted": "● Image inserted!",
+        "editor_default_note_title": "Lecture Notes",
+        "editor_export_dialog_title": "Export Note",
+        "editor_exported": "● Export complete!",
+        "notes_char_count": "{count} characters",
+        "notes_copied_toast": "● Copied to clipboard!",
+        "notes_delete_confirm_title": "Delete Note",
+        "notes_delete_confirm_msg": "Permanently delete this note?",
+        "notes_export_title": "Export Note",
+        "notes_exported_status": "● Note exported successfully!",
+        "notes_all_chip": "All",
+        "notes_untitled": "Untitled Note",
+        "notes_default_title": "Note",
+        "priority_urgent_badge": "Urgent",
+        "priority_high_badge": "High",
+        "priority_medium_badge": "Medium",
+        "priority_low_badge": "Low",
+        "task_preset_cs": "Computer Science & Python",
+        "task_preset_math": "Calculus & Mathematics",
+        "task_preset_physics": "Physics & Engineering",
+        "task_preset_lang": "Foreign Language",
+        "task_preset_general": "General Tasks",
+        "task_default_subj": "General",
+        "settings_min": "min",
+        "settings_network_err": "Network check failed",
+        "dashboard_summary_classes_and_tasks": "Today: {classes} scheduled • {tasks} need attention",
+        "dashboard_summary_classes_all_done": "Today: {classes} scheduled • All urgent tasks completed!",
+        "dashboard_summary_no_classes": "No classes today • {tasks} in tracker",
+        "dashboard_summary_all_done": "All tasks completed! Great time to review notes or take a break.",
+        "task_marked_done": "Task marked as completed!",
+        "note_saved_toast": "Note saved successfully!",
+        "quick_thought_default": "Quick Thought",
+        "sidebar_logo_tt": "WorkBOXig (Click to toggle sidebar)",
+        "sidebar_space_tt": "Personal Workspace (Local)",
     }
 }
 
@@ -806,7 +934,7 @@ class I18nManager(QObject):
 
     def __init__(self):
         super().__init__()
-        self._current_lang = "ru"
+        self._current_lang = "en"
 
     @property
     def current_language(self) -> str:
@@ -814,7 +942,7 @@ class I18nManager(QObject):
 
     def set_language(self, lang: str):
         if lang not in TRANSLATIONS:
-            lang = "ru"
+            lang = "en"
         if self._current_lang != lang:
             self._current_lang = lang
             self.language_changed.emit(lang)

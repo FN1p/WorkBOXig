@@ -19,7 +19,7 @@ DEFAULT_DATA = {
     "version": __version__,
     "settings": {
         "theme": "dark",
-        "language": "ru",
+        "language": "en",
         "font_size": 14,
         "auto_save_interval": 1000,
         "check_updates_on_startup": True,

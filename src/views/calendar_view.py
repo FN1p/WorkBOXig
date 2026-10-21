@@ -703,7 +703,7 @@ class WeeklyTimetableWidget(QWidget):
             ch_layout.addWidget(d_title)
 
             if is_today:
-                sub_t = QLabel("Сегодня")
+                sub_t = QLabel(t("today_btn"))
                 sub_t.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
                 sub_t.setStyleSheet(f"color: {COLORS['primary_light']};")
                 sub_t.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -754,8 +754,8 @@ class WeeklyTimetableWidget(QWidget):
 
                 # Tasks due at this date & hour
                 matching_tasks = [
-                    t for t in tasks
-                    if t.get("due_date") == date_str and self._get_task_hour(t) == h and not t.get("completed")
+                    tsk for tsk in tasks
+                    if tsk.get("due_date") == date_str and self._get_task_hour(tsk) == h and not tsk.get("completed")
                 ]
 
                 # Add lesson cards
@@ -766,7 +766,7 @@ class WeeklyTimetableWidget(QWidget):
                     cell.cell_layout.addWidget(card)
 
                 # Add tasks due in this slot
-                for t in matching_tasks:
+                for tsk in matching_tasks:
                     t_card = QFrame()
                     t_card.setStyleSheet(f"""
                         QFrame {{
@@ -782,7 +782,7 @@ class WeeklyTimetableWidget(QWidget):
                     t_dot = QLabel("●")
                     t_dot.setStyleSheet(f"color: {COLORS['amber']}; font-size: 8px;")
                     t_l.addWidget(t_dot)
-                    t_text = QLabel(f"Дедлайн: {t.get('title', '')}")
+                    t_text = QLabel(f"{t('task_due_date')}: {tsk.get('title', '')}")
                     t_text.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
                     t_text.setStyleSheet("color: #FFFFFF;")
                     t_l.addWidget(t_text, stretch=1)
@@ -936,7 +936,7 @@ class CalendarView(QWidget):
         # Action Buttons (+ Урок, + Задача)
         is_cyber = (COLORS.get('primary') == '#FCEE0A')
         btn_fg = '#000000' if is_cyber else '#FFFFFF'
-        self.add_lesson_btn = QPushButton("Добавить урок / пару")
+        self.add_lesson_btn = QPushButton(t("btn_add_event"))
         self.add_lesson_btn.setIcon(get_icon("plus", btn_fg, 16))
         self.add_lesson_btn.setIconSize(QSize(16, 16))
         self.add_lesson_btn.setObjectName("primary-btn")
@@ -944,7 +944,7 @@ class CalendarView(QWidget):
         self.add_lesson_btn.clicked.connect(self._open_add_lesson_dialog)
         ctrl_bar.addWidget(self.add_lesson_btn)
 
-        add_task_btn = QPushButton("Задача на дату")
+        add_task_btn = QPushButton(t("btn_new_task"))
         add_task_btn.setIcon(get_icon("tasks", COLORS['primary_light'], 16))
         add_task_btn.setIconSize(QSize(16, 16))
         add_task_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -966,10 +966,10 @@ class CalendarView(QWidget):
         add_task_btn.clicked.connect(self._open_add_task_dialog)
         ctrl_bar.addWidget(add_task_btn)
 
-        self.export_btn = QPushButton("Экспорт в .ics")
+        self.export_btn = QPushButton(t("export_ics"))
         self.export_btn.setIcon(get_icon("calendar", COLORS['text_secondary'], 16))
         self.export_btn.setIconSize(QSize(16, 16))
-        self.export_btn.setToolTip("Экспортировать расписание для Google/Apple/Яндекс Календаря (.ics)")
+        self.export_btn.setToolTip(t("act_export_ics_title"))
         self.export_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.export_btn.setStyleSheet(f"""
             QPushButton {{
@@ -1226,7 +1226,7 @@ class CalendarView(QWidget):
         tasks = [t for t in self.storage.get_tasks() if t.get("due_date") == iso_str]
 
         if not events and not tasks:
-            empty_lbl = QLabel("Нет занятий или задач на этот день.")
+            empty_lbl = QLabel(t("no_classes_today"))
             empty_lbl.setFont(QFont("Segoe UI", 9))
             empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 20px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1297,7 +1297,7 @@ class CalendarView(QWidget):
 
             parent = self.window()
             if hasattr(parent, "_show_toast"):
-                parent._show_toast("Расписание успешно экспортировано в .ics!", "success")
+                parent._show_toast(t("export_ics") + ": " + t("success"), "success")
             else:
                 QMessageBox.information(
                     self,
