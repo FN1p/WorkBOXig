@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont, QCursor, QIcon
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.utils.shortcuts import clear_layout
 
 
 PRIORITY_CONFIG = {
@@ -572,10 +573,7 @@ class TasksView(QWidget):
         self.subj_filter.blockSignals(False)
 
     def _render_tasks(self):
-        while self.tasks_layout.count():
-            item = self.tasks_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.tasks_layout)
 
         tasks = self.storage.get_tasks()
         today_iso = date.today().isoformat()

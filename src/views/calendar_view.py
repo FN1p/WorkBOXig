@@ -19,6 +19,7 @@ from src.styles import COLORS
 from src.storage import get_storage
 from src.views.tasks_view import TaskDialog
 from src.icons import get_pixmap, get_icon
+from src.utils.shortcuts import clear_layout
 
 
 COLOR_PALETTE = [
@@ -659,10 +660,7 @@ class WeeklyTimetableWidget(QWidget):
 
     def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]]):
         # 1. Update Header
-        while self.header_layout.count():
-            item = self.header_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.header_layout)
 
         days_short = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
         months_short = ["", "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"]
@@ -712,10 +710,7 @@ class WeeklyTimetableWidget(QWidget):
             self.header_layout.addWidget(col_header, stretch=1)
 
         # 2. Rebuild Grid Body
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.grid_layout)
 
         # Build hour labels on col 0
         now_dt = datetime.now()
@@ -1200,10 +1195,7 @@ class CalendarView(QWidget):
         iso_str = self.selected_qdate.toString(Qt.DateFormat.ISODate)
         self.day_title_lbl.setText(f"{self.selected_qdate.toString('dd.MM.yyyy')}")
 
-        while self.agenda_layout.count():
-            item = self.agenda_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.agenda_layout)
 
         events = [e for e in self.storage.get_events() if e.get("date") == iso_str]
         tasks = [t for t in self.storage.get_tasks() if t.get("due_date") == iso_str]

@@ -14,6 +14,7 @@ from PyQt6.QtGui import QFont, QCursor
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.utils.shortcuts import clear_layout
 
 
 def format_lessons_ru(n: int) -> str:
@@ -766,10 +767,7 @@ class DashboardView(QWidget):
             self.summary_lbl.setText("Все задачи выполнены! Отличное время для чтения конспектов или отдыха.")
 
         # 1. Update Today's Schedule List
-        while self.today_sched_layout.count():
-            item = self.today_sched_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.today_sched_layout)
 
         if today_events:
             sorted_events = sorted(today_events, key=lambda x: x.get("time", "99:99"))
@@ -861,10 +859,7 @@ class DashboardView(QWidget):
             self.today_sched_layout.addWidget(empty_sched)
 
         # 2. Update Today Tasks list
-        while self.today_tasks_layout.count():
-            item = self.today_tasks_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.today_tasks_layout)
 
         pending_tasks = [t for t in tasks if not t.get("completed")]
         sorted_pending = sorted(pending_tasks, key=lambda x: (x.get("due_date", "9999-99-99"), x.get("priority") != "urgent"))[:6]

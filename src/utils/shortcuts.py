@@ -182,3 +182,16 @@ def unregister_uninstall_entry() -> bool:
         return True
     except Exception:
         return False
+
+
+def clear_layout(layout):
+    """Safely and immediately detaches and schedules deletion for all widgets in a QLayout."""
+    if layout is None:
+        return
+    while layout.count():
+        item = layout.takeAt(0)
+        if item is not None:
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()

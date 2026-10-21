@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont, QColor, QIcon
 from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
+from src.utils.shortcuts import clear_layout
 
 
 COLOR_PALETTE = [
@@ -365,10 +366,7 @@ class NotesView(QWidget):
 
     def _refresh_tag_chips(self):
         # Clear existing chips
-        while self.tags_chip_layout.count():
-            item = self.tags_chip_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        clear_layout(self.tags_chip_layout)
 
         # Collect unique tags
         tags = set()

@@ -268,6 +268,33 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("END:VEVENT", ics_text)
         self.assertIn("END:VCALENDAR", ics_text)
 
+    def test_clear_layout_utility(self):
+        from src.utils.shortcuts import clear_layout
+        from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lbl1 = QLabel("one")
+        lbl2 = QLabel("two")
+        lay.addWidget(lbl1)
+        lay.addWidget(lbl2)
+        self.assertEqual(lay.count(), 2)
+        clear_layout(lay)
+        self.assertEqual(lay.count(), 0)
+
+    def test_cyberpunk_button_painter(self):
+        from src.styles_cyber import CyberpunkButtonPainter
+        from PyQt6.QtWidgets import QPushButton
+        from PyQt6.QtGui import QPainter, QPixmap
+        btn = QPushButton("Test Primary")
+        btn.setObjectName("primary-btn")
+        btn.resize(160, 40)
+        pix = QPixmap(160, 40)
+        painter = QPainter(pix)
+        try:
+            CyberpunkButtonPainter.paint_button(painter, btn)
+        finally:
+            painter.end()
+
 
 if __name__ == "__main__":
     unittest.main()
