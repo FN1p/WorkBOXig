@@ -80,6 +80,8 @@ class AddLessonDialog(QDialog):
             dialog_title = t("cal_new_title")
 
         self.setWindowTitle(dialog_title)
+        # Remove system title bar
+        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setFixedSize(540, 680)
         self.setStyleSheet(f"""
             QDialog {{
@@ -694,6 +696,10 @@ class WeeklyTimetableWidget(QWidget):
         self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setContentsMargins(10, 8, 16, 16)
         self.grid_layout.setSpacing(6)
+        # Equal column stretches so cards never span full width
+        for _ci in range(1, 8):
+            self.grid_layout.setColumnStretch(_ci, 1)
+        self.grid_layout.setColumnMinimumWidth(0, 50)
 
         self.scroll.setWidget(self.grid_container)
         main_layout.addWidget(self.scroll, stretch=1)
@@ -751,11 +757,18 @@ class WeeklyTimetableWidget(QWidget):
             ch_layout.setSpacing(1)
             ch_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            d_title = QLabel(f"{days_short[i]} · {cur_date.day()} {months_short[cur_date.month()]}")
-            d_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold if is_today else QFont.Weight.Medium))
+            # Show only day name on main line; date shown smaller below
+            d_title = QLabel(days_short[i])
+            d_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold if is_today else QFont.Weight.DemiBold))
             d_title.setStyleSheet(f"color: {COLORS['primary'] if is_today else COLORS['text_secondary']};")
             d_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             ch_layout.addWidget(d_title)
+            # Show date in smaller secondary text below day name
+            date_sub = QLabel(f"{cur_date.day()} {months_short[cur_date.month()]}")
+            date_sub.setFont(QFont("Segoe UI", 8))
+            date_sub.setStyleSheet(f"color: {COLORS['text_dim']}; background: transparent;")
+            date_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            ch_layout.addWidget(date_sub)
 
             if is_today:
                 sub_t = QLabel(t("today_btn"))
