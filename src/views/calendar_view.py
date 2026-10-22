@@ -63,12 +63,23 @@ def hex_to_rgba(hex_color: str, alpha: float = 0.22) -> str:
 class AddLessonDialog(QDialog):
     """
     Dialog to create or edit a lesson, seminar, lecture, or scheduled task.
+    Supports recurring_mode for weekly recurring lessons (no specific date).
     """
     def __init__(self, preset_date: Optional[QDate] = None, preset_hour: int = 9,
-                 existing_event: Optional[Dict[str, Any]] = None, parent=None):
+                 existing_event: Optional[Dict[str, Any]] = None,
+                 recurring_mode: bool = False, parent=None):
         super().__init__(parent)
         self.existing_event = existing_event
-        self.setWindowTitle(t("cal_edit_title") if existing_event else t("cal_new_title"))
+        self.recurring_mode = recurring_mode
+
+        if recurring_mode:
+            dialog_title = "Постоянный урок / Расписание"
+        elif existing_event:
+            dialog_title = t("cal_edit_title")
+        else:
+            dialog_title = t("cal_new_title")
+
+        self.setWindowTitle(dialog_title)
         self.setFixedSize(540, 680)
         self.setStyleSheet(f"""
             QDialog {{
@@ -89,8 +100,7 @@ class AddLessonDialog(QDialog):
         c_ic.setPixmap(get_pixmap("calendar", COLORS['primary_light'], 22))
         header_l.addWidget(c_ic)
 
-        title_text = t("cal_edit_title") if existing_event else t("cal_new_title")
-        title_lbl = QLabel(title_text)
+        title_lbl = QLabel(dialog_title)
         title_lbl.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         header_l.addWidget(title_lbl)
@@ -168,10 +178,10 @@ class AddLessonDialog(QDialog):
 
         date_col = QVBoxLayout()
         date_col.setSpacing(4)
-        lbl_date = QLabel(t("cal_date_lbl"))
-        lbl_date.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
-        lbl_date.setStyleSheet(f"color: {COLORS['text_secondary']};")
-        date_col.addWidget(lbl_date)
+        self._lbl_date = QLabel(t("cal_date_lbl"))
+        self._lbl_date.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        self._lbl_date.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        date_col.addWidget(self._lbl_date)
 
         self.date_input = QDateEdit()
         self.date_input.setCalendarPopup(True)
@@ -180,7 +190,34 @@ class AddLessonDialog(QDialog):
         init_date = preset_date or QDate.currentDate()
         self.date_input.setDate(init_date)
         date_col.addWidget(self.date_input)
+
+        # Weekday selector for recurring mode
+        self._lbl_weekday = QLabel("День недели")
+        self._lbl_weekday.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        self._lbl_weekday.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        date_col.addWidget(self._lbl_weekday)
+
+        self.weekday_combo = QComboBox()
+        self.weekday_combo.setFixedHeight(38)
+        self.weekday_combo.addItems([
+            "Понедельник", "Вторник", "Среда", "Четверг",
+            "Пятница", "Суббота", "Воскресенье"
+        ])
+        date_col.addWidget(self.weekday_combo)
+
         row1.addLayout(date_col, stretch=1)
+
+        # Show/hide date vs weekday widgets based on mode
+        if recurring_mode:
+            self._lbl_date.setVisible(False)
+            self.date_input.setVisible(False)
+            self._lbl_weekday.setVisible(True)
+            self.weekday_combo.setVisible(True)
+        else:
+            self._lbl_date.setVisible(True)
+            self.date_input.setVisible(True)
+            self._lbl_weekday.setVisible(False)
+            self.weekday_combo.setVisible(False)
 
         badge_col = QVBoxLayout()
         badge_col.setSpacing(4)
@@ -282,11 +319,16 @@ class AddLessonDialog(QDialog):
         if existing_event:
             self.title_input.setText(existing_event.get("title", ""))
             self.desc_input.setText(existing_event.get("description", ""))
-            d_val = existing_event.get("date", init_date.toString(Qt.DateFormat.ISODate))
-            try:
-                self.date_input.setDate(QDate.fromString(d_val, Qt.DateFormat.ISODate))
-            except Exception:
-                pass
+            if not recurring_mode:
+                d_val = existing_event.get("date", init_date.toString(Qt.DateFormat.ISODate))
+                try:
+                    self.date_input.setDate(QDate.fromString(d_val, Qt.DateFormat.ISODate))
+                except Exception:
+                    pass
+            else:
+                # Populate weekday combo from existing recurring event
+                wd = existing_event.get("weekday", 0)
+                self.weekday_combo.setCurrentIndex(wd)
             self.room_input.setText(existing_event.get("room", ""))
             t_str = existing_event.get("time", "10:00")
             e_str = existing_event.get("end_time", "11:30")
@@ -342,10 +384,9 @@ class AddLessonDialog(QDialog):
         self.accept()
 
     def get_data(self) -> Dict[str, Any]:
-        return {
+        base = {
             "title": self.title_input.text().strip(),
             "description": self.desc_input.toPlainText().strip(),
-            "date": self.date_input.date().toString(Qt.DateFormat.ISODate),
             "time": self.start_time.time().toString("HH:mm"),
             "end_time": self.end_time.time().toString("HH:mm"),
             "color": self.selected_color,
@@ -353,6 +394,12 @@ class AddLessonDialog(QDialog):
             "room": self.room_input.text().strip(),
             "type": "lesson"
         }
+        if self.recurring_mode:
+            base["weekday"] = self.weekday_combo.currentIndex()
+            base["recurring"] = True
+        else:
+            base["date"] = self.date_input.date().toString(Qt.DateFormat.ISODate)
+        return base
 
 
 class LessonCard(QFrame):
@@ -398,6 +445,13 @@ class LessonCard(QFrame):
         title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
         title_lbl.setWordWrap(True)
         top_l.addWidget(title_lbl, stretch=1)
+
+        # Show recurring icon if this is a recurring lesson
+        if event_data.get("recurring"):
+            rec_icon = QLabel("🔁")
+            rec_icon.setFont(QFont("Segoe UI", 8))
+            rec_icon.setStyleSheet("background: transparent; color: #94A3B8;")
+            top_l.addWidget(rec_icon)
 
         del_btn = QPushButton()
         del_btn.setIcon(get_icon("close", COLORS['text_muted'], 14))
@@ -660,7 +714,8 @@ class WeeklyTimetableWidget(QWidget):
     def set_monday(self, qdate: QDate):
         self.monday_date = qdate
 
-    def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]]):
+    def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]], recurring_lessons: Optional[List[Dict[str, Any]]] = None):
+        recurring_lessons = recurring_lessons or []
         # 1. Update Header
         clear_layout(self.header_layout)
 
@@ -708,6 +763,14 @@ class WeeklyTimetableWidget(QWidget):
                 sub_t.setStyleSheet(f"color: {COLORS['primary_light']};")
                 sub_t.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 ch_layout.addWidget(sub_t)
+
+            # Show 📌 indicator if there are recurring lessons for this weekday (0=Mon..6=Sun)
+            if any(r.get("weekday") == i for r in recurring_lessons):
+                rec_sub = QLabel("📌")
+                rec_sub.setFont(QFont("Segoe UI", 7))
+                rec_sub.setStyleSheet("color: #94A3B8; background: transparent;")
+                rec_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                ch_layout.addWidget(rec_sub)
 
             self.header_layout.addWidget(col_header, stretch=1)
 
@@ -761,6 +824,17 @@ class WeeklyTimetableWidget(QWidget):
                 # Add lesson cards
                 for evt in matching_events:
                     card = LessonCard(evt, cell)
+                    card.clicked.connect(self.edit_event_requested.emit)
+                    card.delete_requested.connect(self.delete_event_requested.emit)
+                    cell.cell_layout.addWidget(card)
+
+                # Add recurring lesson cards for this weekday column (col_idx = 0=Mon..6=Sun)
+                matching_recurring = [
+                    r for r in recurring_lessons
+                    if r.get("weekday") == col_idx and self._get_event_hour(r) == h
+                ]
+                for r_evt in matching_recurring:
+                    card = LessonCard(r_evt, cell)
                     card.clicked.connect(self.edit_event_requested.emit)
                     card.delete_requested.connect(self.delete_event_requested.emit)
                     cell.cell_layout.addWidget(card)
@@ -943,6 +1017,29 @@ class CalendarView(QWidget):
         self.add_lesson_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.add_lesson_btn.clicked.connect(self._open_add_lesson_dialog)
         ctrl_bar.addWidget(self.add_lesson_btn)
+
+        # Recurring lesson button
+        self.add_recurring_btn = QPushButton("🔁 Постоянный урок")
+        self.add_recurring_btn.setFixedHeight(32)
+        self.add_recurring_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.add_recurring_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['bg_input']};
+                color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 8px;
+                padding: 5px 14px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['bg_card_hover']};
+                color: {COLORS['text_primary']};
+                border-color: {COLORS['border_light']};
+            }}
+        """)
+        self.add_recurring_btn.clicked.connect(self._open_add_recurring_dialog)
+        ctrl_bar.addWidget(self.add_recurring_btn)
 
         add_task_btn = QPushButton(t("btn_new_task"))
         add_task_btn.setIcon(get_icon("tasks", COLORS['primary_light'], 16))
@@ -1145,7 +1242,8 @@ class CalendarView(QWidget):
     def _refresh_timetable(self):
         events = self.storage.get_events()
         tasks = self.storage.get_tasks()
-        self.timetable.render_schedule(events, tasks)
+        recurring = self.storage.get_recurring_lessons()
+        self.timetable.render_schedule(events, tasks, recurring)
 
     def _on_slot_clicked(self, qdate: QDate, hour: int):
         self._open_add_lesson_dialog(preset_date=qdate, preset_hour=hour)
@@ -1170,27 +1268,60 @@ class CalendarView(QWidget):
             self._highlight_calendar_days()
 
     def _edit_event(self, event_data: Dict[str, Any]):
-        dlg = AddLessonDialog(existing_event=event_data, parent=self)
+        is_recurring = event_data.get("recurring", False)
+        dlg = AddLessonDialog(
+            recurring_mode=is_recurring,
+            existing_event=event_data,
+            parent=self
+        )
         if dlg.exec():
             data = dlg.get_data()
-            self.storage.update_event(
-                event_data["id"],
+            if is_recurring:
+                self.storage.update_recurring_lesson(
+                    event_data["id"],
+                    **{k: v for k, v in data.items() if k != "date"}
+                )
+            else:
+                self.storage.update_event(
+                    event_data["id"],
+                    title=data["title"],
+                    date=data["date"],
+                    time=data["time"],
+                    end_time=data["end_time"],
+                    description=data["description"],
+                    color=data["color"],
+                    badge=data["badge"],
+                    room=data["room"]
+                )
+            self._refresh_timetable()
+            self._highlight_calendar_days()
+
+    def _delete_event(self, event_id: str):
+        # Try recurring first, then regular events
+        recurring = self.storage.get_recurring_lessons()
+        if any(r["id"] == event_id for r in recurring):
+            self.storage.delete_recurring_lesson(event_id)
+        else:
+            self.storage.delete_event(event_id)
+        self._refresh_timetable()
+        self._highlight_calendar_days()
+
+    def _open_add_recurring_dialog(self):
+        """Open dialog to add a new recurring (weekly) lesson."""
+        dlg = AddLessonDialog(recurring_mode=True, parent=self)
+        if dlg.exec():
+            data = dlg.get_data()
+            self.storage.add_recurring_lesson(
                 title=data["title"],
-                date=data["date"],
-                time=data["time"],
-                end_time=data["end_time"],
+                weekday=data["weekday"],
+                time_str=data["time"],
+                end_time_str=data["end_time"],
                 description=data["description"],
                 color=data["color"],
                 badge=data["badge"],
                 room=data["room"]
             )
             self._refresh_timetable()
-            self._highlight_calendar_days()
-
-    def _delete_event(self, event_id: str):
-        self.storage.delete_event(event_id)
-        self._refresh_timetable()
-        self._highlight_calendar_days()
 
     def _open_add_task_dialog(self):
         dummy_task = {
@@ -1264,7 +1395,7 @@ class CalendarView(QWidget):
                 pass
 
     def _on_storage_changed(self, entity_type: str):
-        if entity_type in ("events", "tasks", "all"):
+        if entity_type in ("events", "tasks", "recurring", "all"):
             self._refresh_timetable()
             self._highlight_calendar_days()
 
@@ -1380,7 +1511,8 @@ class CalendarView(QWidget):
         dialog.exec()
 
     def _on_google_sync_completed(self, added: int, updated: int, total: int):
-        self._refresh_all_events()
+        self._refresh_timetable()
+        self._highlight_calendar_days()
         parent = self.window()
         if hasattr(parent, "show_toast"):
             if total > 0:

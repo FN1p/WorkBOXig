@@ -29,7 +29,8 @@ DEFAULT_DATA = {
     "notebooks": [],
     "notes": [],
     "tasks": [],
-    "calendar_events": []
+    "calendar_events": [],
+    "recurring_lessons": []
 }
 
 
@@ -392,6 +393,53 @@ class StorageManager(QObject):
         self._data["calendar_events"] = [e for e in events if e["id"] != event_id]
         if len(self._data["calendar_events"]) < before:
             self.schedule_save("events")
+            return True
+        return False
+
+    # ==================== RECURRING LESSONS (Постоянное расписание) ====================
+
+    def get_recurring_lessons(self) -> List[Dict[str, Any]]:
+        """Return all recurring (weekly) lessons without a specific date."""
+        return self._data.get("recurring_lessons", [])
+
+    def add_recurring_lesson(self, title: str, weekday: int, time_str: str = "09:00",
+                              end_time_str: str = "10:30", description: str = "",
+                              color: str = "#6366F1", badge: str = "", room: str = "") -> Dict[str, Any]:
+        """Add a recurring weekly lesson stored only with weekday (0=Mon..6=Sun), no specific date."""
+        lesson = {
+            "id": str(uuid.uuid4()),
+            "title": title.strip(),
+            "weekday": weekday,  # 0=Mon..6=Sun
+            "time": time_str,
+            "end_time": end_time_str,
+            "description": description.strip(),
+            "color": color,
+            "badge": badge.strip(),
+            "room": room.strip(),
+            "recurring": True
+        }
+        self._data.setdefault("recurring_lessons", []).append(lesson)
+        self.schedule_save("recurring")
+        return lesson
+
+    def update_recurring_lesson(self, lesson_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Update fields of a recurring lesson by its id."""
+        for lesson in self._data.get("recurring_lessons", []):
+            if lesson["id"] == lesson_id:
+                for k, v in kwargs.items():
+                    if k != "id":
+                        lesson[k] = v
+                self.schedule_save("recurring")
+                return lesson
+        return None
+
+    def delete_recurring_lesson(self, lesson_id: str) -> bool:
+        """Delete a recurring lesson by its id. Returns True if deleted."""
+        lessons = self._data.get("recurring_lessons", [])
+        before = len(lessons)
+        self._data["recurring_lessons"] = [l for l in lessons if l["id"] != lesson_id]
+        if len(self._data["recurring_lessons"]) < before:
+            self.schedule_save("recurring")
             return True
         return False
 
