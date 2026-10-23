@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from PyQt6.QtWidgets import QApplication
 from src.utils.google_calendar import (
     normalize_calendar_url, unfold_ical_lines, unescape_ical_text,
-    parse_ical_datetime, parse_ical_events
+    parse_ical_datetime, parse_ical_events, merge_google_calendar_events
 )
 from src.components.google_sync_dialog import GoogleSyncDialog
 from src.storage import StorageManager
@@ -53,6 +53,7 @@ class TestGoogleCalendarSync(unittest.TestCase):
         self.storage = StorageManager(storage_dir=self.test_dir)
 
     def tearDown(self):
+        self.storage._debounce_timer.stop()
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_url_normalization(self):
@@ -134,6 +135,15 @@ class TestGoogleCalendarSync(unittest.TestCase):
         self.assertEqual(len(self.storage.get_events()), 3)
         updated_evt = [e for e in self.storage.get_events() if e.get("google_uid") == "math_lecture_101@google.com"][0]
         self.assertEqual(updated_evt["room"], "Аудитория 505 (Новая)")
+
+    def test_merge_is_idempotent_and_preserves_local_events(self):
+        self.storage.add_event(title="Local", date_str="2026-10-21")
+        events = parse_ical_events(SAMPLE_ICS)
+        first = merge_google_calendar_events(self.storage, "https://example.com/calendar.ics", events)
+        second = merge_google_calendar_events(self.storage, "https://example.com/calendar.ics", events)
+        self.assertEqual(first, (2, 0, 2))
+        self.assertEqual(second, (0, 0, 2))
+        self.assertEqual(len(self.storage.get_events()), 3)
 
     def test_dialog_instantiation(self):
         dialog = GoogleSyncDialog(storage=self.storage)

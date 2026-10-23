@@ -5,6 +5,7 @@ Unit tests for In-App Updater and Zero-Data-Loss Persistence in WorkBOXig.
 import os
 import sys
 import json
+import zipfile
 import unittest
 import tempfile
 import shutil
@@ -29,6 +30,7 @@ class TestUpdater(unittest.TestCase):
         self.storage = StorageManager(storage_dir=self.test_dir)
 
     def tearDown(self):
+        self.storage._debounce_timer.stop()
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_version_tuple_parsing(self):
@@ -53,8 +55,8 @@ class TestUpdater(unittest.TestCase):
         backup_file = self.storage.create_pre_update_backup()
         self.assertTrue(os.path.exists(backup_file))
 
-        with open(backup_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        with zipfile.ZipFile(backup_file) as archive:
+            data = json.loads(archive.read("storage.json"))
 
         self.assertEqual(len(data.get("notes", [])), 1)
         self.assertEqual(data["notes"][0]["title"], "Важный конспект перед обновлением")

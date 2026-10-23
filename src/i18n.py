@@ -184,6 +184,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "tasks_title": "Задачи и домашние задания",
         "tasks_subtitle": "Управление приоритетами, дедлайнами и учебными проектами",
         "btn_new_task": "+ Добавить задачу",
+        "quick_task_placeholder": "Быстрая задача: название @ГГГГ-ММ-ДД !high — Enter",
+        "quick_task_accessible": "Быстрое добавление задачи",
+        "quick_task_hint": "Дата: @ГГГГ-ММ-ДД. Приоритет: !urgent, !high, !medium или !low.",
+        "quick_task_invalid": "Введите название и проверьте дату в формате ГГГГ-ММ-ДД.",
         "task_edit_title": "Редактирование задачи",
         "task_new_title": "Новое задание или задача",
         "task_title_ph": "Название задачи (например: Лабораторная работа №3)...",
@@ -330,7 +334,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         
         # Tray & Close Behavior
         "tray_open": "Развернуть WorkBOXig",
-        "tray_mini_widget": "Мини-виджет (Spotify HUD)",
+        "tray_mini_widget": "Мини-виджет (Focus HUD)",
         "tray_check_updates": "Проверить обновления...",
         "tray_quit": "Выход из программы",
         "tray_minimized_title": "WorkBOXig свёрнут в трей",
@@ -643,6 +647,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "tasks_title": "Tasks & Homework",
         "tasks_subtitle": "Manage priorities, deadlines, and academic assignments",
         "btn_new_task": "+ Add Task",
+        "quick_task_placeholder": "Quick task: title @YYYY-MM-DD !high — Enter",
+        "quick_task_accessible": "Quick add task",
+        "quick_task_hint": "Date: @YYYY-MM-DD. Priority: !urgent, !high, !medium or !low.",
+        "quick_task_invalid": "Enter a title and check the YYYY-MM-DD date.",
         "task_edit_title": "Edit Task",
         "task_new_title": "New Assignment or Task",
         "task_title_ph": "Task title (e.g. Lab Report #3)...",
@@ -789,7 +797,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         
         # Tray & Close Behavior
         "tray_open": "Open WorkBOXig",
-        "tray_mini_widget": "Mini-Widget (Spotify HUD)",
+        "tray_mini_widget": "Mini-Widget (Focus HUD)",
         "tray_check_updates": "Check for Updates...",
         "tray_quit": "Exit WorkBOXig",
         "tray_minimized_title": "WorkBOXig minimized to tray",

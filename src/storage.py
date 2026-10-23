@@ -13,6 +13,7 @@ from typing import Dict, List, Any, Optional
 from PyQt6.QtCore import QObject, pyqtSignal, QTimer
 from src.i18n import t
 from src.version import __version__
+from src.utils.backup import is_archive, write_archive, read_archive, rewrite_attachment_urls, new_attachment_name
 
 
 DEFAULT_DATA = {
@@ -32,6 +33,25 @@ DEFAULT_DATA = {
     "calendar_events": [],
     "recurring_lessons": []
 }
+
+
+def _validated_data(value: Any, require_complete: bool = False) -> Dict[str, Any]:
+    """Accept older backups while checking top-level collection types."""
+    if not isinstance(value, dict):
+        raise ValueError("Storage must be a JSON object")
+    if require_complete:
+        required = {"settings", "notebooks", "notes", "tasks", "calendar_events"}
+        if not required.issubset(value):
+            raise ValueError("Backup is missing required data collections")
+    result = dict(value)
+    for key, default in DEFAULT_DATA.items():
+        if key not in result:
+            result[key] = json.loads(json.dumps(default))
+        elif not isinstance(result[key], type(default)):
+            raise ValueError(f"Invalid storage field: {key}")
+        elif isinstance(default, list) and not all(isinstance(item, dict) for item in result[key]):
+            raise ValueError(f"Invalid storage entries: {key}")
+    return result
 
 
 class StorageManager(QObject):
@@ -75,12 +95,7 @@ class StorageManager(QObject):
             try:
                 with open(self.file_path, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
-                    # Verify schema completeness
-                    for key, val in DEFAULT_DATA.items():
-                        if key not in loaded:
-                            loaded[key] = val
-
-                    self._data = loaded
+                    self._data = _validated_data(loaded)
                     return
             except Exception as e:
                 print(f"[StorageManager] Error reading {self.file_path}: {e}. Initializing backup...")
@@ -103,18 +118,29 @@ class StorageManager(QObject):
     def save_immediately(self):
         """Forces an immediate atomic save without waiting for timer."""
         self._debounce_timer.stop()
-        self._do_atomic_save()
+        return self._do_atomic_save()
 
     def _do_atomic_save(self):
         """Performs atomic file write to prevent corruption."""
+        tmp_path = None
         try:
             tmp_fd, tmp_path = tempfile.mkstemp(dir=self.base_dir, prefix="save_", suffix=".tmp")
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                 json.dump(self._data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
             os.replace(tmp_path, self.file_path)
             self.save_completed.emit()
+            return True
         except Exception as e:
             print(f"[StorageManager] Failed to save data: {e}")
+            return False
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
 
     def get_attachments_dir(self) -> str:
         """Returns directory path where notebook images and screenshots are stored."""
@@ -135,30 +161,71 @@ class StorageManager(QObject):
         self.data_changed.emit("settings")
 
     def export_full_backup(self, target_filepath: str):
-        """Export all application data as a single JSON file."""
-        with open(target_filepath, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, ensure_ascii=False, indent=2)
+        """Export a portable archive, or a legacy data-only JSON file."""
+        target_dir = os.path.dirname(os.path.abspath(target_filepath))
+        fd, temporary = tempfile.mkstemp(dir=target_dir, prefix="backup_", suffix=".tmp")
+        os.close(fd)
+        try:
+            if is_archive(target_filepath):
+                write_archive(temporary, self._data, self.attachments_dir)
+            else:
+                with open(temporary, "w", encoding="utf-8") as handle:
+                    json.dump(self._data, handle, ensure_ascii=False, indent=2)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+            os.replace(temporary, target_filepath)
+        finally:
+            if os.path.exists(temporary):
+                os.remove(temporary)
 
     def create_pre_update_backup(self) -> str:
         """Create an automatic timestamped backup of all user data before updating."""
-        backup_name = f"storage.pre_update_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        backup_name = f"storage.pre_update_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.workboxig"
         backup_path = os.path.join(self.base_dir, backup_name)
         self.export_full_backup(backup_path)
         return backup_path
 
     def import_full_backup(self, source_filepath: str) -> bool:
-        """Import and replace all application data from a JSON file."""
-        with open(source_filepath, "r", encoding="utf-8") as f:
-            new_data = json.load(f)
-        if isinstance(new_data, dict):
-            for key, val in DEFAULT_DATA.items():
-                if key not in new_data:
-                    new_data[key] = val
-            self._data = new_data
-            self.save_immediately()
-            self.data_changed.emit("all")
-            return True
-        return False
+        """Import a portable archive or legacy JSON backup."""
+        attachments = {}
+        if is_archive(source_filepath):
+            new_data, attachments = read_archive(source_filepath)
+        else:
+            with open(source_filepath, "r", encoding="utf-8") as f:
+                new_data = json.load(f)
+        try:
+            new_data = _validated_data(new_data, require_complete=True)
+        except ValueError:
+            return False
+        backup_path = os.path.join(
+            self.base_dir,
+            f"storage.pre_import_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.workboxig",
+        )
+        self.export_full_backup(backup_path)
+        restored_paths = []
+        try:
+            replacements = {}
+            for name, content in attachments.items():
+                new_path = os.path.join(self.attachments_dir, new_attachment_name(name))
+                restored_paths.append(new_path)
+                with open(new_path, "xb") as handle:
+                    handle.write(content)
+                replacements[name] = new_path
+            rewrite_attachment_urls(new_data, replacements)
+        except Exception:
+            for path in restored_paths:
+                if os.path.exists(path):
+                    os.remove(path)
+            raise
+        previous_data = self._data
+        self._data = new_data
+        if not self.save_immediately():
+            self._data = previous_data
+            for path in restored_paths:
+                os.remove(path)
+            return False
+        self.data_changed.emit("all")
+        return True
 
     # ==================== TASKS & HOMEWORK ====================
 
@@ -305,7 +372,8 @@ class StorageManager(QObject):
     def get_notes(self) -> List[Dict[str, Any]]:
         # Return sorted: pinned first, then by updated_at descending
         notes = self._data.get("notes", [])
-        return sorted(notes, key=lambda n: (not n.get("pinned", False), n.get("updated_at", "")), reverse=False)
+        newest_first = sorted(notes, key=lambda n: n.get("updated_at", ""), reverse=True)
+        return sorted(newest_first, key=lambda n: bool(n.get("pinned", False)), reverse=True)
 
     def add_note(self, title: str = "", content: str = "",
                  color: str = "#6366F1", tags: Optional[List[str]] = None) -> Dict[str, Any]:

@@ -20,7 +20,7 @@ function Show-Header {
 
 function Run-Tests {
     Write-Host "Running test suite..." -ForegroundColor Yellow
-    python -m unittest tests/test_app.py
+    python -m unittest discover -s tests -v
     if ($LASTEXITCODE -eq 0) {
         Write-Host "All tests passed cleanly!" -ForegroundColor Green
         return $true

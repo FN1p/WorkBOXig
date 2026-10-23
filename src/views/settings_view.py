@@ -512,8 +512,8 @@ class SettingsView(QWidget):
         path, _ = QFileDialog.getSaveFileName(
             self,
             t("backup_export_title"),
-            f"WorkBOXig_backup_{os.path.basename(self.storage.file_path)}",
-            "JSON Files (*.json)"
+            "WorkBOXig_backup.workboxig",
+            "WorkBOXig Backup (*.workboxig);;Legacy JSON (*.json)"
         )
         if path:
             try:
@@ -527,7 +527,7 @@ class SettingsView(QWidget):
             self,
             t("backup_import_title"),
             "",
-            "JSON Files (*.json)"
+            "WorkBOXig Backup (*.workboxig *.zip);;Legacy JSON (*.json)"
         )
         if path:
             confirm = QMessageBox.question(

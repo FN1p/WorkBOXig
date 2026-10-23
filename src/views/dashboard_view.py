@@ -906,14 +906,14 @@ class DashboardView(QWidget):
             cb.toggled.connect(lambda checked, tid=task_card["id"]: self._toggle_task(tid))
             r_layout.addWidget(cb)
 
-            t_lbl = QLabel(t.get("title", ""))
+            t_lbl = QLabel(task_card.get("title", ""))
             t_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
             t_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
             r_layout.addWidget(t_lbl, stretch=1)
 
             # Subject chip
-            if t.get("subject"):
-                subj_lbl = QLabel(t.get("subject"))
+            if task_card.get("subject"):
+                subj_lbl = QLabel(task_card.get("subject"))
                 subj_lbl.setFont(QFont("Segoe UI", 8))
                 subj_lbl.setStyleSheet(f"""
                     color: {COLORS['text_muted']};
@@ -923,9 +923,9 @@ class DashboardView(QWidget):
                 """)
                 r_layout.addWidget(subj_lbl)
 
-            d_lbl = QLabel(t.get('due_date', ''))
+            d_lbl = QLabel(task_card.get('due_date', ''))
             d_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
-            d_lbl.setStyleSheet(f"color: {COLORS['amber'] if t.get('due_date') == today_iso else COLORS['text_muted']};")
+            d_lbl.setStyleSheet(f"color: {COLORS['amber'] if task_card.get('due_date') == today_iso else COLORS['text_muted']};")
             r_layout.addWidget(d_lbl)
 
             self.today_tasks_layout.addWidget(row)

@@ -88,7 +88,7 @@ class CommandPalette(QDialog):
         self.card = QFrame()
         self.card.setStyleSheet(f"""
             QFrame {{
-                background-color: #131722;
+                background-color: {COLORS['bg_popup']};
                 border: 1px solid {COLORS['border_light']};
                 border-radius: 14px;
             }}
@@ -116,6 +116,7 @@ class CommandPalette(QDialog):
 
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText(t("palette_placeholder"))
+        self.input_field.setAccessibleName(t("palette_placeholder"))
         self.input_field.setFont(QFont("Segoe UI", 12))
         self.input_field.setStyleSheet(f"""
             QLineEdit {{

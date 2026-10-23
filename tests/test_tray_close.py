@@ -30,10 +30,11 @@ class TestTrayAndCloseAction(unittest.TestCase):
         self.storage = StorageManager(storage_dir=self.test_dir)
 
     def tearDown(self):
+        self.storage._debounce_timer.stop()
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
-    def test_version_is_1_1_5(self):
-        self.assertEqual(__version__, "1.1.5")
+    def test_version_uses_semantic_format(self):
+        self.assertRegex(__version__, r"^\d+\.\d+\.\d+$")
 
     def test_close_dialog_tray_selection(self):
         dialog = CloseActionDialog()

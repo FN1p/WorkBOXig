@@ -12,7 +12,7 @@
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green.svg?logo=qt&logoColor=white)](https://www.riverbankcomputing.com/software/pyqt/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://microsoft.com)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-25%20Passing-brightgreen.svg)]()
+[![Windows checks](https://github.com/FN1p/WorkBOXig/actions/workflows/windows.yml/badge.svg)](https://github.com/FN1p/WorkBOXig/actions/workflows/windows.yml)
 
 **WorkBOXig** — это современная, быстрая и эстетичная рабочая среда для учёбы, проектов и повседневной продуктивности. Программа объединяет недельное расписание, тетради с конспектами, трекер задач, таймер Pomodoro, нативные уведомления Windows, двуязычный интерфейс (RU / EN) и Spotlight Command Palette (`Ctrl+K`).
 
@@ -45,6 +45,11 @@
 - Фильтрация по статусу, предмету и срочности (*Срочно*, *Высокий*, *Обычный*).
 - Автоматический подсчёт оставшегося времени до дедлайна.
 - Быстрый ввод задач прямо из интерфейса или через Command Palette.
+- В строке быстрого ввода можно написать `Сдать отчёт @2026-10-28 !high` и нажать Enter.
+
+### 💾 Переносимые резервные копии
+- Экспорт `.workboxig` в настройках сохраняет данные и изображения конспектов в одном файле.
+- Перед импортом программа сохраняет текущее состояние. Старые копии `.json` тоже можно импортировать.
 
 ### ⏱ Таймер фокуса Pomodoro
 - Встроенный в верхнюю панель таймер фокуса (25 минут работы / 5 минут отдыха).
@@ -193,7 +198,7 @@ WorkBOXig/
 Проект покрыт автоматическими тестами:
 
 ```bash
-python -m unittest tests/test_app.py
+python -m unittest discover -s tests -v
 ```
 
 ---

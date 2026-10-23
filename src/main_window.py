@@ -343,6 +343,9 @@ class MainWindow(QMainWindow):
             from src.utils.google_calendar import GoogleCalendarSyncWorker
             self._startup_google_sync_thread = GoogleCalendarSyncWorker(cal_url, self.storage, parent=self)
             self._startup_google_sync_thread.sync_finished.connect(self._on_startup_google_sync_finished)
+            self._startup_google_sync_thread.sync_error.connect(
+                lambda error: self.show_toast(t("google_sync_fail", error=error), level="warning")
+            )
             self._startup_google_sync_thread.start()
 
     def _on_startup_google_sync_finished(self, added: int, updated: int, total: int):
@@ -589,6 +592,8 @@ class MainWindow(QMainWindow):
             self.quick_add_btn.setIcon(get_icon("plus", btn_fg, 12))
         if hasattr(self, "dashboard_view"):
             self.dashboard_view.refresh_theme()
+        if hasattr(self, "tasks_view"):
+            self.tasks_view.refresh_theme()
         if hasattr(self, "calendar_view"):
             self.calendar_view.refresh_theme()
         if hasattr(self, "settings_view"):
@@ -602,6 +607,8 @@ class MainWindow(QMainWindow):
         self._switch_page(tab_id)
 
     def _show_toast(self, message: str, level: str = "success", icon_type: str = ""):
+        if icon_type:
+            level = {"check": "success", "zap": "info", "warning": "warning", "close": "error"}.get(icon_type, level)
         self.toast.show_message(message, level)
 
     show_toast = _show_toast
@@ -800,5 +807,8 @@ class MainWindow(QMainWindow):
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
         self.search_btn.setText(t("search_placeholder"))
         self.quick_add_btn.setToolTip(t("quick_add"))
+        self.tasks_view.quick_task_input.setPlaceholderText(t("quick_task_placeholder"))
+        self.tasks_view.quick_task_input.setAccessibleName(t("quick_task_accessible"))
+        self.tasks_view.quick_task_input.setToolTip(t("quick_task_hint"))
         cur_tab = self.sidebar.current_tab if hasattr(self.sidebar, "current_tab") else "dashboard"
         self._switch_page(cur_tab)

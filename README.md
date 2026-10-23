@@ -12,7 +12,7 @@
 [![PyQt6](https://img.shields.io/badge/GUI-PyQt6-green.svg?logo=qt&logoColor=white)](https://www.riverbankcomputing.com/software/pyqt/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows&logoColor=white)](https://microsoft.com)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-25%20Passing-brightgreen.svg)]()
+[![Windows checks](https://github.com/FN1p/WorkBOXig/actions/workflows/windows.yml/badge.svg)](https://github.com/FN1p/WorkBOXig/actions/workflows/windows.yml)
 
 **WorkBOXig** is a modern, high-performance, and aesthetically crafted desktop workspace engineered for academics, projects, and personal productivity. Built with PyQt6, it unifies an interactive timetable with real-time tracking, hierarchical notebooks, an assignment and task manager, a Pomodoro focus suite with Zen mode, native Windows desktop alerts, bilingual localization (EN / RU), and a Raycast-style Spotlight Command Palette (`Ctrl+K`).
 
@@ -45,6 +45,11 @@
 - **Multi-Level Priority Matrix**: Categorize items as *Urgent/High*, *Medium*, or *Low* with visual glowing pills.
 - **Smart Deadline Countdown**: Real-time calculation of remaining days and hours until submission.
 - **Instant Filtering**: Filter by status (*All*, *In Progress*, *Completed*) or subject tags.
+- **Quick Entry**: Type `Finish report @2026-10-28 !high` and press Enter to create a dated task.
+
+### 💾 Portable Backups
+- Export a `.workboxig` archive from Settings to include notebook images and data in one file.
+- Importing an archive automatically saves the current state first. Older data-only `.json` backups remain importable.
 
 ### ⏱ Pomodoro Focus Engine & Zen Mode
 - **Persistent Header Capsule**: Integrated 25-minute focus and 5-minute break timers.
@@ -194,7 +199,7 @@ WorkBOXig/
 WorkBOXig features automated unit and integration tests covering data serialization, UI layout lifecycle, calendar export, i18n formatting, and painter rendering:
 
 ```bash
-python -m unittest tests/test_app.py
+python -m unittest discover -s tests -v
 ```
 
 ---

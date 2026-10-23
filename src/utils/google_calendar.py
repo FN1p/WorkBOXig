@@ -9,9 +9,10 @@ import re
 import uuid
 import urllib.request
 import urllib.error
+import copy
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Tuple, Optional
-from PyQt6.QtCore import QThread, pyqtSignal, QObject
+from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot, QObject
 
 from src.storage import StorageManager
 
@@ -146,7 +147,15 @@ def fetch_and_sync_google_calendar(
     Fetch live iCal feed from Google and merge into StorageManager.
     Returns (added_count, updated_count, total_count).
     """
+    clean_url, parsed_events = fetch_calendar_events(url, timeout)
+    return merge_google_calendar_events(storage, clean_url, parsed_events)
+
+
+def fetch_calendar_events(url: str, timeout: int = 15) -> Tuple[str, List[Dict[str, Any]]]:
+    """Download and parse the feed without touching Qt or application storage."""
     clean_url = normalize_calendar_url(url)
+    if not clean_url.startswith("https://"):
+        raise ValueError("Calendar URL must use HTTPS")
     req = urllib.request.Request(
         clean_url,
         headers={"User-Agent": "WorkBOXig-CalendarSync/1.0 (Windows NT 10.0; Win64; x64)"}
@@ -165,10 +174,17 @@ def fetch_and_sync_google_calendar(
     parsed_events = parse_ical_events(ics_content)
     if not parsed_events:
         raise ValueError("В календаре не найдено событий или неверный формат ссылки.")
+    return clean_url, parsed_events
+
+
+def merge_google_calendar_events(
+    storage: StorageManager, clean_url: str, parsed_events: List[Dict[str, Any]]
+) -> Tuple[int, int, int]:
+    """Merge a parsed feed on the thread that owns StorageManager."""
 
     added = 0
     updated = 0
-    existing_events = storage.get_events()
+    existing_events = copy.deepcopy(storage.get_events())
     existing_by_uid = {
         e.get("google_uid"): e for e in existing_events if e.get("google_uid")
     }
@@ -178,25 +194,27 @@ def fetch_and_sync_google_calendar(
         if g_uid in existing_by_uid:
             # Update existing event in-place
             target = existing_by_uid[g_uid]
-            target["title"] = p["title"]
-            target["subject"] = p["subject"]
-            target["description"] = p["description"]
-            target["date"] = p["date"]
-            target["time"] = p["time"]
-            target["end_time"] = p["end_time"]
-            target["room"] = p["room"]
-            updated += 1
+            fields = ("title", "subject", "description", "date", "time", "end_time", "room")
+            if any(target.get(field) != p.get(field) for field in fields):
+                target.update({field: p[field] for field in fields})
+                updated += 1
         else:
             # Add new synced event
             new_evt = dict(p)
             new_evt["id"] = str(uuid.uuid4())
             existing_events.append(new_evt)
+            existing_by_uid[g_uid] = new_evt
             added += 1
 
     # Record sync metadata and persist immediately
-    storage.set_setting("google_calendar_url", clean_url)
-    storage.set_setting("google_calendar_last_sync", datetime.now().isoformat())
-    storage.save_immediately()
+    previous = storage._data
+    storage._data = copy.deepcopy(previous)
+    storage._data["calendar_events"] = existing_events
+    storage._data.setdefault("settings", {})["google_calendar_url"] = clean_url
+    storage._data["settings"]["google_calendar_last_sync"] = datetime.now().isoformat()
+    if not storage.save_immediately():
+        storage._data = previous
+        raise OSError("Could not save calendar events")
     storage.data_changed.emit("events")
 
     return added, updated, len(parsed_events)
@@ -206,15 +224,25 @@ class GoogleCalendarSyncWorker(QThread):
     """Background thread to perform Google Calendar synchronization without freezing UI."""
     sync_finished = pyqtSignal(int, int, int)  # added, updated, total
     sync_error = pyqtSignal(str)
+    events_ready = pyqtSignal(str, list)
 
     def __init__(self, url: str, storage: StorageManager, parent: Optional[QObject] = None):
         super().__init__(parent)
         self.url = url
         self.storage = storage
+        self.events_ready.connect(self._apply_events)
+
+    @pyqtSlot(str, list)
+    def _apply_events(self, clean_url: str, events: list):
+        try:
+            added, updated, total = merge_google_calendar_events(self.storage, clean_url, events)
+            self.sync_finished.emit(added, updated, total)
+        except Exception as exc:
+            self.sync_error.emit(str(exc))
 
     def run(self):
         try:
-            added, updated, total = fetch_and_sync_google_calendar(self.url, self.storage)
-            self.sync_finished.emit(added, updated, total)
+            clean_url, events = fetch_calendar_events(self.url)
+            self.events_ready.emit(clean_url, events)
         except Exception as e:
             self.sync_error.emit(str(e))

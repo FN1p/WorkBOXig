@@ -17,6 +17,7 @@ from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
 from src.i18n import t
 from src.utils.shortcuts import clear_layout
+from src.utils.quick_task import parse_quick_task
 
 
 def get_priority_config(priority: str) -> dict:
@@ -39,7 +40,8 @@ class TaskDialog(QDialog):
     def __init__(self, existing_task=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("task_edit_title") if existing_task else t("task_new_title"))
-        self.setFixedSize(520, 580)
+        self.resize(520, 580)
+        self.setMinimumSize(480, 520)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['bg_card']};
@@ -211,6 +213,7 @@ class TaskItemWidget(QFrame):
         # Checkbox
         self.cb = QCheckBox()
         self.cb.setChecked(is_done)
+        self.cb.setAccessibleName(f"{t('task_stat_done')}: {task.get('title', '')}")
         self.cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.cb.toggled.connect(lambda: self.toggled.emit(self.task_id))
         layout.addWidget(self.cb)
@@ -325,8 +328,9 @@ class TaskItemWidget(QFrame):
         edit_btn = QPushButton()
         edit_btn.setIcon(get_icon("edit", "#CBD5E1", 16))
         edit_btn.setIconSize(QSize(16, 16))
-        edit_btn.setFixedSize(32, 32)
+        edit_btn.setFixedSize(36, 36)
         edit_btn.setToolTip(t("edit"))
+        edit_btn.setAccessibleName(f"{t('edit')}: {task.get('title', '')}")
         edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         edit_btn.setStyleSheet(f"""
             QPushButton {{
@@ -347,8 +351,9 @@ class TaskItemWidget(QFrame):
         del_btn = QPushButton()
         del_btn.setIcon(get_icon("trash", "#F87171", 16))
         del_btn.setIconSize(QSize(16, 16))
-        del_btn.setFixedSize(32, 32)
+        del_btn.setFixedSize(36, 36)
         del_btn.setToolTip(t("delete"))
+        del_btn.setAccessibleName(f"{t('delete')}: {task.get('title', '')}")
         del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         del_btn.setStyleSheet(f"""
             QPushButton {{
@@ -435,6 +440,14 @@ class TasksView(QWidget):
 
         main_layout.addLayout(row1_layout)
 
+        self.quick_task_input = QLineEdit()
+        self.quick_task_input.setPlaceholderText(t("quick_task_placeholder"))
+        self.quick_task_input.setAccessibleName(t("quick_task_accessible"))
+        self.quick_task_input.setToolTip(t("quick_task_hint"))
+        self.quick_task_input.textChanged.connect(lambda: self.quick_task_input.setStyleSheet(""))
+        self.quick_task_input.returnPressed.connect(self._add_quick_task)
+        main_layout.addWidget(self.quick_task_input)
+
         # Row 2: Subject Filter, Clear Done, & Instant Search
         row2_layout = QHBoxLayout()
         row2_layout.setSpacing(12)
@@ -503,6 +516,7 @@ class TasksView(QWidget):
 
         top = QHBoxLayout()
         icon_lbl = QLabel()
+        icon_lbl.setObjectName("stat_icon")
         icon_lbl.setPixmap(get_pixmap(icon_name, color_hex, 18))
         icon_lbl.setStyleSheet("background: transparent;")
         top.addWidget(icon_lbl)
@@ -516,10 +530,37 @@ class TasksView(QWidget):
         l.addLayout(top)
 
         t_lbl = QLabel(title)
+        t_lbl.setObjectName("stat_title")
         t_lbl.setFont(QFont("Segoe UI", 9))
         t_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
         l.addWidget(t_lbl)
         return card
+
+    def refresh_theme(self):
+        """Rebuild styles captured when task cards were first created."""
+        for card, icon_name, color in (
+            (self.card_total, "tasks", COLORS['primary_light']),
+            (self.card_pending, "clock", COLORS['sky']),
+            (self.card_today, "alert_circle", COLORS['amber']),
+            (self.card_done, "check_circle", COLORS['emerald']),
+        ):
+            card.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {COLORS['bg_card']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 12px;
+                    padding: 12px;
+                }}
+            """)
+            card.findChild(QLabel, "stat_icon").setPixmap(get_pixmap(icon_name, color, 18))
+            card.findChild(QLabel, "stat_value").setStyleSheet(
+                f"color: {color}; background: transparent; padding-left: 6px;"
+            )
+            card.findChild(QLabel, "stat_title").setStyleSheet(
+                f"color: {COLORS['text_muted']}; background: transparent;"
+            )
+        self._style_filter_buttons()
+        self._render_tasks()
 
     def _style_filter_buttons(self):
         for fid, btn in self.filter_buttons.items():
@@ -664,6 +705,19 @@ class TasksView(QWidget):
             )
             self._update_subject_dropdown()
             self._render_tasks()
+
+    def _add_quick_task(self):
+        try:
+            task_data = parse_quick_task(self.quick_task_input.text())
+        except ValueError:
+            self.quick_task_input.setToolTip(t("quick_task_invalid"))
+            self.quick_task_input.setStyleSheet(f"border: 1px solid {COLORS['rose']};")
+            self.quick_task_input.setFocus()
+            return
+        self.storage.add_task(**task_data)
+        self.quick_task_input.clear()
+        self.quick_task_input.setToolTip(t("quick_task_hint"))
+        self._set_filter("all")
 
     def _on_task_edited(self, task_id: str):
         task = next((task_item for task_item in self.storage.get_tasks() if task_item["id"] == task_id), None)

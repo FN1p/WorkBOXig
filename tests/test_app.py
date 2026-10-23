@@ -8,12 +8,18 @@ import os
 import unittest
 import tempfile
 import shutil
+import json
+import zipfile
+from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import url2pathname
+from unittest.mock import patch
 from datetime import date, timedelta
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QFrame
 from PyQt6.QtCore import QDate
 from src.storage import StorageManager, set_storage_instance
 from src.main_window import MainWindow
@@ -31,6 +37,7 @@ class TestStorage(unittest.TestCase):
         self.storage = StorageManager(storage_dir=self.test_dir)
 
     def tearDown(self):
+        self.storage._debounce_timer.stop()
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_default_data_populated(self):
@@ -40,6 +47,73 @@ class TestStorage(unittest.TestCase):
         self.assertIn("calendar_events", self.storage._data)
         self.assertEqual(len(self.storage.get_notebooks()), 0)
         self.assertEqual(len(self.storage.get_tasks()), 0)
+
+    def test_invalid_backup_does_not_replace_data(self):
+        self.storage.add_note(title="Keep me")
+        backup = os.path.join(self.test_dir, "invalid.json")
+        invalid_data = json.loads(json.dumps(self.storage._data))
+        invalid_data["notes"] = "not a list"
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump(invalid_data, handle)
+        self.assertFalse(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Keep me")
+
+    def test_empty_backup_does_not_erase_data(self):
+        self.storage.add_note(title="Keep me")
+        backup = os.path.join(self.test_dir, "empty.json")
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump({}, handle)
+        self.assertFalse(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Keep me")
+
+    def test_import_saves_previous_data_before_replacing_it(self):
+        self.storage.add_note(title="Previous note")
+        backup = os.path.join(self.test_dir, "import.json")
+        imported_data = json.loads(json.dumps(self.storage._data))
+        imported_data["notes"] = [{"id": "new", "title": "Imported note"}]
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump(imported_data, handle)
+        self.assertTrue(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Imported note")
+        snapshots = [name for name in os.listdir(self.test_dir) if name.startswith("storage.pre_import_")]
+        self.assertEqual(len(snapshots), 1)
+        with zipfile.ZipFile(os.path.join(self.test_dir, snapshots[0])) as archive:
+            previous = json.loads(archive.read("storage.json"))
+        self.assertEqual(previous["notes"][0]["title"], "Previous note")
+
+    def test_portable_backup_restores_notebook_image(self):
+        image_path = Path(self.storage.get_attachments_dir(), "image.png")
+        image_path.write_bytes(b"image data")
+        notebook = self.storage.add_notebook("Images")
+        notebook["pages"][0]["content_html"] = f'<img src="{image_path.as_uri()}">'
+        archive_path = os.path.join(self.test_dir, "portable.workboxig")
+        self.storage.export_full_backup(archive_path)
+        image_path.unlink()
+        self.assertTrue(self.storage.import_full_backup(archive_path))
+        html = self.storage.get_notebooks()[0]["pages"][0]["content_html"]
+        self.assertNotIn(image_path.as_uri(), html)
+        restored_name = html.split('src="')[1].split('"')[0]
+        self.assertEqual(Path(url2pathname(urlparse(restored_name).path)).read_bytes(), b"image data")
+
+    def test_failed_import_keeps_previous_data_and_cleans_temp_file(self):
+        self.storage.add_note(title="Previous note")
+        self.storage.save_immediately()
+        backup = os.path.join(self.test_dir, "import.json")
+        imported_data = json.loads(json.dumps(self.storage._data))
+        imported_data["notes"] = []
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump(imported_data, handle)
+        real_replace = os.replace
+
+        def fail_storage_write(source, destination):
+            if destination == self.storage.file_path:
+                raise OSError("disk error")
+            return real_replace(source, destination)
+
+        with patch("src.storage.os.replace", side_effect=fail_storage_write):
+            self.assertFalse(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Previous note")
+        self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(self.test_dir)))
 
     def test_task_crud(self):
         t = self.storage.add_task(title="Тестовая задача", subject="Тест", priority="urgent")
@@ -86,6 +160,16 @@ class TestStorage(unittest.TestCase):
         del_n = self.storage.delete_note(n["id"])
         self.assertTrue(del_n)
 
+    def test_notes_are_sorted_pinned_first_and_newest_first(self):
+        old = self.storage.add_note(title="Old")
+        new = self.storage.add_note(title="New")
+        pinned = self.storage.add_note(title="Pinned")
+        old["updated_at"] = "2025-01-01T00:00:00"
+        new["updated_at"] = "2026-01-01T00:00:00"
+        pinned["updated_at"] = "2024-01-01T00:00:00"
+        pinned["pinned"] = True
+        self.assertEqual([note["title"] for note in self.storage.get_notes()], ["Pinned", "New", "Old"])
+
     def test_events(self):
         evt = self.storage.add_event(title="Экзамен", date_str="2026-11-01", time_str="09:00")
         self.assertEqual(evt["title"], "Экзамен")
@@ -104,6 +188,7 @@ class TestUIWidgets(unittest.TestCase):
         self.window.close()
         self.window.deleteLater()
         app.processEvents()
+        self.mock_storage._debounce_timer.stop()
         set_storage_instance(None)
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
@@ -113,6 +198,19 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("notebooks", self.window.views)
         self.assertIn("notes", self.window.views)
         self.assertIn("tasks", self.window.views)
+
+    def test_dashboard_renders_existing_task(self):
+        self.mock_storage.add_task("Finish report", due_date="2026-10-28")
+        self.window.dashboard_view._refresh_all()
+        self.assertEqual(self.window.dashboard_view.today_tasks_layout.count(), 1)
+
+    def test_task_cards_follow_theme_switch(self):
+        self.mock_storage.add_task("Finish report", due_date="2026-10-28")
+        self.window._apply_theme("light")
+        self.assertIn("#FFFFFF", self.window.tasks_view.card_total.styleSheet())
+        cards = self.window.tasks_view.findChildren(QFrame, "taskCard")
+        self.assertEqual(len(cards), 1)
+        self.assertIn("#FFFFFF", cards[0].styleSheet())
 
     def test_navigation_switching(self):
         for tab_id in ["calendar", "notebooks", "notes", "tasks", "dashboard"]:
@@ -306,12 +404,14 @@ class TestUIWidgets(unittest.TestCase):
         # Switch to English
         settings._select_language("en")
         self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Dashboard")
+        self.assertIn("Quick task", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Calendar")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Settings")
         
         # Switch back to Russian
         settings._select_language("ru")
         self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Дашборд")
+        self.assertIn("Быстрая задача", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
 

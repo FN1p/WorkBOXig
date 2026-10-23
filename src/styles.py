@@ -258,6 +258,9 @@ QPushButton:hover {{
 QPushButton:pressed {{
     background-color: {c['bg_card_selected']};
 }}
+QPushButton:focus, QPushButton#primary-btn:focus, QPushButton#ghost-btn:focus {{
+    border: 2px solid {c['border_focus']};
+}}
 QPushButton:disabled {{
     background-color: {c['bg_input']};
     color: {c['text_dim']};
@@ -284,7 +287,6 @@ QPushButton#danger-btn {{
     color: {danger_fg};
     border: 1px solid {c['rose']};
     border-radius: 8px;
-}}
 }}
 QPushButton#danger-btn:hover {{
     background-color: {c['rose']};

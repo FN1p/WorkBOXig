@@ -31,6 +31,7 @@ class TestMiniWidget(unittest.TestCase):
         self.widget = DesktopMiniWidget(self.pomodoro)
 
     def tearDown(self):
+        self.storage._debounce_timer.stop()
         self.widget.close()
         self.pomodoro.timer.stop()
         set_storage_instance(None)

@@ -1,7 +1,7 @@
 """
-Floating Desktop Mini Widget for WorkBOXig (Authentic Spotify-Style HUD with Timeline).
+Floating Desktop Mini Widget for WorkBOXig (Focus HUD with Timeline).
 Always-on-top, draggable, acrylic/cyberpunk compact overlay featuring a horizontal
-track-progress timeline, live Pomodoro status, active task checkbox, and upcoming lesson countdown.
+progress timeline, live Pomodoro status, active task checkbox, and upcoming lesson countdown.
 """
 
 from datetime import datetime, date
@@ -21,7 +21,7 @@ from src.components.pomodoro import PomodoroManager
 
 
 class DesktopMiniWidget(QWidget):
-    """Spotify-style floating desktop widget with audio/focus progress timeline."""
+    """Floating desktop widget with audio/focus progress timeline."""
     expand_requested = pyqtSignal()
 
     def __init__(self, pomodoro_manager: PomodoroManager, parent=None):
@@ -36,7 +36,7 @@ class DesktopMiniWidget(QWidget):
         # Frameless, Always on Top, Tool window
         self._apply_window_flags()
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setWindowTitle("WorkBOXig Spotify HUD")
+        self.setWindowTitle("WorkBOXig Focus HUD")
 
         self._init_ui()
         self._connect_signals()
@@ -75,7 +75,7 @@ class DesktopMiniWidget(QWidget):
         card_vbox.setContentsMargins(14, 10, 14, 10)
         card_vbox.setSpacing(8)
 
-        # ================= ROW 1: SPOTIFY TRACK INFO & CONTROLS =================
+        # ================= ROW 1: TASK INFO & CONTROLS =================
         top_row = QHBoxLayout()
         top_row.setSpacing(12)
 
@@ -187,7 +187,7 @@ class DesktopMiniWidget(QWidget):
         top_row.addLayout(ctrl_row)
         card_vbox.addLayout(top_row)
 
-        # ================= ROW 2: SPOTIFY TRACK PROGRESS TIMELINE =================
+        # ================= ROW 2: PROGRESS TIMELINE =================
         self.timeline_row = QHBoxLayout()
         self.timeline_row.setSpacing(8)
         self.timeline_row.setAlignment(Qt.AlignmentFlag.AlignVCenter)
@@ -307,7 +307,7 @@ class DesktopMiniWidget(QWidget):
         total_time = self.pomodoro.FOCUS_TIME if mode == "focus" else self.pomodoro.BREAK_TIME
         elapsed = max(0, total_time - time_left)
 
-        # Update Spotify timeline labels and progress
+        # Update timeline labels and progress
         self.elapsed_lbl.setText(self.pomodoro._format_time(elapsed))
         self.time_lbl.setText(self.pomodoro._format_time(time_left))
 

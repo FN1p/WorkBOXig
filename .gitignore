@@ -22,10 +22,13 @@ data/
 *.sqlite3
 backup_*.json
 workboxig_backup_*.json
+*.workboxig
 
 # Virtual Environments
 venv/
 .venv/
+.deps/
+.release-smoke/
 env/
 ENV/
 env.bak/
