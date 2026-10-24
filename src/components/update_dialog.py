@@ -5,6 +5,7 @@ and real-time download and installation progress.
 """
 
 import os
+from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QTextBrowser, QFrame, QWidget
