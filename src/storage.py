@@ -16,6 +16,15 @@ from src.version import __version__
 from src.utils.backup import is_archive, write_archive, read_archive, rewrite_attachment_urls, new_attachment_name
 
 
+DEFAULT_BELL_SCHEDULE = [
+    {"number": 1, "start": "08:30", "end": "10:00"},
+    {"number": 2, "start": "10:15", "end": "11:45"},
+    {"number": 3, "start": "12:15", "end": "13:45"},
+    {"number": 4, "start": "14:00", "end": "15:30"},
+    {"number": 5, "start": "15:45", "end": "17:15"},
+    {"number": 6, "start": "17:25", "end": "18:55"},
+]
+
 DEFAULT_DATA = {
     "version": __version__,
     "settings": {
@@ -31,7 +40,8 @@ DEFAULT_DATA = {
     "notes": [],
     "tasks": [],
     "calendar_events": [],
-    "recurring_lessons": []
+    "recurring_lessons": [],
+    "bell_schedule": DEFAULT_BELL_SCHEDULE
 }
 
 
@@ -234,7 +244,8 @@ class StorageManager(QObject):
 
     def add_task(self, title: str, description: str = "", subject: str = "",
                  due_date: Optional[str] = None, due_time: str = "12:00",
-                 priority: str = "medium") -> Dict[str, Any]:
+                 priority: str = "medium", status: str = "todo",
+                 subtasks: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         task = {
             "id": str(uuid.uuid4()),
             "title": title.strip(),
@@ -243,8 +254,10 @@ class StorageManager(QObject):
             "due_date": due_date or date.today().isoformat(),
             "due_time": due_time or "12:00",
             "priority": priority,
-            "completed": False,
-            "completed_at": None,
+            "status": status,  # "todo", "in_progress", "done"
+            "subtasks": subtasks or [],  # [{"id": str, "title": str, "completed": bool}]
+            "completed": (status == "done"),
+            "completed_at": datetime.now().isoformat() if status == "done" else None,
             "created_at": datetime.now().isoformat()
         }
         self._data.setdefault("tasks", []).append(task)
@@ -256,18 +269,67 @@ class StorageManager(QObject):
             if task["id"] == task_id:
                 for k, v in kwargs.items():
                     task[k] = v
+                if "completed" in kwargs and "status" not in kwargs:
+                    task["status"] = "done" if kwargs["completed"] else "todo"
+                elif "status" in kwargs and "completed" not in kwargs:
+                    task["completed"] = (kwargs["status"] == "done")
+                    task["completed_at"] = datetime.now().isoformat() if task["completed"] else None
                 self.schedule_save("tasks")
                 return task
         return None
+
+    def update_task_status(self, task_id: str, new_status: str) -> Optional[Dict[str, Any]]:
+        """Update Kanban status: 'todo', 'in_progress', or 'done'."""
+        return self.update_task(task_id, status=new_status)
 
     def toggle_task(self, task_id: str) -> Optional[bool]:
         for task in self._data.get("tasks", []):
             if task["id"] == task_id:
                 task["completed"] = not task["completed"]
                 task["completed_at"] = datetime.now().isoformat() if task["completed"] else None
+                task["status"] = "done" if task["completed"] else "todo"
                 self.schedule_save("tasks")
                 return task["completed"]
         return None
+
+    def add_subtask(self, task_id: str, title: str) -> Optional[Dict[str, Any]]:
+        """Add a checklist subtask to a task."""
+        if not title.strip():
+            return None
+        for task in self._data.get("tasks", []):
+            if task["id"] == task_id:
+                sub = {
+                    "id": str(uuid.uuid4()),
+                    "title": title.strip(),
+                    "completed": False
+                }
+                task.setdefault("subtasks", []).append(sub)
+                self.schedule_save("tasks")
+                return sub
+        return None
+
+    def toggle_subtask(self, task_id: str, subtask_id: str) -> Optional[bool]:
+        """Toggle subtask completed status."""
+        for task in self._data.get("tasks", []):
+            if task["id"] == task_id:
+                for sub in task.get("subtasks", []):
+                    if sub["id"] == subtask_id:
+                        sub["completed"] = not sub.get("completed", False)
+                        self.schedule_save("tasks")
+                        return sub["completed"]
+        return None
+
+    def delete_subtask(self, task_id: str, subtask_id: str) -> bool:
+        """Delete a checklist subtask from a task."""
+        for task in self._data.get("tasks", []):
+            if task["id"] == task_id:
+                subs = task.get("subtasks", [])
+                before = len(subs)
+                task["subtasks"] = [s for s in subs if s["id"] != subtask_id]
+                if len(task["subtasks"]) < before:
+                    self.schedule_save("tasks")
+                    return True
+        return False
 
     def delete_task(self, task_id: str) -> bool:
         tasks = self._data.get("tasks", [])
@@ -427,7 +489,8 @@ class StorageManager(QObject):
     def add_event(self, title: str, date_str: str, time_str: str = "10:00",
                   end_time_str: str = "11:00", description: str = "",
                   color: str = "#6366F1", event_type: str = "lesson",
-                  subject: str = "", badge: str = "", room: str = "") -> Dict[str, Any]:
+                  subject: str = "", badge: str = "", room: str = "",
+                  week_parity: str = "all", lesson_number: Optional[int] = None) -> Dict[str, Any]:
         evt = {
             "id": str(uuid.uuid4()),
             "title": title.strip() or t("cal_badge_lesson"),
@@ -439,7 +502,9 @@ class StorageManager(QObject):
             "color": color,
             "type": event_type,
             "badge": badge.strip(),
-            "room": room.strip()
+            "room": room.strip(),
+            "week_parity": week_parity,  # "all", "odd", "even"
+            "lesson_number": lesson_number
         }
         self._data.setdefault("calendar_events", []).append(evt)
         self.schedule_save("events")
@@ -472,7 +537,8 @@ class StorageManager(QObject):
 
     def add_recurring_lesson(self, title: str, weekday: int, time_str: str = "09:00",
                               end_time_str: str = "10:30", description: str = "",
-                              color: str = "#6366F1", badge: str = "", room: str = "") -> Dict[str, Any]:
+                              color: str = "#6366F1", badge: str = "", room: str = "",
+                              week_parity: str = "all", lesson_number: Optional[int] = None) -> Dict[str, Any]:
         """Add a recurring weekly lesson stored only with weekday (0=Mon..6=Sun), no specific date."""
         lesson = {
             "id": str(uuid.uuid4()),
@@ -484,7 +550,9 @@ class StorageManager(QObject):
             "color": color,
             "badge": badge.strip(),
             "room": room.strip(),
-            "recurring": True
+            "recurring": True,
+            "week_parity": week_parity,  # "all", "odd", "even"
+            "lesson_number": lesson_number
         }
         self._data.setdefault("recurring_lessons", []).append(lesson)
         self.schedule_save("recurring")
@@ -510,6 +578,17 @@ class StorageManager(QObject):
             self.schedule_save("recurring")
             return True
         return False
+
+    # ==================== BELL SCHEDULE (Сетка звонков) ====================
+
+    def get_bell_schedule(self) -> List[Dict[str, Any]]:
+        """Return list of pair slots (number, start, end)."""
+        return self._data.get("bell_schedule", DEFAULT_BELL_SCHEDULE)
+
+    def set_bell_schedule(self, schedule: List[Dict[str, Any]]) -> None:
+        """Update bell schedule and persist."""
+        self._data["bell_schedule"] = schedule
+        self.schedule_save("bell_schedule")
 
 
 # Global singleton instance provider

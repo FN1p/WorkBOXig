@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QProgressBar, QFrame,
     QDialog, QTextEdit, QDateEdit, QTimeEdit, QMessageBox, QScrollArea,
-    QGridLayout
+    QGridLayout, QButtonGroup, QStackedWidget
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QCursor, QIcon
@@ -119,8 +119,52 @@ class TaskDialog(QDialog):
         # Description
         self.desc_input = QTextEdit()
         self.desc_input.setPlaceholderText(t("task_desc_ph"))
-        self.desc_input.setFixedHeight(85)
+        self.desc_input.setFixedHeight(75)
         layout.addWidget(self.desc_input)
+
+        # Subtasks (Checklist)
+        sub_title_lbl = QLabel(t("subtasks_lbl"))
+        sub_title_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        sub_title_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        layout.addWidget(sub_title_lbl)
+
+        self.subtasks_container = QWidget()
+        self.subtasks_container.setStyleSheet("background: transparent;")
+        self.subtasks_layout = QVBoxLayout(self.subtasks_container)
+        self.subtasks_layout.setContentsMargins(0, 0, 0, 0)
+        self.subtasks_layout.setSpacing(4)
+        layout.addWidget(self.subtasks_container)
+
+        self.subtasks_data = []
+
+        add_sub_row = QHBoxLayout()
+        add_sub_row.setSpacing(6)
+        self.new_sub_input = QLineEdit()
+        self.new_sub_input.setFixedHeight(34)
+        self.new_sub_input.setPlaceholderText(t("subtask_add_ph"))
+        self.new_sub_input.returnPressed.connect(self._add_subtask_item)
+        add_sub_row.addWidget(self.new_sub_input)
+
+        add_sub_btn = QPushButton("+")
+        add_sub_btn.setFixedSize(34, 34)
+        add_sub_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        add_sub_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['primary_subtle']};
+                color: {COLORS['primary_light']};
+                border: 1px solid {COLORS['primary_border']};
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['primary']};
+                color: #FFFFFF;
+            }}
+        """)
+        add_sub_btn.clicked.connect(self._add_subtask_item)
+        add_sub_row.addWidget(add_sub_btn)
+        layout.addLayout(add_sub_row)
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -143,6 +187,8 @@ class TaskDialog(QDialog):
 
         if existing_task:
             self.title_input.setText(existing_task.get("title", ""))
+            self.subtasks_data = [dict(s) for s in existing_task.get("subtasks", [])]
+            self._render_subtask_rows()
             self.subj_input.setCurrentText(existing_task.get("subject", t("task_preset_general")))
             self.desc_input.setText(existing_task.get("description", ""))
             if existing_task.get("due_date"):
@@ -160,6 +206,47 @@ class TaskDialog(QDialog):
             if idx >= 0:
                 self.p_combo.setCurrentIndex(idx)
 
+    def _add_subtask_item(self):
+        text = self.new_sub_input.text().strip()
+        if not text:
+            return
+        import uuid
+        self.subtasks_data.append({
+            "id": str(uuid.uuid4()),
+            "title": text,
+            "completed": False
+        })
+        self.new_sub_input.clear()
+        self._render_subtask_rows()
+
+    def _render_subtask_rows(self):
+        clear_layout(self.subtasks_layout)
+        for idx, sub in enumerate(self.subtasks_data):
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            cb = QCheckBox(sub.get("title", ""))
+            cb.setChecked(sub.get("completed", False))
+            cb.setStyleSheet("color: " + COLORS['text_primary'] + ";")
+            cb.toggled.connect(lambda checked, i=idx: self._toggle_subtask_at(i, checked))
+            row.addWidget(cb, stretch=1)
+
+            del_btn = QPushButton("✕")
+            del_btn.setFixedSize(22, 22)
+            del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            del_btn.setStyleSheet("QPushButton { background: transparent; color: " + COLORS['text_muted'] + "; border: none; font-size: 11px; } QPushButton:hover { color: " + COLORS['rose'] + "; }")
+            del_btn.clicked.connect(lambda ch, i=idx: self._remove_subtask_at(i))
+            row.addWidget(del_btn)
+            self.subtasks_layout.addLayout(row)
+
+    def _toggle_subtask_at(self, idx: int, completed: bool):
+        if 0 <= idx < len(self.subtasks_data):
+            self.subtasks_data[idx]["completed"] = completed
+
+    def _remove_subtask_at(self, idx: int):
+        if 0 <= idx < len(self.subtasks_data):
+            self.subtasks_data.pop(idx)
+            self._render_subtask_rows()
+
     def _validate_and_save(self):
         if not self.title_input.text().strip():
             self.title_input.setFocus()
@@ -174,7 +261,8 @@ class TaskDialog(QDialog):
             "description": self.desc_input.toPlainText().strip(),
             "due_date": self.date_edit.date().toString(Qt.DateFormat.ISODate),
             "due_time": self.time_edit.time().toString("HH:mm"),
-            "priority": self.p_combo.currentData()
+            "priority": self.p_combo.currentData(),
+            "subtasks": self.subtasks_data
         }
 
 
@@ -316,6 +404,22 @@ class TaskItemWidget(QFrame):
         """)
         meta_row.addWidget(date_badge)
 
+        # Subtasks progress pill
+        subtasks = task.get("subtasks", [])
+        if subtasks:
+            sub_count = len(subtasks)
+            sub_done = sum(1 for s in subtasks if s.get("completed"))
+            sub_lbl = QLabel(f"☑ {sub_done}/{sub_count}")
+            sub_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+            sub_lbl.setStyleSheet(f"""
+                background-color: {COLORS['bg_input']};
+                color: {COLORS['emerald'] if sub_done == sub_count else COLORS['sky']};
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 6px;
+                padding: 3px 8px;
+            """)
+            meta_row.addWidget(sub_lbl)
+
         meta_row.addStretch()
         info_layout.addLayout(meta_row)
 
@@ -374,6 +478,211 @@ class TaskItemWidget(QFrame):
         layout.addLayout(actions_layout)
 
 
+
+class KanbanTaskCard(QFrame):
+    """Compact task card for Kanban columns."""
+    toggled = pyqtSignal(str)
+    status_changed = pyqtSignal(str, str) # task_id, new_status
+    deleted = pyqtSignal(str)
+    edited = pyqtSignal(str)
+
+    def __init__(self, task: dict, parent=None):
+        super().__init__(parent)
+        self.task_id = task["id"]
+        status = task.get("status", "done" if task.get("completed") else "todo")
+        p_cfg = get_priority_config(task.get("priority", "medium"))
+
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-left: 4px solid {p_cfg['color']};
+                border-radius: 8px;
+            }}
+            QFrame:hover {{
+                border-color: {COLORS['primary_border']};
+                background-color: {COLORS['bg_card_hover']};
+            }}
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setSpacing(8)
+
+        # Header: Subject pill + actions
+        top_row = QHBoxLayout()
+        top_row.setSpacing(6)
+
+        subj_lbl = QLabel(f"#{task.get('subject', t('task_default_subj'))}")
+        subj_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Medium))
+        subj_lbl.setStyleSheet(f"""
+            background-color: {COLORS['primary_subtle']};
+            color: {COLORS['primary_light']};
+            border-radius: 4px;
+            padding: 1px 6px;
+        """)
+        top_row.addWidget(subj_lbl)
+        top_row.addStretch()
+
+        edit_btn = QPushButton()
+        edit_btn.setIcon(get_icon("edit", COLORS['text_muted'], 12))
+        edit_btn.setIconSize(QSize(12, 12))
+        edit_btn.setFixedSize(22, 22)
+        edit_btn.setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(255,255,255,0.1); }")
+        edit_btn.clicked.connect(lambda: self.edited.emit(self.task_id))
+        top_row.addWidget(edit_btn)
+
+        del_btn = QPushButton()
+        del_btn.setIcon(get_icon("close", COLORS['text_muted'], 12))
+        del_btn.setIconSize(QSize(12, 12))
+        del_btn.setFixedSize(22, 22)
+        del_btn.setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(239, 68, 68, 0.25); }")
+        del_btn.clicked.connect(lambda: self.deleted.emit(self.task_id))
+        top_row.addWidget(del_btn)
+
+        layout.addLayout(top_row)
+
+        # Title
+        title_lbl = QLabel(task.get("title", ""))
+        title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        title_lbl.setWordWrap(True)
+        if status == "done":
+            title_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; text-decoration: line-through; background: transparent;")
+        else:
+            title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
+        layout.addWidget(title_lbl)
+
+        # Meta: Deadline & Subtasks
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(6)
+
+        due_date_str = task.get("due_date", "")
+        if due_date_str:
+            d_lbl = QLabel(f"📅 {due_date_str}")
+            d_lbl.setFont(QFont("Segoe UI", 7))
+            d_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
+            meta_row.addWidget(d_lbl)
+
+        subtasks = task.get("subtasks", [])
+        if subtasks:
+            sub_done = sum(1 for s in subtasks if s.get("completed"))
+            s_lbl = QLabel(f"☑ {sub_done}/{len(subtasks)}")
+            s_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
+            s_lbl.setStyleSheet(f"color: {COLORS['sky']}; background: transparent;")
+            meta_row.addWidget(s_lbl)
+
+        meta_row.addStretch()
+        layout.addLayout(meta_row)
+
+        # Action move buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        if status == "todo":
+            move_btn = QPushButton("→ В процесс")
+            move_btn.setFixedHeight(24)
+            move_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            move_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_input']};
+                    color: {COLORS['sky']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 4px;
+                    font-size: 10px;
+                    padding: 2px 8px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(56, 189, 248, 0.15);
+                    border-color: {COLORS['sky']};
+                }}
+            """)
+            move_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "in_progress"))
+            btn_row.addWidget(move_btn)
+
+            done_btn = QPushButton("✓ Готово")
+            done_btn.setFixedHeight(24)
+            done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            done_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_input']};
+                    color: {COLORS['emerald']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 4px;
+                    font-size: 10px;
+                    padding: 2px 8px;
+                }}
+                QPushButton:hover {{
+                    background-color: rgba(16, 185, 129, 0.15);
+                    border-color: {COLORS['emerald']};
+                }}
+            """)
+            done_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "done"))
+            btn_row.addWidget(done_btn)
+
+        elif status == "in_progress":
+            back_btn = QPushButton("← К плану")
+            back_btn.setFixedHeight(24)
+            back_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            back_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_input']};
+                    color: {COLORS['text_muted']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 4px;
+                    font-size: 10px;
+                    padding: 2px 8px;
+                }}
+                QPushButton:hover {{
+                    color: {COLORS['text_primary']};
+                }}
+            """)
+            back_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "todo"))
+            btn_row.addWidget(back_btn)
+
+            done_btn = QPushButton("✓ Сдано")
+            done_btn.setFixedHeight(24)
+            done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            done_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(16, 185, 129, 0.15);
+                    color: {COLORS['emerald']};
+                    border: 1px solid rgba(16, 185, 129, 0.4);
+                    border-radius: 4px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    padding: 2px 8px;
+                }}
+                QPushButton:hover {{
+                    background-color: {COLORS['emerald']};
+                    color: #FFFFFF;
+                }}
+            """)
+            done_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "done"))
+            btn_row.addWidget(done_btn)
+
+        elif status == "done":
+            reopen_btn = QPushButton("↺ Вернуть")
+            reopen_btn.setFixedHeight(24)
+            reopen_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            reopen_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_input']};
+                    color: {COLORS['amber']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 4px;
+                    font-size: 10px;
+                    padding: 2px 8px;
+                }}
+                QPushButton:hover {{
+                    border-color: {COLORS['amber']};
+                }}
+            """)
+            reopen_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "in_progress"))
+            btn_row.addWidget(reopen_btn)
+
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
 class TasksView(QWidget):
     """
     Tasks and Homework Tracker View.
@@ -430,6 +739,52 @@ class TasksView(QWidget):
         self._style_filter_buttons()
         row1_layout.addStretch()
 
+        # View Mode switcher: List / Kanban
+        self.view_switcher = QFrame()
+        self.view_switcher.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_input']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 8px;
+                padding: 1px;
+            }}
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                padding: 5px 12px;
+                color: {COLORS['text_muted']};
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QPushButton:checked {{
+                background: {COLORS['primary']};
+                color: #FFFFFF;
+                font-weight: 600;
+            }}
+        """)
+        vs_layout = QHBoxLayout(self.view_switcher)
+        vs_layout.setContentsMargins(2, 2, 2, 2)
+        vs_layout.setSpacing(2)
+
+        self.list_mode_btn = QPushButton(t("task_view_list"))
+        self.list_mode_btn.setCheckable(True)
+        self.list_mode_btn.setChecked(True)
+        self.list_mode_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.kanban_mode_btn = QPushButton(t("task_view_kanban"))
+        self.kanban_mode_btn.setCheckable(True)
+        self.kanban_mode_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.view_group = QButtonGroup(self)
+        self.view_group.addButton(self.list_mode_btn)
+        self.view_group.addButton(self.kanban_mode_btn)
+        self.view_group.buttonClicked.connect(self._on_view_mode_switched)
+
+        vs_layout.addWidget(self.list_mode_btn)
+        vs_layout.addWidget(self.kanban_mode_btn)
+        row1_layout.addWidget(self.view_switcher)
+
         add_task_btn = QPushButton(t("btn_new_task"))
         add_task_btn.setIcon(get_icon("plus", "#FFFFFF", 16))
         add_task_btn.setIconSize(QSize(16, 16))
@@ -479,7 +834,10 @@ class TasksView(QWidget):
 
         main_layout.addLayout(row2_layout)
 
-        # 3. Tasks List Scroll Area
+        # 3. View Stack (Page 0: List, Page 1: Kanban)
+        self.content_stack = QStackedWidget()
+
+        # Page 0: List Scroll Area
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet("background: transparent; border: none;")
@@ -492,12 +850,128 @@ class TasksView(QWidget):
         self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.scroll_area.setWidget(self.tasks_container)
-        main_layout.addWidget(self.scroll_area, stretch=1)
+        self.content_stack.addWidget(self.scroll_area)
+
+        # Page 1: Kanban Board Container
+        self.kanban_container = QWidget()
+        self.kanban_container.setStyleSheet("background: transparent;")
+        self.kanban_layout = QHBoxLayout(self.kanban_container)
+        self.kanban_layout.setContentsMargins(0, 4, 0, 8)
+        self.kanban_layout.setSpacing(14)
+
+        # 3 Columns: To Do, In Progress, Done
+        self.col_todo_layout, self.col_todo_badge = self._create_kanban_col(t("kanban_col_todo"), COLORS['sky'])
+        self.col_inprog_layout, self.col_inprog_badge = self._create_kanban_col(t("kanban_col_in_progress"), COLORS['amber'])
+        self.col_done_layout, self.col_done_badge = self._create_kanban_col(t("kanban_col_done"), COLORS['emerald'])
+
+        self.content_stack.addWidget(self.kanban_container)
+        main_layout.addWidget(self.content_stack, stretch=1)
 
         # Connect storage signals
         self.storage.data_changed.connect(self._on_storage_changed)
 
         self._update_subject_dropdown()
+        self._render_tasks()
+
+    def _on_view_mode_switched(self):
+        if self.kanban_mode_btn.isChecked():
+            self.content_stack.setCurrentIndex(1)
+            self._render_kanban()
+        else:
+            self.content_stack.setCurrentIndex(0)
+            self._render_tasks()
+
+    def _create_kanban_col(self, title: str, accent_color: str):
+        col_frame = QFrame()
+        col_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: rgba(255, 255, 255, 0.02);
+                border: 1px solid {COLORS['border_subtle']};
+                border-top: 3px solid {accent_color};
+                border-radius: 10px;
+            }}
+        """)
+        l = QVBoxLayout(col_frame)
+        l.setContentsMargins(12, 12, 12, 12)
+        l.setSpacing(10)
+
+        # Header
+        h_row = QHBoxLayout()
+        h_row.setSpacing(8)
+        t_lbl = QLabel(title)
+        t_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        t_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
+        h_row.addWidget(t_lbl)
+
+        badge_lbl = QLabel("0")
+        badge_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        badge_lbl.setStyleSheet(f"""
+            color: #FFFFFF;
+            background-color: {accent_color};
+            border-radius: 8px;
+            padding: 2px 7px;
+        """)
+        h_row.addWidget(badge_lbl)
+        h_row.addStretch()
+        l.addLayout(h_row)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("background: transparent; border: none;")
+        col_content = QWidget()
+        col_content.setStyleSheet("background: transparent;")
+        cards_layout = QVBoxLayout(col_content)
+        cards_layout.setContentsMargins(0, 0, 0, 0)
+        cards_layout.setSpacing(8)
+        cards_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        scroll.setWidget(col_content)
+        l.addWidget(scroll, stretch=1)
+
+        self.kanban_layout.addWidget(col_frame, stretch=1)
+        return cards_layout, badge_lbl
+
+    def _render_kanban(self):
+        clear_layout(self.col_todo_layout)
+        clear_layout(self.col_inprog_layout)
+        clear_layout(self.col_done_layout)
+
+        tasks = self.storage.get_tasks()
+        query = self.search_input.text().lower().strip()
+
+        count_todo = 0
+        count_inprog = 0
+        count_done = 0
+
+        for t_item in tasks:
+            subj = t_item.get("subject", "")
+            if self.active_subject != "all" and subj != self.active_subject:
+                continue
+            if query and (query not in t_item.get("title", "").lower() and query not in t_item.get("description", "").lower()):
+                continue
+
+            status = t_item.get("status", "done" if t_item.get("completed") else "todo")
+            card = KanbanTaskCard(t_item)
+            card.edited.connect(self._on_task_edited)
+            card.deleted.connect(self._on_task_deleted)
+            card.status_changed.connect(self._on_kanban_status_changed)
+
+            if status == "done":
+                self.col_done_layout.addWidget(card)
+                count_done += 1
+            elif status == "in_progress":
+                self.col_inprog_layout.addWidget(card)
+                count_inprog += 1
+            else:
+                self.col_todo_layout.addWidget(card)
+                count_todo += 1
+
+        self.col_todo_badge.setText(str(count_todo))
+        self.col_inprog_badge.setText(str(count_inprog))
+        self.col_done_badge.setText(str(count_done))
+
+    def _on_kanban_status_changed(self, task_id: str, new_status: str):
+        self.storage.update_task_status(task_id, new_status)
+        self._render_kanban()
         self._render_tasks()
 
     def _create_stat_card(self, icon_name: str, title: str, value: str, color_hex: str) -> QFrame:
@@ -691,6 +1165,9 @@ class TasksView(QWidget):
             widget.edited.connect(self._on_task_edited)
             self.tasks_layout.addWidget(widget)
 
+        if hasattr(self, "kanban_mode_btn") and self.kanban_mode_btn.isChecked():
+            self._render_kanban()
+
     def _open_new_task_dialog(self):
         dlg = TaskDialog(parent=self)
         if dlg.exec():
@@ -701,7 +1178,8 @@ class TasksView(QWidget):
                 description=data["description"],
                 due_date=data["due_date"],
                 due_time=data["due_time"],
-                priority=data["priority"]
+                priority=data["priority"],
+                subtasks=data.get("subtasks", [])
             )
             self._update_subject_dropdown()
             self._render_tasks()

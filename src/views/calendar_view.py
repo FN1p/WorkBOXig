@@ -234,7 +234,69 @@ class AddLessonDialog(QDialog):
         badge_col.addWidget(self.badge_combo)
         row1.addLayout(badge_col, stretch=1)
 
+        # Week Parity: All / Odd (Числитель) / Even (Знаменатель)
+        parity_col = QVBoxLayout()
+        parity_col.setSpacing(4)
+        lbl_parity = QLabel(t("cal_parity_lbl"))
+        lbl_parity.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        lbl_parity.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        parity_col.addWidget(lbl_parity)
+
+        self.parity_combo = QComboBox()
+        self.parity_combo.setFixedHeight(38)
+        self.parity_combo.addItem(t("cal_parity_all"), "all")
+        self.parity_combo.addItem(t("cal_parity_odd"), "odd")
+        self.parity_combo.addItem(t("cal_parity_even"), "even")
+        parity_col.addWidget(self.parity_combo)
+        row1.addLayout(parity_col, stretch=1)
+
         layout.addLayout(row1)
+
+        # Quick Bell Schedule (Pairs) Picker
+        pairs_lbl = QLabel(t("cal_quick_pairs"))
+        pairs_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
+        pairs_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; margin-top: 2px;")
+        layout.addWidget(pairs_lbl)
+
+        pairs_scroll = QScrollArea()
+        pairs_scroll.setFixedHeight(34)
+        pairs_scroll.setWidgetResizable(True)
+        pairs_scroll.setStyleSheet("background: transparent; border: none;")
+        pairs_container = QWidget()
+        pairs_container.setStyleSheet("background: transparent;")
+        pairs_l = QHBoxLayout(pairs_container)
+        pairs_l.setContentsMargins(0, 0, 0, 0)
+        pairs_l.setSpacing(6)
+
+        bell_sched = get_storage().get_bell_schedule()
+        for b_item in bell_sched:
+            p_num = b_item.get("number", 1)
+            p_start = b_item.get("start", "08:30")
+            p_end = b_item.get("end", "10:00")
+            p_btn = QPushButton(f"{p_num} {t('bell_number')} ({p_start})")
+            p_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            p_btn.setFixedHeight(26)
+            p_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {COLORS['bg_input']};
+                    color: {COLORS['primary_light']};
+                    border: 1px solid {COLORS['border_subtle']};
+                    border-radius: 6px;
+                    padding: 2px 8px;
+                    font-size: 11px;
+                    font-weight: 500;
+                }}
+                QPushButton:hover {{
+                    border-color: {COLORS['primary_light']};
+                    background-color: {COLORS['primary_subtle']};
+                }}
+            """)
+            p_btn.clicked.connect(lambda ch, s=p_start, e=p_end: self._apply_pair_times(s, e))
+            pairs_l.addWidget(p_btn)
+
+        pairs_l.addStretch()
+        pairs_scroll.setWidget(pairs_container)
+        layout.addWidget(pairs_scroll)
 
         # Time range (Start - End)
         row2 = QHBoxLayout()
@@ -348,6 +410,10 @@ class AddLessonDialog(QDialog):
             idx = self.badge_combo.findText(b_val)
             if idx >= 0:
                 self.badge_combo.setCurrentIndex(idx)
+            p_val = existing_event.get("week_parity", "all")
+            idx_p = self.parity_combo.findData(p_val)
+            if idx_p >= 0:
+                self.parity_combo.setCurrentIndex(idx_p)
 
         layout.addStretch()
 
@@ -372,6 +438,13 @@ class AddLessonDialog(QDialog):
     def _set_color(self, hex_color: str):
         self.selected_color = hex_color
 
+    def _apply_pair_times(self, start_str: str, end_str: str):
+        try:
+            self.start_time.setTime(QTime.fromString(start_str, "HH:mm"))
+            self.end_time.setTime(QTime.fromString(end_str, "HH:mm"))
+        except Exception:
+            pass
+
     def _apply_preset(self, subject_name: str, color: str):
         self.title_input.setText(subject_name)
         self.selected_color = color
@@ -394,7 +467,8 @@ class AddLessonDialog(QDialog):
             "color": self.selected_color,
             "badge": self.badge_combo.currentText(),
             "room": self.room_input.text().strip(),
-            "type": "lesson"
+            "type": "lesson",
+            "week_parity": self.parity_combo.currentData()
         }
         if self.recurring_mode:
             base["weekday"] = self.weekday_combo.currentIndex()
@@ -499,6 +573,29 @@ class LessonCard(QFrame):
                 padding: 1px 5px;
             """)
             b_layout.addWidget(badge_lbl)
+
+        # Parity pill badge
+        par_val = event_data.get("week_parity", "all")
+        if par_val == "odd":
+            par_lbl = QLabel("➊ Числ.")
+            par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
+            par_lbl.setStyleSheet("""
+                color: #FFFFFF;
+                background-color: rgba(59, 130, 246, 0.5);
+                border-radius: 4px;
+                padding: 1px 5px;
+            """)
+            b_layout.addWidget(par_lbl)
+        elif par_val == "even":
+            par_lbl = QLabel("➋ Знам.")
+            par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
+            par_lbl.setStyleSheet("""
+                color: #FFFFFF;
+                background-color: rgba(168, 85, 247, 0.5);
+                border-radius: 4px;
+                padding: 1px 5px;
+            """)
+            b_layout.addWidget(par_lbl)
 
         time_str = event_data.get("time", "")
         end_time_str = event_data.get("end_time", "")
@@ -720,7 +817,7 @@ class WeeklyTimetableWidget(QWidget):
     def set_monday(self, qdate: QDate):
         self.monday_date = qdate
 
-    def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]], recurring_lessons: Optional[List[Dict[str, Any]]] = None):
+    def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]], recurring_lessons: Optional[List[Dict[str, Any]]] = None, parity_filter: str = "all"):
         recurring_lessons = recurring_lessons or []
         # 1. Update Header
         clear_layout(self.header_layout)
@@ -822,10 +919,16 @@ class WeeklyTimetableWidget(QWidget):
                 cell = TimetableSlotCell(slot_date, h, is_today, self)
                 cell.clicked.connect(self.slot_clicked.emit)
 
-                # Filter events for this date & hour
+                # Filter events for this date & hour matching parity
+                def matches_parity(item):
+                    if parity_filter == "all":
+                        return True
+                    p = item.get("week_parity", "all")
+                    return p in ("all", parity_filter)
+
                 matching_events = [
                     e for e in events
-                    if e.get("date") == date_str and self._get_event_hour(e) == h
+                    if e.get("date") == date_str and self._get_event_hour(e) == h and matches_parity(e)
                 ]
 
                 # Tasks due at this date & hour
@@ -844,7 +947,7 @@ class WeeklyTimetableWidget(QWidget):
                 # Add recurring lesson cards for this weekday column (col_idx = 0=Mon..6=Sun)
                 matching_recurring = [
                     r for r in recurring_lessons
-                    if r.get("weekday") == col_idx and self._get_event_hour(r) == h
+                    if r.get("weekday") == col_idx and self._get_event_hour(r) == h and matches_parity(r)
                 ]
                 for r_evt in matching_recurring:
                     card = LessonCard(r_evt, cell)
@@ -1017,6 +1120,72 @@ class CalendarView(QWidget):
         self.range_title_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.range_title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; padding-left: 6px;")
         ctrl_bar.addWidget(self.range_title_lbl)
+
+        # Parity pill label (e.g. "№43 • Чётная")
+        self.parity_status_lbl = QLabel()
+        self.parity_status_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
+        self.parity_status_lbl.setStyleSheet(f"""
+            color: {COLORS['sky']};
+            background-color: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 6px;
+            padding: 3px 8px;
+            margin-left: 4px;
+        """)
+        ctrl_bar.addWidget(self.parity_status_lbl)
+
+        # Parity segmented buttons
+        self.current_parity = "all"
+        self.parity_container = QFrame()
+        self.parity_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_input']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 8px;
+                padding: 1px;
+            }}
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 6px;
+                padding: 5px 8px;
+                color: {COLORS['text_muted']};
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QPushButton:checked {{
+                background: {COLORS['primary']};
+                color: #FFFFFF;
+                font-weight: 600;
+            }}
+        """)
+        p_layout = QHBoxLayout(self.parity_container)
+        p_layout.setContentsMargins(2, 2, 2, 2)
+        p_layout.setSpacing(2)
+
+        self.parity_all_btn = QPushButton(t("cal_parity_all"))
+        self.parity_all_btn.setCheckable(True)
+        self.parity_all_btn.setChecked(True)
+        self.parity_all_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.parity_odd_btn = QPushButton("1️⃣ " + t("cal_parity_odd").split()[1])
+        self.parity_odd_btn.setCheckable(True)
+        self.parity_odd_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.parity_even_btn = QPushButton("2️⃣ " + t("cal_parity_even").split()[1])
+        self.parity_even_btn.setCheckable(True)
+        self.parity_even_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+
+        self.parity_group = QButtonGroup(self)
+        self.parity_group.addButton(self.parity_all_btn)
+        self.parity_group.addButton(self.parity_odd_btn)
+        self.parity_group.addButton(self.parity_even_btn)
+        self.parity_group.buttonClicked.connect(self._on_parity_switched)
+
+        p_layout.addWidget(self.parity_all_btn)
+        p_layout.addWidget(self.parity_odd_btn)
+        p_layout.addWidget(self.parity_even_btn)
+        ctrl_bar.addWidget(self.parity_container)
 
         ctrl_bar.addStretch()
 
@@ -1229,6 +1398,13 @@ class CalendarView(QWidget):
             range_str = f"{self.current_monday.day()} {months_ru[self.current_monday.month()]} — {sun_date.day()} {months_ru[sun_date.month()]} {sun_date.year()}"
         self.range_title_lbl.setText(range_str)
 
+        # Update parity status
+        week_num = self.current_monday.weekNumber()[0]
+        is_even = (week_num % 2 == 0)
+        p_title = "Знаменатель" if is_even else "Числитель"
+        if hasattr(self, "parity_status_lbl"):
+            self.parity_status_lbl.setText(f"№{week_num} • {p_title}")
+
     def refresh_theme(self):
         self.range_title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; padding-left: 6px;")
         is_cyber = (COLORS.get('primary') == '#FCEE0A')
@@ -1252,11 +1428,21 @@ class CalendarView(QWidget):
             self.view_stack.setCurrentIndex(1)
             self._on_date_selected()
 
+    def _on_parity_switched(self):
+        if self.parity_odd_btn.isChecked():
+            self.current_parity = "odd"
+        elif self.parity_even_btn.isChecked():
+            self.current_parity = "even"
+        else:
+            self.current_parity = "all"
+        self._refresh_timetable()
+
     def _refresh_timetable(self):
         events = self.storage.get_events()
         tasks = self.storage.get_tasks()
         recurring = self.storage.get_recurring_lessons()
-        self.timetable.render_schedule(events, tasks, recurring)
+        parity = getattr(self, "current_parity", "all")
+        self.timetable.render_schedule(events, tasks, recurring, parity_filter=parity)
 
     def _on_slot_clicked(self, qdate: QDate, hour: int):
         self._open_add_lesson_dialog(preset_date=qdate, preset_hour=hour)
@@ -1275,7 +1461,8 @@ class CalendarView(QWidget):
                 color=data["color"],
                 event_type=data["type"],
                 badge=data["badge"],
-                room=data["room"]
+                room=data["room"],
+                week_parity=data.get("week_parity", "all")
             )
             self._refresh_timetable()
             self._highlight_calendar_days()
@@ -1332,7 +1519,8 @@ class CalendarView(QWidget):
                 description=data["description"],
                 color=data["color"],
                 badge=data["badge"],
-                room=data["room"]
+                room=data["room"],
+                week_parity=data.get("week_parity", "all")
             )
             self._refresh_timetable()
 

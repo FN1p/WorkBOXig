@@ -1,22 +1,24 @@
 """
 Settings View for WorkBOXig.
-Provides clean theme switching (Dark / Light), Windows Autostart registry toggle,
-Pomodoro sound/timer preferences, and JSON backup export/import.
+Provides categorized settings navigation (Appearance, Bells & Schedule, Focus,
+System/Windows, Data & Backups, About) with custom Bell Schedule configurator.
 """
 
 import os
 import sys
 import subprocess
+from typing import List, Dict, Any
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QComboBox, QFileDialog, QMessageBox, QFrame, QScrollArea
+    QCheckBox, QComboBox, QFileDialog, QMessageBox, QFrame, QScrollArea,
+    QStackedWidget, QTimeEdit, QTableWidget, QTableWidgetItem, QHeaderView
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QTime
 from PyQt6.QtGui import QFont, QCursor
 
 from src.styles import COLORS, CURRENT_THEME
 from src.i18n import t, get_i18n, get_language, set_language
-from src.storage import get_storage
+from src.storage import get_storage, DEFAULT_BELL_SCHEDULE
 from src.icons import get_pixmap, get_icon
 from src.version import __version__
 from src.utils.updater import CheckUpdateThread
@@ -44,7 +46,7 @@ class SettingsCard(QFrame):
 
         header_l = QVBoxLayout()
         header_l.setSpacing(3)
-        
+
         self.title_lbl = QLabel(title)
         self.title_lbl.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
@@ -66,7 +68,7 @@ class SettingsCard(QFrame):
 
 
 class SettingsView(QWidget):
-    """Settings screen coordinating appearance, system, timer, and data."""
+    """Categorized Settings View coordinating appearance, bells, system, timer, and data."""
     theme_changed = pyqtSignal(str) # 'dark' or 'light'
     toast_requested = pyqtSignal(str, str) # message, type
     test_notification_requested = pyqtSignal()
@@ -74,39 +76,137 @@ class SettingsView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.storage = get_storage()
+        self._check_update_thread = None
 
-        root_layout = QVBoxLayout(self)
-        root_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(24, 20, 24, 24)
+        main_layout.setSpacing(20)
 
-        # Scroll Area for comfortable viewing on any screen resolution
+        # ----------------- 1. LEFT CATEGORY SIDEBAR -----------------
+        cat_sidebar = QFrame()
+        cat_sidebar.setFixedWidth(240)
+        cat_sidebar.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_subtle']};
+                border-radius: 14px;
+            }}
+        """)
+        cat_layout = QVBoxLayout(cat_sidebar)
+        cat_layout.setContentsMargins(12, 16, 12, 16)
+        cat_layout.setSpacing(6)
+
+        cat_title = QLabel(t("settings_title"))
+        cat_title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        cat_title.setStyleSheet(f"color: {COLORS['text_primary']}; padding-left: 8px; margin-bottom: 6px;")
+        cat_layout.addWidget(cat_title)
+
+        self.cat_buttons: Dict[str, QPushButton] = {}
+        categories = [
+            ("appearance", t("settings_cat_appearance"), "palette"),
+            ("bells", t("settings_cat_bells"), "clock"),
+            ("focus", t("settings_cat_focus"), "focus"),
+            ("system", t("settings_cat_system"), "activity"),
+            ("data", t("settings_cat_data"), "database"),
+            ("about", t("settings_cat_about"), "alert_circle"),
+        ]
+
+        for idx, (cat_id, cat_name, icon_name) in enumerate(categories):
+            btn = QPushButton(cat_name)
+            btn.setIcon(get_icon(icon_name, COLORS['text_secondary'], 16))
+            btn.setIconSize(QSize(16, 16))
+            btn.setCheckable(True)
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.setFixedHeight(42)
+            btn.clicked.connect(lambda ch, i=idx, cid=cat_id: self._switch_category(i, cid))
+            cat_layout.addWidget(btn)
+            self.cat_buttons[cat_id] = btn
+
+        cat_layout.addStretch()
+        main_layout.addWidget(cat_sidebar)
+
+        # ----------------- 2. RIGHT STACKED CONTENT -----------------
+        self.stack = QStackedWidget()
+
+        # Page 0: Appearance & Language
+        self.stack.addWidget(self._create_appearance_page())
+
+        # Page 1: Bells & Schedule
+        self.stack.addWidget(self._create_bells_page())
+
+        # Page 2: Focus & Timer
+        self.stack.addWidget(self._create_focus_page())
+
+        # Page 3: System & Windows
+        self.stack.addWidget(self._create_system_page())
+
+        # Page 4: Data & Backups
+        self.stack.addWidget(self._create_data_page())
+
+        # Page 5: About App
+        self.stack.addWidget(self._create_about_page())
+
+        main_layout.addWidget(self.stack, stretch=1)
+
+        # Default to first category
+        self._switch_category(0, "appearance")
+
+        # Initial UI states
+        self._update_theme_buttons(self.storage.get_setting("theme", "dark"))
+        self._update_lang_buttons(self.storage.get_setting("language", "en"))
+
+    def _switch_category(self, page_index: int, category_id: str):
+        self.stack.setCurrentIndex(page_index)
+        for cid, btn in self.cat_buttons.items():
+            is_active = (cid == category_id)
+            btn.setChecked(is_active)
+            if is_active:
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {COLORS['primary']};
+                        color: #FFFFFF;
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        font-size: 12px;
+                        text-align: left;
+                        padding-left: 14px;
+                    }}
+                """)
+            else:
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background: transparent;
+                        color: {COLORS['text_secondary']};
+                        border: none;
+                        border-radius: 8px;
+                        font-weight: 500;
+                        font-size: 12px;
+                        text-align: left;
+                        padding-left: 14px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {COLORS['bg_card_hover']};
+                        color: {COLORS['text_primary']};
+                    }}
+                """)
+
+    def _wrap_in_scroll(self, widget: QWidget) -> QScrollArea:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll.setWidget(widget)
+        return scroll
 
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(32, 24, 32, 32)
-        content_layout.setSpacing(20)
+    # ----------------- PAGE BUILDERS -----------------
 
-        # 1. Header
-        header_box = QHBoxLayout()
-        title_box = QVBoxLayout()
-        title_box.setSpacing(4)
-        
-        main_title = QLabel(t("settings_title"))
-        main_title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
-        main_title.setStyleSheet(f"color: {COLORS['text_primary']};")
-        title_box.addWidget(main_title)
+    def _create_appearance_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
 
-        sub_title = QLabel(t("settings_subtitle"))
-        sub_title.setFont(QFont("Segoe UI", 10))
-        sub_title.setStyleSheet(f"color: {COLORS['text_muted']};")
-        title_box.addWidget(sub_title)
-        header_box.addLayout(title_box)
-        header_box.addStretch()
-        content_layout.addLayout(header_box)
-
-                # Language Section Card
+        # 1. Language Card
         self.lang_card = SettingsCard("Язык интерфейса / Interface Language", "Выберите язык приложения / Select interface language")
         lang_row = QHBoxLayout()
         lang_row.setSpacing(16)
@@ -126,14 +226,13 @@ class SettingsView(QWidget):
         lang_row.addWidget(self.ru_btn)
         lang_row.addWidget(self.en_btn)
         self.lang_card.add_layout(lang_row)
-        content_layout.addWidget(self.lang_card)
+        layout.addWidget(self.lang_card)
 
-        # 2. Section: Appearance (Theme Switching)
+        # 2. Appearance Card
         theme_card = SettingsCard(t("card_appearance"), t("card_appearance_sub"))
         theme_row = QHBoxLayout()
         theme_row.setSpacing(16)
 
-        # Dark Mode Card Button
         self.dark_btn = QPushButton(t("theme_dark"))
         self.dark_btn.setCheckable(True)
         self.dark_btn.setIcon(get_icon("moon", "#FFFFFF", 18))
@@ -142,7 +241,6 @@ class SettingsView(QWidget):
         self.dark_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.dark_btn.clicked.connect(lambda: self._select_theme("dark"))
 
-        # Light Mode Card Button
         self.light_btn = QPushButton(t("theme_light"))
         self.light_btn.setCheckable(True)
         self.light_btn.setIcon(get_icon("sun", "#F59E0B", 18))
@@ -151,7 +249,6 @@ class SettingsView(QWidget):
         self.light_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.light_btn.clicked.connect(lambda: self._select_theme("light"))
 
-        # Cyberpunk Mode Card Button
         self.cyber_btn = QPushButton("Cyberpunk Neon (Edgerunner)")
         self.cyber_btn.setCheckable(True)
         self.cyber_btn.setIcon(get_icon("zap", "#FCEE0A", 18))
@@ -164,56 +261,113 @@ class SettingsView(QWidget):
         theme_row.addWidget(self.light_btn)
         theme_row.addWidget(self.cyber_btn)
         theme_card.add_layout(theme_row)
-        content_layout.addWidget(theme_card)
+        layout.addWidget(theme_card)
 
-        # 3. Section: Windows Autostart
-        startup_card = SettingsCard(t("card_autostart"), t("card_autostart_sub"))
-        startup_row = QHBoxLayout()
-        startup_row.setSpacing(12)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
 
-        self.autostart_cb = QCheckBox(t("autostart_cb"))
-        self.autostart_cb.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
-        self.autostart_cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.autostart_cb.setChecked(is_autostart_enabled())
-        self.autostart_cb.toggled.connect(self._on_autostart_toggled)
-        startup_row.addWidget(self.autostart_cb)
-        startup_row.addStretch()
+    def _create_bells_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
 
-        self.autostart_status = QLabel()
-        self.autostart_status.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        self._update_autostart_status_pill(is_autostart_enabled())
-        startup_row.addWidget(self.autostart_status)
-        startup_card.add_layout(startup_row)
-        content_layout.addWidget(startup_card)
+        bells_card = SettingsCard(
+            t("settings_cat_bells"),
+            "Настройка времени начала и окончания пар для быстрого выбора в расписании"
+        )
 
-        # 3b. Section: Window Close Behavior
-        self.close_action_card = SettingsCard(t("card_close_action"), t("card_close_action_sub"))
-        close_row = QHBoxLayout()
-        close_row.setSpacing(16)
+        self.bell_editors = []
+        schedule = self.storage.get_bell_schedule()
 
-        c_lbl = QLabel(t("card_close_action") + ":")
-        c_lbl.setFont(QFont("Segoe UI", 10))
-        c_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
-        close_row.addWidget(c_lbl)
+        grid = QVBoxLayout()
+        grid.setSpacing(8)
 
-        self.close_combo = QComboBox()
-        self.close_combo.addItem(t("close_action_ask"), "ask")
-        self.close_combo.addItem(t("close_action_tray"), "tray")
-        self.close_combo.addItem(t("close_action_exit"), "exit")
-        saved_action = self.storage.get_setting("close_action", "ask")
-        idx_close = self.close_combo.findData(saved_action)
-        if idx_close >= 0:
-            self.close_combo.setCurrentIndex(idx_close)
-        self.close_combo.currentIndexChanged.connect(self._on_close_action_changed)
-        close_row.addWidget(self.close_combo)
-        close_row.addStretch()
+        for item in schedule:
+            row = QHBoxLayout()
+            row.setSpacing(12)
 
-        self.close_action_card.add_layout(close_row)
-        content_layout.addWidget(self.close_action_card)
+            num_lbl = QLabel(f"{t('bell_number')} {item.get('number', 1)}:")
+            num_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+            num_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; min-width: 80px;")
+            row.addWidget(num_lbl)
 
-        # 4. Section: Focus & Timer Preferences
+            s_lbl = QLabel(f"{t('bell_start')}:")
+            s_lbl.setFont(QFont("Segoe UI", 9))
+            s_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+            row.addWidget(s_lbl)
+
+            s_edit = QTimeEdit()
+            s_edit.setDisplayFormat("HH:mm")
+            s_edit.setFixedHeight(34)
+            s_edit.setTime(QTime.fromString(item.get("start", "08:30"), "HH:mm"))
+            row.addWidget(s_edit)
+
+            e_lbl = QLabel(f"{t('bell_end')}:")
+            e_lbl.setFont(QFont("Segoe UI", 9))
+            e_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
+            row.addWidget(e_lbl)
+
+            e_edit = QTimeEdit()
+            e_edit.setDisplayFormat("HH:mm")
+            e_edit.setFixedHeight(34)
+            e_edit.setTime(QTime.fromString(item.get("end", "10:00"), "HH:mm"))
+            row.addWidget(e_edit)
+
+            row.addStretch()
+            grid.addLayout(row)
+            self.bell_editors.append((item.get("number", 1), s_edit, e_edit))
+
+        bells_card.add_layout(grid)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        save_bells_btn = QPushButton(t("bell_save"))
+        save_bells_btn.setObjectName("primary-btn")
+        save_bells_btn.setFixedHeight(38)
+        save_bells_btn.clicked.connect(self._save_bell_schedule)
+        btn_row.addWidget(save_bells_btn)
+
+        reset_bells_btn = QPushButton("Сбросить по умолчанию")
+        reset_bells_btn.setFixedHeight(38)
+        reset_bells_btn.clicked.connect(self._reset_bell_schedule)
+        btn_row.addWidget(reset_bells_btn)
+        btn_row.addStretch()
+
+        bells_card.add_layout(btn_row)
+        layout.addWidget(bells_card)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
+
+    def _save_bell_schedule(self):
+        new_schedule = []
+        for num, s_edit, e_edit in self.bell_editors:
+            new_schedule.append({
+                "number": num,
+                "start": s_edit.time().toString("HH:mm"),
+                "end": e_edit.time().toString("HH:mm")
+            })
+        self.storage.set_bell_schedule(new_schedule)
+        self.toast_requested.emit(t("bell_saved_toast"), "check")
+
+    def _reset_bell_schedule(self):
+        self.storage.set_bell_schedule(DEFAULT_BELL_SCHEDULE)
+        for idx, (num, s_edit, e_edit) in enumerate(self.bell_editors):
+            if idx < len(DEFAULT_BELL_SCHEDULE):
+                def_item = DEFAULT_BELL_SCHEDULE[idx]
+                s_edit.setTime(QTime.fromString(def_item["start"], "HH:mm"))
+                e_edit.setTime(QTime.fromString(def_item["end"], "HH:mm"))
+        self.toast_requested.emit("Сетка звонков сброшена по умолчанию", "check")
+
+    def _create_focus_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
+
         focus_card = SettingsCard(t("card_focus"), t("card_focus_sub"))
-        
+
         sound_row = QHBoxLayout()
         sound_row.setSpacing(12)
         self.sound_cb = QCheckBox(t("sound_alert_cb"))
@@ -259,11 +413,63 @@ class SettingsView(QWidget):
         timer_config_row.addStretch()
 
         focus_card.add_layout(timer_config_row)
-        content_layout.addWidget(focus_card)
+        layout.addWidget(focus_card)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
 
-        # 5. Section: Desktop Notifications
+    def _create_system_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
+
+        # Autostart
+        startup_card = SettingsCard(t("card_autostart"), t("card_autostart_sub"))
+        startup_row = QHBoxLayout()
+        startup_row.setSpacing(12)
+
+        self.autostart_cb = QCheckBox(t("autostart_cb"))
+        self.autostart_cb.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
+        self.autostart_cb.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.autostart_cb.setChecked(is_autostart_enabled())
+        self.autostart_cb.toggled.connect(self._on_autostart_toggled)
+        startup_row.addWidget(self.autostart_cb)
+        startup_row.addStretch()
+
+        self.autostart_status = QLabel()
+        self.autostart_status.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self._update_autostart_status_pill(is_autostart_enabled())
+        startup_row.addWidget(self.autostart_status)
+        startup_card.add_layout(startup_row)
+        layout.addWidget(startup_card)
+
+        # Close Action
+        self.close_action_card = SettingsCard(t("card_close_action"), t("card_close_action_sub"))
+        close_row = QHBoxLayout()
+        close_row.setSpacing(16)
+
+        c_lbl = QLabel(t("card_close_action") + ":")
+        c_lbl.setFont(QFont("Segoe UI", 10))
+        c_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
+        close_row.addWidget(c_lbl)
+
+        self.close_combo = QComboBox()
+        self.close_combo.addItem(t("close_action_ask"), "ask")
+        self.close_combo.addItem(t("close_action_tray"), "tray")
+        self.close_combo.addItem(t("close_action_exit"), "exit")
+        saved_action = self.storage.get_setting("close_action", "ask")
+        idx_close = self.close_combo.findData(saved_action)
+        if idx_close >= 0:
+            self.close_combo.setCurrentIndex(idx_close)
+        self.close_combo.currentIndexChanged.connect(self._on_close_action_changed)
+        close_row.addWidget(self.close_combo)
+        close_row.addStretch()
+
+        self.close_action_card.add_layout(close_row)
+        layout.addWidget(self.close_action_card)
+
+        # Desktop Notifications
         notif_card = SettingsCard(t("card_notifications"), t("card_notifications_sub"))
-        
         notif_row = QHBoxLayout()
         notif_row.setSpacing(12)
         self.notif_lessons_cb = QCheckBox(t("notif_lessons_cb"))
@@ -291,9 +497,16 @@ class SettingsView(QWidget):
         tasks_notif_row.addStretch()
         notif_card.add_layout(tasks_notif_row)
 
-        content_layout.addWidget(notif_card)
+        layout.addWidget(notif_card)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
 
-        # 6. Section: Data, Backups & Files
+    def _create_data_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
+
         data_card = SettingsCard(t("card_data"), t("card_data_sub"))
         data_actions = QHBoxLayout()
         data_actions.setSpacing(12)
@@ -318,10 +531,17 @@ class SettingsView(QWidget):
 
         data_actions.addStretch()
         data_card.add_layout(data_actions)
-        content_layout.addWidget(data_card)
+        layout.addWidget(data_card)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
 
-        # 7. Section: Application Updates & Data Safety
-        self._check_update_thread = None
+    def _create_about_page(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 8, 16)
+        layout.setSpacing(16)
+
+        # Updates
         updates_card = SettingsCard(t("card_updates"), t("card_updates_sub"))
         updates_layout = QVBoxLayout()
         updates_layout.setSpacing(12)
@@ -364,9 +584,9 @@ class SettingsView(QWidget):
         updates_layout.addWidget(up_safety)
 
         updates_card.add_layout(updates_layout)
-        content_layout.addWidget(updates_card)
+        layout.addWidget(updates_card)
 
-        # 8. Section: About
+        # About Details
         about_card = SettingsCard(t("card_about"), t("card_about_sub"))
         about_l = QVBoxLayout()
         about_l.setSpacing(6)
@@ -388,16 +608,11 @@ class SettingsView(QWidget):
         about_l.addWidget(self.stats_lbl)
 
         about_card.add_layout(about_l)
-        content_layout.addWidget(about_card)
+        layout.addWidget(about_card)
+        layout.addStretch()
+        return self._wrap_in_scroll(container)
 
-        content_layout.addStretch()
-
-        scroll.setWidget(content_widget)
-        root_layout.addWidget(scroll)
-
-        # Refresh theme & language button visual states
-        self._update_theme_buttons(self.storage.get_setting("theme", "dark"))
-        self._update_lang_buttons(self.storage.get_setting("language", "en"))
+    # ----------------- ACTIONS & HELPERS -----------------
 
     def _update_autostart_status_pill(self, enabled: bool):
         if enabled:
@@ -633,7 +848,6 @@ class SettingsView(QWidget):
         self.update_status_pill.setText(t("update_available_status", version=tag))
         self.update_status_pill.setStyleSheet("color: #00F0FF; background-color: rgba(0, 240, 255, 0.15); padding: 4px 10px; border-radius: 6px; font-weight: bold;")
 
-        # Display update dialog
         dialog = UpdateDialog(info, storage=self.storage, parent=self)
         dialog.exec()
 
