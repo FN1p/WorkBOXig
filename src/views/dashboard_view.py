@@ -15,7 +15,9 @@ from src.styles import COLORS
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon
 from src.utils.shortcuts import clear_layout
-from src.i18n import t, get_i18n, format_lessons, format_tasks, format_days
+from src.i18n import t, get_i18n, format_lessons, format_tasks, format_days, get_language
+from src.components.activity_heatmap import ActivityHeatmapWidget
+from src.components.grades_dialog import GradesTrackerWidget, AddGradeDialog, GradesManagementDialog
 
 
 def format_lessons_ru(n: int) -> str:
@@ -143,9 +145,22 @@ class DashboardView(QWidget):
         self.storage = get_storage()
         self.selected_tag = "идея"
 
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(28, 22, 28, 20)
+        root_layout = QVBoxLayout(self)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setStyleSheet("background: transparent; border: none;")
+
+        self.scroll_content = QWidget()
+        self.scroll_content.setStyleSheet("background: transparent;")
+        self.main_layout = QVBoxLayout(self.scroll_content)
+        self.main_layout.setContentsMargins(28, 22, 28, 24)
         self.main_layout.setSpacing(16)
+
+        self.scroll_area.setWidget(self.scroll_content)
+        root_layout.addWidget(self.scroll_area)
 
         self._init_ui()
         self.storage.data_changed.connect(self._refresh_all)
@@ -608,6 +623,19 @@ class DashboardView(QWidget):
         work_layout.addWidget(self.right_box, stretch=3)
         self.main_layout.addLayout(work_layout, stretch=1)
 
+        # 4. Sprint 2: Analytics Row (Activity Heatmap + Subject Focus & Grades / GPA Tracker)
+        self.analytics_row = QHBoxLayout()
+        self.analytics_row.setSpacing(16)
+
+        self.heatmap_widget = ActivityHeatmapWidget(self.storage, self)
+        self.analytics_row.addWidget(self.heatmap_widget, stretch=3)
+
+        self.grades_widget = GradesTrackerWidget(self.storage, self)
+        self.grades_widget.grade_added.connect(lambda: self.toast_requested.emit(t("grade_added_toast"), "success"))
+        self.analytics_row.addWidget(self.grades_widget, stretch=2)
+
+        self.main_layout.addLayout(self.analytics_row)
+
     def _apply_tag_chip(self, tag: str):
         self.selected_tag = tag
         current = self.quick_note_title.text().strip()
@@ -733,6 +761,11 @@ class DashboardView(QWidget):
             """)
             self.quick_save_btn.setIcon(get_icon("notes", btn_fg, 16))
 
+        if hasattr(self, "heatmap_widget"):
+            self.heatmap_widget.refresh_data()
+        if hasattr(self, "grades_widget"):
+            self.grades_widget.refresh_data()
+
         self._refresh_all()
 
     def _refresh_all(self):
@@ -756,6 +789,11 @@ class DashboardView(QWidget):
         self.task_badge_lbl.setText(f"{pending_count} {t('active_tasks_count')}")
         self.sched_badge_lbl.setText(format_lessons_ru(len(today_events)))
         
+        if hasattr(self, "heatmap_widget"):
+            self.heatmap_widget.refresh_data()
+        if hasattr(self, "grades_widget"):
+            self.grades_widget.refresh_data()
+
         if len(today_events) > 0 and urgent_or_today > 0:
             self.summary_lbl.setText(t("dashboard_summary_classes_and_tasks", classes=format_lessons(len(today_events)), tasks=format_tasks(urgent_or_today)))
         elif len(today_events) > 0:

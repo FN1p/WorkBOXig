@@ -32,6 +32,7 @@ class PomodoroManager(QWidget):
         self.is_running = False
         self.mode = "focus" # "focus" or "break"
         self.completed_today = 0
+        self.selected_task_id = None
         self.active_task_title = t("pomo_session")
 
         self.timer = QTimer(self)
@@ -120,6 +121,13 @@ class PomodoroManager(QWidget):
 
             if self.mode == "focus":
                 self.completed_today += 1
+                try:
+                    self.storage.log_pomodoro_session(
+                        duration_min=self.FOCUS_TIME // 60,
+                        task_id=self.selected_task_id
+                    )
+                except Exception:
+                    pass
                 self.session_completed.emit("focus")
                 self.mode = "break"
                 self.time_left = self.BREAK_TIME
@@ -234,6 +242,9 @@ class ZenFocusDialog(QDialog):
             self.task_selector.addItem(f"{task_item.get('title')} ({task_item.get('subject', t('general'))})", task_item["id"])
         
         self.task_selector.setMinimumWidth(260)
+        self.task_selector.currentIndexChanged.connect(
+            lambda idx: setattr(self.manager, "selected_task_id", self.task_selector.currentData())
+        )
         task_box.addWidget(self.task_selector)
         layout.addLayout(task_box)
 

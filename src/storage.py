@@ -41,7 +41,9 @@ DEFAULT_DATA = {
     "tasks": [],
     "calendar_events": [],
     "recurring_lessons": [],
-    "bell_schedule": DEFAULT_BELL_SCHEDULE
+    "bell_schedule": DEFAULT_BELL_SCHEDULE,
+    "grades": [],
+    "pomodoro_logs": []
 }
 
 
@@ -280,7 +282,13 @@ class StorageManager(QObject):
 
     def update_task_status(self, task_id: str, new_status: str) -> Optional[Dict[str, Any]]:
         """Update Kanban status: 'todo', 'in_progress', or 'done'."""
-        return self.update_task(task_id, status=new_status)
+        is_done = (new_status == "done")
+        kwargs = {
+            "status": new_status,
+            "completed": is_done,
+            "completed_at": datetime.now().isoformat() if is_done else None
+        }
+        return self.update_task(task_id, **kwargs)
 
     def toggle_task(self, task_id: str) -> Optional[bool]:
         for task in self._data.get("tasks", []):
@@ -589,6 +597,182 @@ class StorageManager(QObject):
         """Update bell schedule and persist."""
         self._data["bell_schedule"] = schedule
         self.schedule_save("bell_schedule")
+
+    # ==================== GRADES & GPA (Журнал успеваемости) ====================
+
+    def get_grades(self, subject: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return list of grades, optionally filtered by subject."""
+        grades = self._data.get("grades", [])
+        if subject:
+            return [g for g in grades if g.get("subject", "").lower() == subject.lower()]
+        return grades
+
+    def add_grade(self, subject: str, grade: float, weight: float = 1.0,
+                  date_str: str = "", note: str = "", grade_type: str = "exam") -> Dict[str, Any]:
+        """Add a grade entry for a subject. Weight defaults to 1.0."""
+        entry = {
+            "id": str(uuid.uuid4()),
+            "subject": subject.strip(),
+            "grade": float(grade),
+            "weight": float(weight) if float(weight) > 0 else 1.0,
+            "date": date_str or datetime.now().strftime("%Y-%m-%d"),
+            "note": note.strip(),
+            "grade_type": grade_type
+        }
+        self._data.setdefault("grades", []).append(entry)
+        self.schedule_save("grades")
+        return entry
+
+    def update_grade(self, grade_id: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Update grade fields by id."""
+        for g in self._data.get("grades", []):
+            if g["id"] == grade_id:
+                for k, v in kwargs.items():
+                    if k != "id":
+                        if k in ("grade", "weight"):
+                            g[k] = float(v)
+                        else:
+                            g[k] = v
+                self.schedule_save("grades")
+                return g
+        return None
+
+    def delete_grade(self, grade_id: str) -> bool:
+        """Delete grade entry by id."""
+        grades = self._data.get("grades", [])
+        before = len(grades)
+        self._data["grades"] = [g for g in grades if g["id"] != grade_id]
+        if len(self._data["grades"]) < before:
+            self.schedule_save("grades")
+            return True
+        return False
+
+    def get_subject_gpa(self, subject: str) -> float:
+        """Calculate weighted average grade for a subject. Returns 0.0 if no grades."""
+        grades = self.get_grades(subject)
+        if not grades:
+            return 0.0
+        total_score = sum(float(g.get("grade", 0)) * float(g.get("weight", 1.0)) for g in grades)
+        total_weight = sum(float(g.get("weight", 1.0)) for g in grades)
+        return round(total_score / total_weight, 2) if total_weight > 0 else 0.0
+
+    def get_overall_gpa(self) -> float:
+        """Calculate overall average across all subjects with grades."""
+        subjects = self.get_subjects_with_grades()
+        if not subjects:
+            return 0.0
+        gpas = [self.get_subject_gpa(s) for s in subjects]
+        return round(sum(gpas) / len(gpas), 2) if gpas else 0.0
+
+    def get_subjects_with_grades(self) -> List[str]:
+        """Return sorted list of unique subjects that currently have grades."""
+        seen = set()
+        subjects = []
+        for g in self._data.get("grades", []):
+            subj = g.get("subject", "").strip()
+            if subj and subj not in seen:
+                seen.add(subj)
+                subjects.append(subj)
+        return sorted(subjects)
+
+    def get_all_known_subjects(self) -> List[str]:
+        """Aggregate unique subjects from lessons, tasks, notebooks, and grades."""
+        subjects = set()
+        for l in self._data.get("recurring_lessons", []):
+            t = l.get("title", "").strip()
+            if t:
+                subjects.add(t)
+        for e in self._data.get("calendar_events", []):
+            t = e.get("title", "").strip()
+            if t:
+                subjects.add(t)
+        for tsk in self._data.get("tasks", []):
+            s = tsk.get("subject", "").strip()
+            if s:
+                subjects.add(s)
+        for nb in self._data.get("notebooks", []):
+            t = nb.get("title", "").strip()
+            if t:
+                subjects.add(t)
+        for g in self._data.get("grades", []):
+            s = g.get("subject", "").strip()
+            if s:
+                subjects.add(s)
+        return sorted(list(subjects))
+
+    # ==================== FOCUS LOGS & ACTIVITY HEATMAP ====================
+
+    def log_pomodoro_session(self, duration_min: int = 25, task_id: Optional[str] = None,
+                             subject: str = "") -> Dict[str, Any]:
+        """Log a completed focus session."""
+        now = datetime.now()
+        if task_id and not subject:
+            for tsk in self._data.get("tasks", []):
+                if tsk["id"] == task_id:
+                    subject = tsk.get("subject", "")
+                    break
+
+        entry = {
+            "id": str(uuid.uuid4()),
+            "timestamp": now.isoformat(),
+            "date": now.strftime("%Y-%m-%d"),
+            "duration_min": duration_min,
+            "task_id": task_id,
+            "subject": subject.strip()
+        }
+        self._data.setdefault("pomodoro_logs", []).append(entry)
+        self.schedule_save("pomodoro")
+        return entry
+
+    def get_pomodoro_logs(self) -> List[Dict[str, Any]]:
+        """Return list of all focus session logs."""
+        return self._data.get("pomodoro_logs", [])
+
+    def get_activity_heatmap_data(self, weeks: int = 16) -> Dict[str, Dict[str, int]]:
+        """
+        Return daily activity counts for the last N weeks.
+        Returns dict keyed by date 'YYYY-MM-DD' with { 'pomodoros': count, 'tasks': count, 'score': score }.
+        Score: 2 pts per pomodoro, 3 pts per completed task.
+        """
+        activity: Dict[str, Dict[str, int]] = {}
+
+        # 1. Count pomodoro focus sessions
+        for p in self._data.get("pomodoro_logs", []):
+            d = p.get("date")
+            if d:
+                if d not in activity:
+                    activity[d] = {"pomodoros": 0, "tasks": 0, "score": 0}
+                activity[d]["pomodoros"] += 1
+                activity[d]["score"] += 2
+
+        # 2. Count completed tasks
+        for tsk in self._data.get("tasks", []):
+            if tsk.get("completed"):
+                d = ""
+                comp_at = tsk.get("completed_at")
+                if comp_at:
+                    try:
+                        d = comp_at.split("T")[0]
+                    except Exception:
+                        d = ""
+                if not d:
+                    d = tsk.get("due_date", "")
+                if d:
+                    if d not in activity:
+                        activity[d] = {"pomodoros": 0, "tasks": 0, "score": 0}
+                    activity[d]["tasks"] += 1
+                    activity[d]["score"] += 3
+
+        return activity
+
+    def get_subject_time_distribution(self) -> Dict[str, int]:
+        """Return focus minutes spent per subject."""
+        dist: Dict[str, int] = {}
+        for p in self._data.get("pomodoro_logs", []):
+            subj = p.get("subject") or "Общий фокус"
+            mins = p.get("duration_min", 25)
+            dist[subj] = dist.get(subj, 0) + mins
+        return dist
 
 
 # Global singleton instance provider

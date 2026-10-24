@@ -248,6 +248,9 @@ class MainWindow(QMainWindow):
         act_nb = quick_menu.addAction(get_icon("notebooks", COLORS["sky"], 16), t("btn_new_notebook"))
         act_nb.triggered.connect(self._quick_add_notebook)
 
+        act_grade = quick_menu.addAction(get_icon("notebooks", COLORS["emerald"], 16), t("dlg_add_grade_title"))
+        act_grade.triggered.connect(self._quick_add_grade)
+
         self.quick_add_btn.setMenu(quick_menu)
         tb_layout.addWidget(self.quick_add_btn)
 
@@ -720,6 +723,12 @@ class MainWindow(QMainWindow):
             self._quick_add_note()
         elif action_type == "create_notebook":
             self._quick_add_notebook()
+        elif action_type == "add_grade":
+            self._quick_add_grade()
+        elif action_type == "open_grades":
+            from src.components.grades_dialog import GradesManagementDialog
+            dlg = GradesManagementDialog(storage=self.storage, parent=self)
+            dlg.exec()
         elif action_type == "start_pomodoro":
             self.pomodoro.open_zen_mode()
         elif action_type == "export_calendar_ics":
@@ -772,6 +781,12 @@ class MainWindow(QMainWindow):
     def _quick_add_notebook(self):
         self._navigate_to("notebooks")
         self.notebooks_view._create_notebook()
+
+    def _quick_add_grade(self):
+        from src.components.grades_dialog import AddGradeDialog
+        dlg = AddGradeDialog(storage=self.storage, parent=self)
+        if dlg.exec():
+            self._show_toast(t("grade_added_toast"), "success")
 
     def _setup_shortcuts(self):
         # Universal Command Palette (Ctrl+K)
