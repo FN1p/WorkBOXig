@@ -93,7 +93,8 @@ class DesktopNotification(QWidget):
         top_row.addWidget(self.badge_lbl)
 
         # Close button
-        self.close_btn = QPushButton("✕")
+        self.close_btn = QPushButton()
+        self.close_btn.setIcon(get_icon("close", COLORS["text_muted"], 12))
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.close_btn.setStyleSheet("""

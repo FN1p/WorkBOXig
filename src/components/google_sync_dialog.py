@@ -75,7 +75,7 @@ class GoogleSyncDialog(QDialog):
         h_layout.setContentsMargins(14, 12, 14, 12)
         h_layout.setSpacing(6)
 
-        title_lbl = QLabel(f"📅 {t('google_dialog_title')}")
+        title_lbl = QLabel(t('google_dialog_title'))
         title_lbl.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {'#FCEE0A' if is_cyber else COLORS['text_primary']};")
         h_layout.addWidget(title_lbl)
@@ -100,7 +100,7 @@ class GoogleSyncDialog(QDialog):
         i_layout.setContentsMargins(16, 14, 16, 14)
         i_layout.setSpacing(8)
 
-        instr_title = QLabel(f"💡 {t('google_instructions_title')}")
+        instr_title = QLabel(t('google_instructions_title'))
         instr_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         instr_title.setStyleSheet(f"color: {'#00F0FF' if is_cyber else COLORS['text_primary']};")
         i_layout.addWidget(instr_title)
@@ -328,14 +328,14 @@ class GoogleSyncDialog(QDialog):
         self.sync_btn.setEnabled(True)
         self.sync_btn.setText(t("google_sync_now_btn"))
         msg = t("google_sync_success", added=added, updated=updated, total=total)
-        self.status_lbl.setText(f"✓ {msg}")
+        self.status_lbl.setText(msg)
         self.status_lbl.setStyleSheet(f"color: {COLORS['emerald']}; font-weight: bold;")
         self.sync_completed.emit(added, updated, total)
 
     def _on_sync_error(self, err_msg: str):
         self.sync_btn.setEnabled(True)
         self.sync_btn.setText(t("google_sync_now_btn"))
-        self.status_lbl.setText(f"✗ {t('google_sync_fail', error=err_msg)}")
+        self.status_lbl.setText(t('google_sync_fail', error=err_msg))
         self.status_lbl.setStyleSheet(f"color: {COLORS['rose']}; font-weight: bold;")
 
     def _disconnect_calendar(self):

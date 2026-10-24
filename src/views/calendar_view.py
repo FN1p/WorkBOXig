@@ -524,9 +524,10 @@ class LessonCard(QFrame):
 
         # Show recurring icon if this is a recurring lesson
         if event_data.get("recurring"):
-            rec_icon = QLabel("🔁")
-            rec_icon.setFont(QFont("Segoe UI", 8))
-            rec_icon.setStyleSheet("background: transparent; color: #94A3B8;")
+            rec_icon = QLabel()
+            rec_icon.setPixmap(get_pixmap("repeat", COLORS['sky'], 12))
+            rec_icon.setStyleSheet("background: transparent;")
+            rec_icon.setToolTip("Постоянный урок")
             top_l.addWidget(rec_icon)
 
         del_btn = QPushButton()
@@ -577,7 +578,7 @@ class LessonCard(QFrame):
         # Parity pill badge
         par_val = event_data.get("week_parity", "all")
         if par_val == "odd":
-            par_lbl = QLabel("➊ Числ.")
+            par_lbl = QLabel("I · Числ.")
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             par_lbl.setStyleSheet("""
                 color: #FFFFFF;
@@ -587,7 +588,7 @@ class LessonCard(QFrame):
             """)
             b_layout.addWidget(par_lbl)
         elif par_val == "even":
-            par_lbl = QLabel("➋ Знам.")
+            par_lbl = QLabel("II · Знам.")
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             par_lbl.setStyleSheet("""
                 color: #FFFFFF;
@@ -874,12 +875,13 @@ class WeeklyTimetableWidget(QWidget):
                 sub_t.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 ch_layout.addWidget(sub_t)
 
-            # Show 📌 indicator if there are recurring lessons for this weekday (0=Mon..6=Sun)
+            # Show recurring indicator if there are recurring lessons for this weekday
             if any(r.get("weekday") == i for r in recurring_lessons):
-                rec_sub = QLabel("📌")
-                rec_sub.setFont(QFont("Segoe UI", 7))
-                rec_sub.setStyleSheet("color: #94A3B8; background: transparent;")
+                rec_sub = QLabel()
+                rec_sub.setPixmap(get_pixmap("repeat", COLORS['sky'], 10))
                 rec_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                rec_sub.setStyleSheet("background: transparent;")
+                rec_sub.setToolTip("Есть постоянные уроки")
                 ch_layout.addWidget(rec_sub)
 
             self.header_layout.addWidget(col_header, stretch=1)
@@ -1201,7 +1203,9 @@ class CalendarView(QWidget):
         ctrl_bar.addWidget(self.add_lesson_btn)
 
         # Recurring lesson button
-        self.add_recurring_btn = QPushButton("🔁 Постоянный урок")
+        self.add_recurring_btn = QPushButton("Постоянный урок")
+        self.add_recurring_btn.setIcon(get_icon("repeat", COLORS['text_secondary'], 14))
+        self.add_recurring_btn.setIconSize(QSize(14, 14))
         self.add_recurring_btn.setFixedHeight(32)
         self.add_recurring_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.add_recurring_btn.setStyleSheet(f"""

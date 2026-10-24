@@ -211,13 +211,15 @@ class SettingsView(QWidget):
         lang_row = QHBoxLayout()
         lang_row.setSpacing(16)
 
-        self.ru_btn = QPushButton("🇷🇺 Русский")
+        self.ru_btn = QPushButton("Русский")
+        self.ru_btn.setIcon(get_icon("globe", COLORS['primary_light'], 16))
         self.ru_btn.setCheckable(True)
         self.ru_btn.setFixedHeight(48)
         self.ru_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.ru_btn.clicked.connect(lambda: self._select_language("ru"))
 
-        self.en_btn = QPushButton("🇬🇧 English")
+        self.en_btn = QPushButton("English")
+        self.en_btn.setIcon(get_icon("globe", COLORS['primary_light'], 16))
         self.en_btn.setCheckable(True)
         self.en_btn.setFixedHeight(48)
         self.en_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))

@@ -61,7 +61,8 @@ class AddGradeDialog(QDialog):
         hdr.addWidget(title_lbl)
         hdr.addStretch()
 
-        close_btn = QPushButton("✕")
+        close_btn = QPushButton()
+        close_btn.setIcon(get_icon("close", COLORS["text_muted"], 14))
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         close_btn.setStyleSheet(f"""
@@ -335,7 +336,8 @@ class GradesManagementDialog(QDialog):
         """)
         hdr.addWidget(self.gpa_pill)
 
-        close_btn = QPushButton("✕")
+        close_btn = QPushButton()
+        close_btn.setIcon(get_icon("close", COLORS["text_muted"], 14))
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         close_btn.setStyleSheet(f"""
@@ -447,7 +449,7 @@ class GradesManagementDialog(QDialog):
 
         # Update overall GPA
         overall = self.storage.get_overall_gpa()
-        self.gpa_pill.setText(f"Общий GPA: ★ {overall:.2f}")
+        self.gpa_pill.setText(f"GPA: {overall:.2f}")
 
         self.table.setRowCount(len(grades))
         for row, g in enumerate(reversed(grades)):
@@ -490,15 +492,14 @@ class GradesManagementDialog(QDialog):
             self.table.setItem(row, 4, QTableWidgetItem(desc))
 
             # 5. Delete Action button
-            del_btn = QPushButton("🗑")
+            del_btn = QPushButton()
+            del_btn.setIcon(get_icon("trash", COLORS["rose"], 14))
             del_btn.setFixedSize(28, 24)
             del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             del_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: transparent;
-                    color: {COLORS['rose']};
                     border: none;
-                    font-size: 12px;
                 }}
                 QPushButton:hover {{
                     background-color: rgba(244, 63, 94, 0.15);
@@ -615,7 +616,12 @@ class GradesTrackerWidget(QFrame):
         gb_layout.setContentsMargins(0, 0, 0, 0)
         gb_layout.setSpacing(14)
 
-        self.gpa_val_lbl = QLabel("★ 0.00")
+        self.star_icon = QLabel()
+        self.star_icon.setPixmap(get_pixmap("star", COLORS['emerald'], 22))
+        self.star_icon.setStyleSheet("background: transparent;")
+        gb_layout.addWidget(self.star_icon)
+
+        self.gpa_val_lbl = QLabel("0.00")
         self.gpa_val_lbl.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         self.gpa_val_lbl.setStyleSheet(f"color: {COLORS['emerald']}; background: transparent;")
         gb_layout.addWidget(self.gpa_val_lbl)
@@ -672,7 +678,7 @@ class GradesTrackerWidget(QFrame):
         all_grades = self.storage.get_grades()
         overall = self.storage.get_overall_gpa()
 
-        self.gpa_val_lbl.setText(f"★ {overall:.2f}" if overall > 0 else "—")
+        self.gpa_val_lbl.setText(f"{overall:.2f}" if overall > 0 else "—")
         self.total_grades_lbl.setText(f"{len(all_grades)} оценок")
 
         if overall >= 4.75:
@@ -755,16 +761,23 @@ class GradesTrackerWidget(QFrame):
             sc_l.addLayout(tokens_box)
 
             # Subject GPA Badge
-            gpa_badge = QLabel(f"★ {s_gpa:.2f}")
+            b_frame = QFrame()
+            bf_l = QHBoxLayout(b_frame)
+            bf_l.setContentsMargins(5, 2, 6, 2)
+            bf_l.setSpacing(4)
+            s_ico = QLabel()
+            s_ico.setPixmap(get_pixmap("star", COLORS['primary_light'], 11))
+            bf_l.addWidget(s_ico)
+            gpa_badge = QLabel(f"{s_gpa:.2f}")
             gpa_badge.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            gpa_badge.setStyleSheet(f"""
-                color: {COLORS['primary_light']};
+            gpa_badge.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent;")
+            bf_l.addWidget(gpa_badge)
+            b_frame.setStyleSheet(f"""
                 background-color: {COLORS['primary_subtle']};
                 border: 1px solid {COLORS['primary_border']};
                 border-radius: 6px;
-                padding: 2px 7px;
             """)
-            sc_l.addWidget(gpa_badge)
+            sc_l.addWidget(b_frame)
 
             # Clicking subject card opens manage dialog pre-filtered
             s_card.mousePressEvent = lambda e, s=subj: self._open_subject_grades(s)

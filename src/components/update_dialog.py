@@ -90,12 +90,12 @@ class UpdateDialog(QDialog):
         tag = self.release_info.get("tag_name", "")
         title_text = self.release_info.get("title", tag)
 
-        title_lbl = QLabel(f"🚀 {t('update_dialog_title')}")
+        title_lbl = QLabel(t('update_dialog_title'))
         title_lbl.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {'#FCEE0A' if is_cyber else COLORS['text_primary']};")
         h_layout.addWidget(title_lbl)
 
-        ver_sub = QLabel(f"{t('current_version_lbl')} v{__version__}  ➔  {tag} ({title_text})")
+        ver_sub = QLabel(f"{t('current_version_lbl')} v{__version__}  ->  {tag} ({title_text})")
         ver_sub.setFont(QFont("Segoe UI", 11, QFont.Weight.Medium))
         ver_sub.setStyleSheet(f"color: {'#00F0FF' if is_cyber else COLORS['primary_light']};")
         h_layout.addWidget(ver_sub)

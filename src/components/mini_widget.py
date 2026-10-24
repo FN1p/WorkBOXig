@@ -357,9 +357,9 @@ class DesktopMiniWidget(QWidget):
             if len(ev_title) > 24:
                 ev_title = ev_title[:22] + "…"
             room = f" ({ev.get('room')})" if ev.get("room") else ""
-            self.next_event_lbl.setText(f"📅 {ev.get('time')} {ev_title}{room}")
+            self.next_event_lbl.setText(f"{ev.get('time')} {ev_title}{room}")
         else:
-            self.next_event_lbl.setText(f"✓ {t('mini_no_classes')}")
+            self.next_event_lbl.setText(t('mini_no_classes'))
 
     def _complete_current_task(self):
         if hasattr(self, '_active_task_id') and self._active_task_id:

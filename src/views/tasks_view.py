@@ -230,7 +230,8 @@ class TaskDialog(QDialog):
             cb.toggled.connect(lambda checked, i=idx: self._toggle_subtask_at(i, checked))
             row.addWidget(cb, stretch=1)
 
-            del_btn = QPushButton("✕")
+            del_btn = QPushButton()
+            del_btn.setIcon(get_icon("close", COLORS["text_muted"], 12))
             del_btn.setFixedSize(22, 22)
             del_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             del_btn.setStyleSheet("QPushButton { background: transparent; color: " + COLORS['text_muted'] + "; border: none; font-size: 11px; } QPushButton:hover { color: " + COLORS['rose'] + "; }")
@@ -409,16 +410,24 @@ class TaskItemWidget(QFrame):
         if subtasks:
             sub_count = len(subtasks)
             sub_done = sum(1 for s in subtasks if s.get("completed"))
-            sub_lbl = QLabel(f"☑ {sub_done}/{sub_count}")
+            sub_box = QFrame()
+            sb_l = QHBoxLayout(sub_box)
+            sb_l.setContentsMargins(6, 2, 7, 2)
+            sb_l.setSpacing(4)
+            s_col = COLORS['emerald'] if sub_done == sub_count else COLORS['sky']
+            s_ico = QLabel()
+            s_ico.setPixmap(get_pixmap("check_square", s_col, 12))
+            sb_l.addWidget(s_ico)
+            sub_lbl = QLabel(f"{sub_done}/{sub_count}")
             sub_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-            sub_lbl.setStyleSheet(f"""
+            sub_lbl.setStyleSheet(f"color: {s_col}; background: transparent;")
+            sb_l.addWidget(sub_lbl)
+            sub_box.setStyleSheet(f"""
                 background-color: {COLORS['bg_input']};
-                color: {COLORS['emerald'] if sub_done == sub_count else COLORS['sky']};
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 border-radius: 6px;
-                padding: 3px 8px;
             """)
-            meta_row.addWidget(sub_lbl)
+            meta_row.addWidget(sub_box)
 
         meta_row.addStretch()
         info_layout.addLayout(meta_row)
@@ -558,18 +567,30 @@ class KanbanTaskCard(QFrame):
 
         due_date_str = task.get("due_date", "")
         if due_date_str:
-            d_lbl = QLabel(f"📅 {due_date_str}")
+            d_box = QHBoxLayout()
+            d_box.setSpacing(3)
+            d_ico = QLabel()
+            d_ico.setPixmap(get_pixmap("calendar", COLORS['text_muted'], 11))
+            d_box.addWidget(d_ico)
+            d_lbl = QLabel(due_date_str)
             d_lbl.setFont(QFont("Segoe UI", 7))
             d_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; background: transparent;")
-            meta_row.addWidget(d_lbl)
+            d_box.addWidget(d_lbl)
+            meta_row.addLayout(d_box)
 
         subtasks = task.get("subtasks", [])
         if subtasks:
             sub_done = sum(1 for s in subtasks if s.get("completed"))
-            s_lbl = QLabel(f"☑ {sub_done}/{len(subtasks)}")
+            s_box = QHBoxLayout()
+            s_box.setSpacing(3)
+            s_ico = QLabel()
+            s_ico.setPixmap(get_pixmap("check_square", COLORS['sky'], 11))
+            s_box.addWidget(s_ico)
+            s_lbl = QLabel(f"{sub_done}/{len(subtasks)}")
             s_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             s_lbl.setStyleSheet(f"color: {COLORS['sky']}; background: transparent;")
-            meta_row.addWidget(s_lbl)
+            s_box.addWidget(s_lbl)
+            meta_row.addLayout(s_box)
 
         meta_row.addStretch()
         layout.addLayout(meta_row)
@@ -579,7 +600,8 @@ class KanbanTaskCard(QFrame):
         btn_row.setSpacing(6)
 
         if status == "todo":
-            move_btn = QPushButton("→ В процесс")
+            move_btn = QPushButton("В процесс")
+            move_btn.setIcon(get_icon("arrow_right", COLORS["sky"], 11))
             move_btn.setFixedHeight(24)
             move_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             move_btn.setStyleSheet(f"""
@@ -599,7 +621,8 @@ class KanbanTaskCard(QFrame):
             move_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "in_progress"))
             btn_row.addWidget(move_btn)
 
-            done_btn = QPushButton("✓ Готово")
+            done_btn = QPushButton("Готово")
+            done_btn.setIcon(get_icon("check", COLORS["emerald"], 11))
             done_btn.setFixedHeight(24)
             done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             done_btn.setStyleSheet(f"""
@@ -620,7 +643,8 @@ class KanbanTaskCard(QFrame):
             btn_row.addWidget(done_btn)
 
         elif status == "in_progress":
-            back_btn = QPushButton("← К плану")
+            back_btn = QPushButton("К плану")
+            back_btn.setIcon(get_icon("rotate_ccw", COLORS["text_muted"], 11))
             back_btn.setFixedHeight(24)
             back_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             back_btn.setStyleSheet(f"""
@@ -639,7 +663,8 @@ class KanbanTaskCard(QFrame):
             back_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "todo"))
             btn_row.addWidget(back_btn)
 
-            done_btn = QPushButton("✓ Сдано")
+            done_btn = QPushButton("Сдано")
+            done_btn.setIcon(get_icon("check", COLORS["emerald"], 11))
             done_btn.setFixedHeight(24)
             done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             done_btn.setStyleSheet(f"""
@@ -661,7 +686,8 @@ class KanbanTaskCard(QFrame):
             btn_row.addWidget(done_btn)
 
         elif status == "done":
-            reopen_btn = QPushButton("↺ Вернуть")
+            reopen_btn = QPushButton("Вернуть")
+            reopen_btn.setIcon(get_icon("rotate_ccw", COLORS["amber"], 11))
             reopen_btn.setFixedHeight(24)
             reopen_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             reopen_btn.setStyleSheet(f"""
@@ -768,11 +794,15 @@ class TasksView(QWidget):
         vs_layout.setSpacing(2)
 
         self.list_mode_btn = QPushButton(t("task_view_list"))
+        self.list_mode_btn.setIcon(get_icon("list", "#FFFFFF", 13))
+        self.list_mode_btn.setIconSize(QSize(13, 13))
         self.list_mode_btn.setCheckable(True)
         self.list_mode_btn.setChecked(True)
         self.list_mode_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
         self.kanban_mode_btn = QPushButton(t("task_view_kanban"))
+        self.kanban_mode_btn.setIcon(get_icon("kanban", COLORS["text_muted"], 13))
+        self.kanban_mode_btn.setIconSize(QSize(13, 13))
         self.kanban_mode_btn.setCheckable(True)
         self.kanban_mode_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 

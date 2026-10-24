@@ -131,7 +131,8 @@ class TestSprint2Features(unittest.TestCase):
         tracker = GradesTrackerWidget(storage=self.storage)
         self.assertIsNotNone(tracker)
         tracker.refresh_data()
-        self.assertIn("★", tracker.gpa_val_lbl.text())
+        self.assertEqual(tracker.gpa_val_lbl.text(), "5.00")
+        self.assertIsNotNone(tracker.star_icon)
 
     def test_06_dashboard_view_with_sprint2_analytics(self):
         """Verify DashboardView includes scrollable analytics row with heatmap and grades."""
