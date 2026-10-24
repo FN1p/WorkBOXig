@@ -70,10 +70,34 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
             raw_data = response.read().decode("utf-8")
             data = json.loads(raw_data)
     except urllib.error.HTTPError as he:
-        if he.code == 404:
-            raise RuntimeError("Репозиторий приватный или релиз пока не опубликован для общего доступа.") from he
-        elif he.code == 403:
+        if he.code in (403, 429):
+            # Seamless fallback to web redirect when unauthenticated API rate limit is reached
+            try:
+                web_req = urllib.request.Request(
+                    f"https://github.com/{repo}/releases/latest",
+                    headers={"User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) {APP_NAME}"}
+                )
+                with urllib.request.urlopen(web_req, timeout=timeout) as web_resp:
+                    latest_tag = web_resp.geturl().split("/")[-1]
+                    if latest_tag:
+                        return {
+                            "tag_name": latest_tag,
+                            "title": f"WorkBOXig {latest_tag}",
+                            "body": "Доступно обновление на GitHub.",
+                            "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
+                            "published_at": "",
+                            "installer_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig_Setup.exe",
+                            "installer_name": "WorkBOXig_Setup.exe",
+                            "installer_size": 79409368,
+                            "portable_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig.exe",
+                            "portable_name": "WorkBOXig.exe",
+                            "portable_size": 39875746,
+                        }
+            except Exception:
+                pass
             raise RuntimeError("Превышен лимит запросов к GitHub API. Попробуйте позже.") from he
+        elif he.code == 404:
+            raise RuntimeError("Репозиторий приватный или релиз пока не опубликован для общего доступа.") from he
         raise RuntimeError(f"Ошибка GitHub API: HTTP {he.code}") from he
     except urllib.error.URLError as ue:
         raise RuntimeError(f"Нет подключения к интернету: {ue.reason}") from ue
