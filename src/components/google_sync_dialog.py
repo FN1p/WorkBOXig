@@ -229,7 +229,7 @@ class GoogleSyncDialog(QDialog):
 
         btn_row.addStretch()
 
-        self.close_btn = QPushButton(t("palette_esc") if "palette_esc" in t("palette_esc") else "Закрыть")
+        self.close_btn = QPushButton(t("palette_esc"))
         self.close_btn.setObjectName("ghost-btn")
         self.close_btn.setFixedHeight(40)
         self.close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -293,7 +293,7 @@ class GoogleSyncDialog(QDialog):
         if last_sync:
             try:
                 dt = datetime.fromisoformat(last_sync)
-                dt_str = dt.strftime("%d.%m.%Y в %H:%M")
+                dt_str = t("date_at_time", date=dt.strftime("%d.%m.%Y"), time=dt.strftime("%H:%M"))
                 self.status_lbl.setText(f"● {t('google_last_sync_lbl', time=dt_str)}")
                 self.status_lbl.setStyleSheet(f"color: {COLORS['emerald']};")
             except Exception:

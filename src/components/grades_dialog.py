@@ -119,10 +119,10 @@ class AddGradeDialog(QDialog):
         g_vbox.addWidget(g_lbl)
 
         self.grade_combo = QComboBox()
-        self.grade_combo.addItem("5  —  Отлично (A)", 5.0)
-        self.grade_combo.addItem("4  —  Хорошо (B)", 4.0)
-        self.grade_combo.addItem("3  —  Удовл. (C)", 3.0)
-        self.grade_combo.addItem("2  —  Неуд. (F)", 2.0)
+        self.grade_combo.addItem(f"5  —  {t('grade_5')} (A)", 5.0)
+        self.grade_combo.addItem(f"4  —  {t('grade_4')} (B)", 4.0)
+        self.grade_combo.addItem(f"3  —  {t('grade_3')} (C)", 3.0)
+        self.grade_combo.addItem(f"2  —  {t('grade_2')} (F)", 2.0)
         self.grade_combo.setEditable(True)
         self.grade_combo.setStyleSheet(self.subj_combo.styleSheet())
         g_vbox.addWidget(self.grade_combo)
@@ -187,7 +187,7 @@ class AddGradeDialog(QDialog):
         layout.addWidget(note_lbl)
 
         self.note_edit = QLineEdit()
-        self.note_edit.setPlaceholderText("Например: Коллоквиум по дифференциалам")
+        self.note_edit.setPlaceholderText(t("grade_note_example"))
         self.note_edit.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {COLORS['bg_input']};
@@ -359,13 +359,13 @@ class GradesManagementDialog(QDialog):
 
         # Filter bar
         flt_row = QHBoxLayout()
-        flt_lbl = QLabel("Предмет:")
+        flt_lbl = QLabel(t("grades_filter_subject"))
         flt_lbl.setFont(QFont("Segoe UI", 9))
         flt_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
         flt_row.addWidget(flt_lbl)
 
         self.filter_combo = QComboBox()
-        self.filter_combo.addItem("Все предметы", "")
+        self.filter_combo.addItem(t("grades_all_subjects"), "")
         for s in self.storage.get_subjects_with_grades():
             self.filter_combo.addItem(s, s)
         self.filter_combo.currentIndexChanged.connect(self._refresh_table)
@@ -405,7 +405,7 @@ class GradesManagementDialog(QDialog):
         # Table of grades
         self.table = QTableWidget()
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels(["Дата", "Предмет", "Оценка", "Вес", "Тип / Тема", "Удалить"])
+        self.table.setHorizontalHeaderLabels(t("grades_headers").split("|"))
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -641,7 +641,7 @@ class GradesTrackerWidget(QFrame):
 
         gb_layout.addStretch()
 
-        self.total_grades_lbl = QLabel("0 оценок")
+        self.total_grades_lbl = QLabel(t("grades_count", count=0))
         self.total_grades_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         self.total_grades_lbl.setStyleSheet(f"""
             color: {COLORS['text_secondary']};
@@ -679,7 +679,7 @@ class GradesTrackerWidget(QFrame):
         overall = self.storage.get_overall_gpa()
 
         self.gpa_val_lbl.setText(f"{overall:.2f}" if overall > 0 else "—")
-        self.total_grades_lbl.setText(f"{len(all_grades)} оценок")
+        self.total_grades_lbl.setText(t("grades_count", count=len(all_grades)))
 
         if overall >= 4.75:
             self.gpa_status_lbl.setText(t("gpa_status_excellent"))

@@ -208,11 +208,11 @@ class SettingsView(QWidget):
         layout.setSpacing(16)
 
         # 1. Language Card
-        self.lang_card = SettingsCard("Язык интерфейса / Interface Language", "Выберите язык приложения / Select interface language")
+        self.lang_card = SettingsCard(t("card_language"), t("card_language_sub"))
         lang_row = QHBoxLayout()
         lang_row.setSpacing(16)
 
-        self.ru_btn = QPushButton("Русский")
+        self.ru_btn = QPushButton(t("lang_ru"))
         self.ru_btn.setIcon(get_icon("globe", COLORS['primary_light'], 16))
         self.ru_btn.setCheckable(True)
         self.ru_btn.setFixedHeight(48)
@@ -277,7 +277,7 @@ class SettingsView(QWidget):
 
         bells_card = SettingsCard(
             t("settings_cat_bells"),
-            "Настройка времени начала и окончания пар для быстрого выбора в расписании"
+            t("bell_settings_desc")
         )
 
         self.bell_editors = []
@@ -332,7 +332,7 @@ class SettingsView(QWidget):
         save_bells_btn.clicked.connect(self._save_bell_schedule)
         btn_row.addWidget(save_bells_btn)
 
-        reset_bells_btn = QPushButton("Сбросить по умолчанию")
+        reset_bells_btn = QPushButton(t("bell_reset"))
         reset_bells_btn.setFixedHeight(38)
         reset_bells_btn.clicked.connect(self._reset_bell_schedule)
         btn_row.addWidget(reset_bells_btn)
@@ -361,7 +361,7 @@ class SettingsView(QWidget):
                 def_item = DEFAULT_BELL_SCHEDULE[idx]
                 s_edit.setTime(QTime.fromString(def_item["start"], "HH:mm"))
                 e_edit.setTime(QTime.fromString(def_item["end"], "HH:mm"))
-        self.toast_requested.emit("Сетка звонков сброшена по умолчанию", "check")
+        self.toast_requested.emit(t("bell_reset_toast"), "check")
 
     def _create_focus_page(self) -> QWidget:
         container = QWidget()
@@ -814,8 +814,7 @@ class SettingsView(QWidget):
                     break
             self.break_combo.blockSignals(False)
 
-        msg = "Language switched to English" if lang == "en" else "Язык изменён на Русский"
-        self.toast_requested.emit(msg, "check")
+        self.toast_requested.emit(t("language_changed_toast"), "check")
 
     def _update_lang_buttons(self, active_lang: str):
         is_ru = (active_lang == "ru")

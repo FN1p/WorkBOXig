@@ -769,7 +769,7 @@ class StorageManager(QObject):
         """Return focus minutes spent per subject."""
         dist: Dict[str, int] = {}
         for p in self._data.get("pomodoro_logs", []):
-            subj = p.get("subject") or "Общий фокус"
+            subj = p.get("subject") or t("focus_general_subject")
             mins = p.get("duration_min", 25)
             dist[subj] = dist.get(subj, 0) + mins
         return dist

@@ -566,7 +566,7 @@ class RichEditor(QWidget):
     def _on_content_changed(self):
         if self._block_signals or not self.current_page_id:
             return
-        self.save_status_label.setText("● Сохранение...")
+        self.save_status_label.setText(t("editor_saving"))
         self.save_status_label.setStyleSheet(f"color: {COLORS['amber']};")
         self._update_stats()
         title = self.title_input.text()

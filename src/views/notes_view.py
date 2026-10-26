@@ -20,12 +20,12 @@ from src.utils.shortcuts import clear_layout
 
 
 COLOR_PALETTE = [
-    ("#6366F1", "Индиго"),
-    ("#10B981", "Изумрудный"),
-    ("#F59E0B", "Янтарный"),
-    ("#06B6D4", "Циан"),
-    ("#EC4899", "Розовый"),
-    ("#8B5CF6", "Фиолетовый"),
+    ("#6366F1", "color_indigo"),
+    ("#10B981", "color_emerald"),
+    ("#F59E0B", "color_amber"),
+    ("#06B6D4", "color_cyan"),
+    ("#EC4899", "color_pink"),
+    ("#8B5CF6", "color_violet"),
 ]
 
 
@@ -197,7 +197,7 @@ class NotesView(QWidget):
         for hex_col, name in COLOR_PALETTE:
             c_btn = QPushButton()
             c_btn.setFixedSize(18, 18)
-            c_btn.setToolTip(name)
+            c_btn.setToolTip(t(name))
             c_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {hex_col};
@@ -575,7 +575,7 @@ class NotesView(QWidget):
         if not self.current_note_id:
             return
         title = self.title_input.text().strip() or t("notes_default_title")
-        path, _ = QFileDialog.getSaveFileName(self, t("notes_export_title"), f"{title}.md", "Markdown (*.md);;Текст (*.txt)")
+        path, _ = QFileDialog.getSaveFileName(self, t("notes_export_title"), f"{title}.md", t("notes_files_filter"))
         if not path:
             return
         try:

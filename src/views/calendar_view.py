@@ -20,35 +20,48 @@ from src.storage import get_storage
 from src.views.tasks_view import TaskDialog
 from src.icons import get_pixmap, get_icon
 from src.utils.shortcuts import clear_layout
-from src.i18n import t, get_language
+from src.i18n import t, get_language, TRANSLATIONS
 from src.components.google_sync_dialog import GoogleSyncDialog
 
 
 COLOR_PALETTE = [
-    ("#8B5CF6", "Фиолетовый"),
-    ("#3B82F6", "Синий"),
-    ("#38BDF8", "Голубой"),
-    ("#10B981", "Изумрудный"),
-    ("#F59E0B", "Янтарный"),
-    ("#EC4899", "Розовый"),
-    ("#F43F5E", "Коралловый"),
-    ("#6366F1", "Индиго"),
+    ("#8B5CF6", "color_violet"),
+    ("#3B82F6", "color_blue"),
+    ("#38BDF8", "color_sky"),
+    ("#10B981", "color_emerald"),
+    ("#F59E0B", "color_amber"),
+    ("#EC4899", "color_pink"),
+    ("#F43F5E", "color_coral"),
+    ("#6366F1", "color_indigo"),
 ]
 
 SUBJECT_PRESETS = [
-    ("Русский язык", "#8B5CF6"),
-    ("Литература", "#EC4899"),
-    ("Алгебра", "#38BDF8"),
-    ("Геометрия", "#38BDF8"),
-    ("Информатика", "#6366F1"),
-    ("Физика", "#F43F5E"),
-    ("Химия", "#06B6D4"),
-    ("Биология", "#10B981"),
-    ("Английский язык", "#6366F1"),
-    ("История", "#F59E0B"),
-    ("Обществознание", "#10B981"),
-    ("Физкультура", "#A855F7"),
+    ("subject_russian", "#8B5CF6"),
+    ("subject_literature", "#EC4899"),
+    ("subject_algebra", "#38BDF8"),
+    ("subject_geometry", "#38BDF8"),
+    ("subject_computer_science", "#6366F1"),
+    ("subject_physics", "#F43F5E"),
+    ("subject_chemistry", "#06B6D4"),
+    ("subject_biology", "#10B981"),
+    ("subject_english", "#6366F1"),
+    ("subject_history", "#F59E0B"),
+    ("subject_social_studies", "#10B981"),
+    ("subject_pe", "#A855F7"),
 ]
+
+BADGE_KEYS = (
+    "cal_badge_lesson", "cal_badge_recording", "cal_badge_assignment", "cal_badge_online",
+    "cal_badge_tutor", "cal_badge_seminar", "cal_badge_exam", "cal_badge_club",
+)
+
+
+def localized_badge(value: str) -> str:
+    """Show built-in badge names in the selected language, including old saved labels."""
+    for key in BADGE_KEYS:
+        if value == key or any(value == TRANSLATIONS[lang][key] for lang in ("ru", "en")):
+            return t(key)
+    return value
 
 
 def hex_to_rgba(hex_color: str, alpha: float = 0.22) -> str:
@@ -73,7 +86,7 @@ class AddLessonDialog(QDialog):
         self.recurring_mode = recurring_mode
 
         if recurring_mode:
-            dialog_title = "Постоянный урок / Расписание"
+            dialog_title = t("add_recurring_lesson")
         elif existing_event:
             dialog_title = t("cal_edit_title")
         else:
@@ -125,7 +138,8 @@ class AddLessonDialog(QDialog):
         presets_layout.setContentsMargins(0, 0, 0, 0)
         presets_layout.setSpacing(6)
 
-        for subj_name, col in SUBJECT_PRESETS:
+        for subj_key, col in SUBJECT_PRESETS:
+            subj_name = t(subj_key)
             p_btn = QPushButton(subj_name)
             p_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             p_btn.setFixedHeight(30)
@@ -194,17 +208,14 @@ class AddLessonDialog(QDialog):
         date_col.addWidget(self.date_input)
 
         # Weekday selector for recurring mode
-        self._lbl_weekday = QLabel("День недели")
+        self._lbl_weekday = QLabel(t("weekday_label"))
         self._lbl_weekday.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         self._lbl_weekday.setStyleSheet(f"color: {COLORS['text_secondary']};")
         date_col.addWidget(self._lbl_weekday)
 
         self.weekday_combo = QComboBox()
         self.weekday_combo.setFixedHeight(38)
-        self.weekday_combo.addItems([
-            "Понедельник", "Вторник", "Среда", "Четверг",
-            "Пятница", "Суббота", "Воскресенье"
-        ])
+        self.weekday_combo.addItems(t("weekdays").split("|"))
         date_col.addWidget(self.weekday_combo)
 
         row1.addLayout(date_col, stretch=1)
@@ -230,7 +241,8 @@ class AddLessonDialog(QDialog):
 
         self.badge_combo = QComboBox()
         self.badge_combo.setFixedHeight(38)
-        self.badge_combo.addItems(["Урок", "Запись урока", "Задание", "Онлайн", "Репетитор", "Семинар / Практика", "Экзамен / Зачет", "Секция / Клуб"])
+        for key in BADGE_KEYS:
+            self.badge_combo.addItem(t(key), key)
         badge_col.addWidget(self.badge_combo)
         row1.addLayout(badge_col, stretch=1)
 
@@ -359,7 +371,7 @@ class AddLessonDialog(QDialog):
             c_btn.setFixedSize(28, 28)
             c_btn.setCheckable(True)
             c_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            c_btn.setToolTip(color_name)
+            c_btn.setToolTip(t(color_name))
             c_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {hex_code};
@@ -406,8 +418,8 @@ class AddLessonDialog(QDialog):
             for btn in self.color_group.buttons():
                 if btn.toolTip() == c_val:
                     btn.setChecked(True)
-            b_val = existing_event.get("badge", "Урок")
-            idx = self.badge_combo.findText(b_val)
+            b_val = existing_event.get("badge", "cal_badge_lesson")
+            idx = next((i for i, key in enumerate(BADGE_KEYS) if localized_badge(b_val) == t(key)), -1)
             if idx >= 0:
                 self.badge_combo.setCurrentIndex(idx)
             p_val = existing_event.get("week_parity", "all")
@@ -465,7 +477,7 @@ class AddLessonDialog(QDialog):
             "time": self.start_time.time().toString("HH:mm"),
             "end_time": self.end_time.time().toString("HH:mm"),
             "color": self.selected_color,
-            "badge": self.badge_combo.currentText(),
+            "badge": self.badge_combo.currentData(),
             "room": self.room_input.text().strip(),
             "type": "lesson",
             "week_parity": self.parity_combo.currentData()
@@ -527,7 +539,7 @@ class LessonCard(QFrame):
             rec_icon = QLabel()
             rec_icon.setPixmap(get_pixmap("repeat", COLORS['sky'], 12))
             rec_icon.setStyleSheet("background: transparent;")
-            rec_icon.setToolTip("Постоянный урок")
+            rec_icon.setToolTip(t("add_recurring_lesson"))
             top_l.addWidget(rec_icon)
 
         del_btn = QPushButton()
@@ -563,7 +575,7 @@ class LessonCard(QFrame):
         b_layout.setSpacing(4)
         b_layout.setContentsMargins(0, 2, 0, 0)
 
-        badge_text = event_data.get("badge") or event_data.get("type", "")
+        badge_text = localized_badge(event_data.get("badge") or event_data.get("type", ""))
         if badge_text:
             badge_lbl = QLabel(badge_text)
             badge_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
@@ -578,7 +590,7 @@ class LessonCard(QFrame):
         # Parity pill badge
         par_val = event_data.get("week_parity", "all")
         if par_val == "odd":
-            par_lbl = QLabel("I · Числ.")
+            par_lbl = QLabel(t("week_odd_short"))
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             par_lbl.setStyleSheet("""
                 color: #FFFFFF;
@@ -588,7 +600,7 @@ class LessonCard(QFrame):
             """)
             b_layout.addWidget(par_lbl)
         elif par_val == "even":
-            par_lbl = QLabel("II · Знам.")
+            par_lbl = QLabel(t("week_even_short"))
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             par_lbl.setStyleSheet("""
                 color: #FFFFFF;
@@ -881,7 +893,7 @@ class WeeklyTimetableWidget(QWidget):
                 rec_sub.setPixmap(get_pixmap("repeat", COLORS['sky'], 10))
                 rec_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 rec_sub.setStyleSheet("background: transparent;")
-                rec_sub.setToolTip("Есть постоянные уроки")
+                rec_sub.setToolTip(t("calendar_recurring_tooltip"))
                 ch_layout.addWidget(rec_sub)
 
             self.header_layout.addWidget(col_header, stretch=1)
@@ -1170,11 +1182,11 @@ class CalendarView(QWidget):
         self.parity_all_btn.setChecked(True)
         self.parity_all_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        self.parity_odd_btn = QPushButton("1️⃣ " + t("cal_parity_odd").split()[1])
+        self.parity_odd_btn = QPushButton(t("week_odd_button"))
         self.parity_odd_btn.setCheckable(True)
         self.parity_odd_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
-        self.parity_even_btn = QPushButton("2️⃣ " + t("cal_parity_even").split()[1])
+        self.parity_even_btn = QPushButton(t("week_even_button"))
         self.parity_even_btn.setCheckable(True)
         self.parity_even_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
 
@@ -1310,21 +1322,24 @@ class CalendarView(QWidget):
 
     def _update_range_title(self):
         sun_date = self.current_monday.addDays(6)
-        months_ru = ["", "Января", "Февраля", "Марта", "Апреля", "Мая", "Июня",
-                     "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"]
+        months = (
+            ["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+            if get_language() == "en" else
+            ["", "Января", "Февраля", "Марта", "Апреля", "Мая", "Июня", "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"]
+        )
         
         if self.current_monday.month() == sun_date.month():
-            range_str = f"{self.current_monday.day()} — {sun_date.day()} {months_ru[sun_date.month()]} {sun_date.year()}"
+            range_str = f"{self.current_monday.day()} — {sun_date.day()} {months[sun_date.month()]} {sun_date.year()}"
         else:
-            range_str = f"{self.current_monday.day()} {months_ru[self.current_monday.month()]} — {sun_date.day()} {months_ru[sun_date.month()]} {sun_date.year()}"
+            range_str = f"{self.current_monday.day()} {months[self.current_monday.month()]} — {sun_date.day()} {months[sun_date.month()]} {sun_date.year()}"
         self.range_title_lbl.setText(range_str)
 
         # Update parity status
         week_num = self.current_monday.weekNumber()[0]
         is_even = (week_num % 2 == 0)
-        p_title = "Знаменатель" if is_even else "Числитель"
+        p_title = t("week_even_name") if is_even else t("week_odd_name")
         if hasattr(self, "parity_status_lbl"):
-            self.parity_status_lbl.setText(f"№{week_num} • {p_title}")
+            self.parity_status_lbl.setText(t("week_status", number=week_num, parity=p_title))
 
     def refresh_theme(self):
         self.range_title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; padding-left: 6px;")
@@ -1448,7 +1463,7 @@ class CalendarView(QWidget):
     def _open_add_task_dialog(self):
         dummy_task = {
             "title": "",
-            "subject": "Общие задачи",
+            "subject": t("calendar_default_subject"),
             "description": "",
             "due_date": self.selected_qdate.toString(Qt.DateFormat.ISODate),
             "due_time": "18:00",
@@ -1527,17 +1542,17 @@ class CalendarView(QWidget):
         if not events:
             QMessageBox.information(
                 self,
-                "Экспорт расписания",
-                "В календаре пока нет добавленных занятий для экспорта."
+                t("calendar_export_dialog"),
+                t("calendar_export_empty")
             )
             return
 
-        default_filename = f"Расписание_WorkBOXig_{date.today().strftime('%Y%m%d')}.ics"
+        default_filename = t("calendar_export_filename", date=date.today().strftime("%Y%m%d"))
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Экспорт расписания в iCalendar (.ics)",
+            t("calendar_export_dialog"),
             default_filename,
-            "Файлы iCalendar (*.ics);;Все файлы (*.*)"
+            t("calendar_files_filter")
         )
 
         if not file_path:
@@ -1554,14 +1569,14 @@ class CalendarView(QWidget):
             else:
                 QMessageBox.information(
                     self,
-                    "Экспорт завершён",
-                    f"Расписание успешно сохранено в файл:\n{file_path}\n\nТеперь вы можете импортировать его в Google Календарь, Apple Calendar или Яндекс."
+                    t("calendar_export_success_title"),
+                    t("calendar_export_success", path=file_path)
                 )
         except Exception as ex:
             QMessageBox.critical(
                 self,
-                "Ошибка экспорта",
-                f"Не удалось сохранить файл .ics:\n{ex}"
+                t("calendar_export_error_title"),
+                t("calendar_export_error", error=ex)
             )
 
     def _generate_ics_content(self, events: List[Dict[str, Any]]) -> str:
@@ -1572,13 +1587,13 @@ class CalendarView(QWidget):
             "PRODID:-//WorkBOXig//Work & Study OS//RU",
             "CALSCALE:GREGORIAN",
             "METHOD:PUBLISH",
-            "X-WR-CALNAME:Расписание WorkBOXig",
+            f"X-WR-CALNAME:{t('calendar_ics_name')}",
             "X-WR-TIMEZONE:Europe/Moscow",
         ]
 
         for ev in events:
             ev_id = ev.get("id", "0")
-            title = ev.get("title", "Занятие").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+            title = ev.get("title", t("calendar_ics_default_event")).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
             date_str = ev.get("date", "")
             time_str = ev.get("time", "09:00")
             end_time_str = ev.get("end_time", "") or time_str
@@ -1604,7 +1619,7 @@ class CalendarView(QWidget):
 
             desc_parts = []
             if ev.get("badge") or ev.get("type"):
-                desc_parts.append(f"Тип: {ev.get('badge') or ev.get('type')}")
+                desc_parts.append(t("calendar_ics_type", type=localized_badge(ev.get("badge") or ev.get("type"))))
             if ev.get("description"):
                 desc_parts.append(ev.get("description"))
             desc_text = " | ".join(desc_parts).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")

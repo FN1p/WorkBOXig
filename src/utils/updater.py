@@ -17,6 +17,7 @@ from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtWidgets import QApplication
 
 from src.version import __version__, GITHUB_REPO, APP_NAME
+from src.i18n import t
 
 
 def parse_version_tuple(version_str: str) -> Tuple[int, ...]:
@@ -83,7 +84,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
                         return {
                             "tag_name": latest_tag,
                             "title": f"WorkBOXig {latest_tag}",
-                            "body": "Доступно обновление на GitHub.",
+                            "body": t("update_available_generic"),
                             "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
                             "published_at": "",
                             "installer_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig_Setup.exe",
@@ -95,12 +96,12 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
                         }
             except Exception:
                 pass
-            raise RuntimeError("Превышен лимит запросов к GitHub API. Попробуйте позже.") from he
+            raise RuntimeError(t("update_rate_limit_error")) from he
         elif he.code == 404:
-            raise RuntimeError("Репозиторий приватный или релиз пока не опубликован для общего доступа.") from he
-        raise RuntimeError(f"Ошибка GitHub API: HTTP {he.code}") from he
+            raise RuntimeError(t("update_private_error")) from he
+        raise RuntimeError(t("update_api_error", code=he.code)) from he
     except urllib.error.URLError as ue:
-        raise RuntimeError(f"Нет подключения к интернету: {ue.reason}") from ue
+        raise RuntimeError(t("update_network_error", reason=ue.reason)) from ue
 
     tag_name = data.get("tag_name", "")
     assets = data.get("assets", [])

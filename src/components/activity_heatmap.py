@@ -363,7 +363,7 @@ class ActivityHeatmapWidget(QFrame):
                 pct = int(round((mins / total_mins) * 100)) if total_mins > 0 else 0
                 col_str = SubjectDistributionBar.SUBJECT_COLORS[idx % len(SubjectDistributionBar.SUBJECT_COLORS)]
 
-                pill = QLabel(f"● {subj}: {mins} мин ({pct}%)")
+                pill = QLabel(f"● {subj}: {mins} {t('focus_minutes_short')} ({pct}%)")
                 pill.setFont(QFont("Segoe UI", 8))
                 pill.setStyleSheet(f"color: {col_str}; font-weight: 500;")
                 self.dist_legend_layout.addWidget(pill)

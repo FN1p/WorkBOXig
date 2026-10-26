@@ -792,10 +792,51 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(t("app_title"))
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
         self.search_btn.setText(t("search_placeholder"))
+        self.quick_add_btn.setText(t("quick_add_btn"))
         self.quick_add_btn.setToolTip(t("quick_add"))
+        actions = self.quick_add_btn.menu().actions()
+        for action, key in zip(actions, ("add_task_menu", "add_note_menu", "btn_new_notebook", "dlg_add_grade_title")):
+            action.setText(t(key))
         self.tasks_view.quick_task_input.setPlaceholderText(t("quick_task_placeholder"))
         self.tasks_view.quick_task_input.setAccessibleName(t("quick_task_accessible"))
         self.tasks_view.quick_task_input.setToolTip(t("quick_task_hint"))
         self.tasks_view.quick_task_example.setText(t("onboarding_quick_example", date=(date.today() + timedelta(days=1)).isoformat()))
-        cur_tab = self.sidebar.current_tab if hasattr(self.sidebar, "current_tab") else "dashboard"
+        cur_tab = next((key for key, view in self.views.items() if view is self.stack.currentWidget()), "dashboard")
         self._switch_page(cur_tab)
+        if self.isVisible() and not getattr(self, "_translation_refresh_pending", False):
+            self._translation_refresh_pending = True
+            QTimer.singleShot(0, self._rebuild_translated_views)
+
+    def _rebuild_translated_views(self):
+        """Recreate views after a language change so every static label is translated."""
+        self._translation_refresh_pending = False
+        current = next((key for key, view in self.views.items() if view is self.stack.currentWidget()), "dashboard")
+        settings_index = self.settings_view.stack.currentIndex()
+        replacements = (
+            ("dashboard", "dashboard_view", DashboardView),
+            ("calendar", "calendar_view", CalendarView),
+            ("notebooks", "notebooks_view", NotebooksView),
+            ("notes", "notes_view", NotesView),
+            ("tasks", "tasks_view", TasksView),
+            ("settings", "settings_view", SettingsView),
+        )
+        for key, attr, view_type in replacements:
+            old = self.views[key]
+            index = self.stack.indexOf(old)
+            new = view_type(self)
+            self.stack.insertWidget(index, new)
+            self.stack.removeWidget(old)
+            old.deleteLater()
+            self.views[key] = new
+            setattr(self, attr, new)
+        self.dashboard_view.navigate_requested.connect(self._navigate_to)
+        self.dashboard_view.toast_requested.connect(self._show_toast)
+        self.dashboard_view.start_pomodoro_requested.connect(self.pomodoro.start_timer)
+        self.settings_view.theme_changed.connect(self._apply_theme)
+        self.settings_view.toast_requested.connect(self._show_toast)
+        self.settings_view.test_notification_requested.connect(self._show_test_desktop_notification)
+        self.settings_view.show_onboarding_requested.connect(self._show_onboarding)
+        categories = list(self.settings_view.cat_buttons)
+        self.settings_view._switch_category(settings_index, categories[settings_index])
+        self.sidebar.select_tab(current)
+        self._switch_page(current)

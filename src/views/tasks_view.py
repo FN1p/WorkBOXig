@@ -600,7 +600,7 @@ class KanbanTaskCard(QFrame):
         btn_row.setSpacing(6)
 
         if status == "todo":
-            move_btn = QPushButton("В процесс")
+            move_btn = QPushButton(t("kanban_start"))
             move_btn.setIcon(get_icon("arrow_right", COLORS["sky"], 11))
             move_btn.setFixedHeight(24)
             move_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -621,7 +621,7 @@ class KanbanTaskCard(QFrame):
             move_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "in_progress"))
             btn_row.addWidget(move_btn)
 
-            done_btn = QPushButton("Готово")
+            done_btn = QPushButton(t("kanban_complete"))
             done_btn.setIcon(get_icon("check", COLORS["emerald"], 11))
             done_btn.setFixedHeight(24)
             done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -643,7 +643,7 @@ class KanbanTaskCard(QFrame):
             btn_row.addWidget(done_btn)
 
         elif status == "in_progress":
-            back_btn = QPushButton("К плану")
+            back_btn = QPushButton(t("kanban_back"))
             back_btn.setIcon(get_icon("rotate_ccw", COLORS["text_muted"], 11))
             back_btn.setFixedHeight(24)
             back_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -663,7 +663,7 @@ class KanbanTaskCard(QFrame):
             back_btn.clicked.connect(lambda: self.status_changed.emit(self.task_id, "todo"))
             btn_row.addWidget(back_btn)
 
-            done_btn = QPushButton("Сдано")
+            done_btn = QPushButton(t("kanban_submit"))
             done_btn.setIcon(get_icon("check", COLORS["emerald"], 11))
             done_btn.setFixedHeight(24)
             done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -686,7 +686,7 @@ class KanbanTaskCard(QFrame):
             btn_row.addWidget(done_btn)
 
         elif status == "done":
-            reopen_btn = QPushButton("Вернуть")
+            reopen_btn = QPushButton(t("kanban_reopen"))
             reopen_btn.setIcon(get_icon("rotate_ccw", COLORS["amber"], 11))
             reopen_btn.setFixedHeight(24)
             reopen_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))

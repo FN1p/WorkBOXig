@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from PyQt6.QtCore import QThread, pyqtSignal, pyqtSlot, QObject
 
 from src.storage import StorageManager
+from src.i18n import t
 
 
 def normalize_calendar_url(raw_url: str) -> str:
@@ -91,7 +92,7 @@ def parse_ical_events(ics_content: str) -> List[Dict[str, Any]]:
                 # Process event
                 raw_uid = current_evt.get("UID", "")
                 uid = (raw_uid.split(":", 1)[-1].strip() if ":" in raw_uid else raw_uid) or str(uuid.uuid4())
-                raw_summary = current_evt.get("SUMMARY", "Событие")
+                raw_summary = current_evt.get("SUMMARY", t("google_event_default"))
                 summary = unescape_ical_text(raw_summary.split(":", 1)[-1] if ":" in raw_summary else raw_summary)
                 raw_desc = current_evt.get("DESCRIPTION", "")
                 desc = unescape_ical_text(raw_desc.split(":", 1)[-1] if ":" in raw_desc else raw_desc)
@@ -167,13 +168,13 @@ def fetch_calendar_events(url: str, timeout: int = 15) -> Tuple[str, List[Dict[s
                 raise ValueError(f"HTTP {resp.status} {resp.reason}")
             ics_content = resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as he:
-        raise RuntimeError(f"Ошибка доступа к календарю (HTTP {he.code}). Проверьте правильность ссылки.") from he
+        raise RuntimeError(t("google_access_error", code=he.code)) from he
     except urllib.error.URLError as ue:
-        raise RuntimeError(f"Не удалось подключиться к Google Календарю: {ue.reason}") from ue
+        raise RuntimeError(t("google_connection_error", reason=ue.reason)) from ue
 
     parsed_events = parse_ical_events(ics_content)
     if not parsed_events:
-        raise ValueError("В календаре не найдено событий или неверный формат ссылки.")
+        raise ValueError(t("google_no_events_error"))
     return clean_url, parsed_events
 
 

@@ -143,7 +143,7 @@ class DashboardView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.storage = get_storage()
-        self.selected_tag = "идея"
+        self.selected_tag = t("metric_tags").split("|")[0]
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -164,7 +164,7 @@ class DashboardView(QWidget):
 
         self._init_ui()
         self.storage.data_changed.connect(self._refresh_all)
-        get_i18n().language_changed.connect(lambda l: self._on_language_changed())
+        get_i18n().language_changed.connect(self._on_language_changed)
         self._refresh_all()
 
     def _update_banner_style(self):
@@ -380,28 +380,28 @@ class DashboardView(QWidget):
         metrics_grid.setSpacing(14)
 
         self.card_today_tasks = MetricCard(
-            "zap", "Срочно / Сегодня", "Требуют внимания", "0",
+            "zap", t("metric_today_title"), t("metric_today_sub"), "0",
             COLORS['amber'], "rgba(245, 158, 11, 0.16)", "tasks"
         )
         self.card_today_tasks.clicked.connect(self.navigate_requested)
         metrics_grid.addWidget(self.card_today_tasks, 0, 0)
 
         self.card_events = MetricCard(
-            "calendar", "Занятий сегодня", "Уроки и лекции", "0",
+            "calendar", t("metric_events_title"), t("metric_events_sub"), "0",
             COLORS['sky'], "rgba(56, 189, 248, 0.16)", "calendar"
         )
         self.card_events.clicked.connect(self.navigate_requested)
         metrics_grid.addWidget(self.card_events, 0, 1)
 
         self.card_notebooks = MetricCard(
-            "notebooks", "Тетради & конспекты", "Разделы базы знаний", "0",
+            "notebooks", t("metric_notebooks_title"), t("metric_notebooks_sub"), "0",
             COLORS['emerald'], "rgba(16, 185, 129, 0.16)", "notebooks"
         )
         self.card_notebooks.clicked.connect(self.navigate_requested)
         metrics_grid.addWidget(self.card_notebooks, 0, 2)
 
         self.card_notes = MetricCard(
-            "notes", "Быстрые мысли", "Сохраненные заметки", "0",
+            "notes", t("metric_notes_title"), t("metric_quick_notes_sub"), "0",
             COLORS['purple'], "rgba(168, 85, 247, 0.16)", "notes"
         )
         self.card_notes.clicked.connect(self.navigate_requested)
@@ -572,8 +572,9 @@ class DashboardView(QWidget):
         chips_row = QHBoxLayout()
         chips_row.setSpacing(6)
 
-        for tag_name in ["#идея", "#задача", "#формула", "#важно"]:
-            chip_btn = QPushButton(tag_name)
+        self.tag_chips = []
+        for tag_name in t("metric_tags").split("|"):
+            chip_btn = QPushButton(f"#{tag_name}")
             chip_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             chip_btn.setStyleSheet(f"""
                 QPushButton {{
@@ -589,8 +590,9 @@ class DashboardView(QWidget):
                     border-color: {COLORS['primary_border']};
                 }}
             """)
-            chip_btn.clicked.connect(lambda ch, t=tag_name[1:]: self._apply_tag_chip(t))
+            chip_btn.clicked.connect(lambda ch, tag=tag_name: self._apply_tag_chip(tag))
             chips_row.addWidget(chip_btn)
+            self.tag_chips.append(chip_btn)
 
         chips_row.addStretch()
         rb_layout.addLayout(chips_row)
@@ -980,7 +982,7 @@ class DashboardView(QWidget):
             self.quick_note_body.setFocus()
             return
 
-        tags = [self.selected_tag, "быстрое"] if self.selected_tag else ["быстрое"]
+        tags = [self.selected_tag, t("quick_thought_default").lower()] if self.selected_tag else [t("quick_thought_default").lower()]
         self.storage.add_note(title=title, content=body, color=COLORS['primary'], tags=tags)
         self.quick_note_title.clear()
         self.quick_note_body.clear()
@@ -1008,20 +1010,23 @@ class DashboardView(QWidget):
         if hasattr(self, "date_sub"):
             self.date_sub.setText(f"{weekday_str} • {now.year}")
 
-    def _on_language_changed(self):
+    def _on_language_changed(self, _lang=None):
         self._update_date_card_text()
         if hasattr(self, "card_today_tasks"):
-            self.card_today_tasks.t_lbl.setText(t("metric_tasks"))
-            self.card_today_tasks.sub_lbl.setText(t("metric_tasks_sub"))
+            self.card_today_tasks.t_lbl.setText(t("metric_today_title"))
+            self.card_today_tasks.sub_lbl.setText(t("metric_today_sub"))
         if hasattr(self, "card_events"):
-            self.card_events.t_lbl.setText(t("metric_classes"))
-            self.card_events.sub_lbl.setText(t("metric_classes_sub"))
+            self.card_events.t_lbl.setText(t("metric_events_title"))
+            self.card_events.sub_lbl.setText(t("metric_events_sub"))
         if hasattr(self, "card_notebooks"):
-            self.card_notebooks.t_lbl.setText(t("notebooks_title"))
-            self.card_notebooks.sub_lbl.setText(t("metric_notes_sub"))
+            self.card_notebooks.t_lbl.setText(t("metric_notebooks_title"))
+            self.card_notebooks.sub_lbl.setText(t("metric_notebooks_sub"))
         if hasattr(self, "card_notes"):
-            self.card_notes.t_lbl.setText(t("notes_title"))
-            self.card_notes.sub_lbl.setText(t("notes_subtitle"))
+            self.card_notes.t_lbl.setText(t("metric_notes_title"))
+            self.card_notes.sub_lbl.setText(t("metric_quick_notes_sub"))
+        for chip, tag in zip(getattr(self, "tag_chips", []), t("metric_tags").split("|")):
+            chip.setText(f"#{tag}")
+        self.selected_tag = t("metric_tags").split("|")[0]
         if hasattr(self, "streak_chip"):
             self.streak_chip.setText(t("streak_format", count=3))
         self._refresh_all()
