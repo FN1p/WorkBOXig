@@ -5,7 +5,7 @@ Pomodoro Focus mode, view stack, global shortcuts, and notifications.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QStackedWidget, QLabel, QPushButton, QMenu, QFrame, QApplication,
@@ -35,6 +35,7 @@ from src.views.settings_view import SettingsView
 from src.utils.updater import CheckUpdateThread
 from src.components.update_dialog import UpdateDialog
 from src.components.mini_widget import DesktopMiniWidget
+from src.components.onboarding_dialog import OnboardingDialog
 
 
 class MainWindow(QMainWindow):
@@ -339,6 +340,27 @@ class MainWindow(QMainWindow):
         # 11. System Tray Icon & Close Handling
         self.tray_icon = None
         self._setup_tray_icon()
+
+        if not self.storage.get_setting("onboarding_completed", False):
+            # Existing workspaces should not be interrupted after an upgrade.
+            has_content = any((
+                self.storage.get_tasks(), self.storage.get_notes(),
+                self.storage.get_notebooks(), self.storage.get_events(),
+            ))
+            if has_content:
+                self.storage.set_setting("onboarding_completed", True)
+            else:
+                QTimer.singleShot(0, self._show_onboarding)
+
+        self.settings_view.show_onboarding_requested.connect(self._show_onboarding)
+
+    def _show_onboarding(self):
+        if not self.isVisible():
+            return
+        dialog = OnboardingDialog(self)
+        dialog.page_requested.connect(self._navigate_to)
+        dialog.exec()
+        self.storage.set_setting("onboarding_completed", True)
 
     def _check_startup_google_sync(self):
         cal_url = self.storage.get_setting("google_calendar_url", "")
@@ -825,5 +847,6 @@ class MainWindow(QMainWindow):
         self.tasks_view.quick_task_input.setPlaceholderText(t("quick_task_placeholder"))
         self.tasks_view.quick_task_input.setAccessibleName(t("quick_task_accessible"))
         self.tasks_view.quick_task_input.setToolTip(t("quick_task_hint"))
+        self.tasks_view.quick_task_example.setText(t("onboarding_quick_example", date=(date.today() + timedelta(days=1)).isoformat()))
         cur_tab = self.sidebar.current_tab if hasattr(self.sidebar, "current_tab") else "dashboard"
         self._switch_page(cur_tab)

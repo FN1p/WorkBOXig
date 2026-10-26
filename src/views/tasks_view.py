@@ -3,7 +3,7 @@ Tasks & Homework (Задачи и ДЗ) View for WorkBOXig.
 Modern, clean, and highly readable task tracker with priority badges and calendar links.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QProgressBar, QFrame,
@@ -833,6 +833,10 @@ class TasksView(QWidget):
         self.quick_task_input.returnPressed.connect(self._add_quick_task)
         main_layout.addWidget(self.quick_task_input)
 
+        self.quick_task_example = QLabel(t("onboarding_quick_example", date=(date.today() + timedelta(days=1)).isoformat()))
+        self.quick_task_example.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 11px;")
+        main_layout.addWidget(self.quick_task_example)
+
         # Row 2: Subject Filter, Clear Done, & Instant Search
         row2_layout = QHBoxLayout()
         row2_layout.setSpacing(12)
@@ -1181,11 +1185,15 @@ class TasksView(QWidget):
         sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), x.get("due_date", "9999-99-99")))
 
         if not sorted_tasks:
-            empty_lbl = QLabel(t("no_tasks"))
+            empty_lbl = QLabel(t("no_tasks") if not tasks else t("no_tasks_filtered"))
             empty_lbl.setFont(QFont("Segoe UI", 11))
-            empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 48px 0;")
+            empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 24px 0 8px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.tasks_layout.addWidget(empty_lbl)
+            action = QPushButton(t("btn_new_task") if not tasks else t("clear_filters"))
+            action.setObjectName("primary-btn" if not tasks else "ghost-btn")
+            action.clicked.connect(self._open_new_task_dialog if not tasks else self._clear_empty_filters)
+            self.tasks_layout.addWidget(action, alignment=Qt.AlignmentFlag.AlignCenter)
             return
 
         for task in sorted_tasks:
@@ -1213,6 +1221,11 @@ class TasksView(QWidget):
             )
             self._update_subject_dropdown()
             self._render_tasks()
+
+    def _clear_empty_filters(self):
+        self.search_input.clear()
+        self.subj_filter.setCurrentIndex(0)
+        self._set_filter("all")
 
     def _add_quick_task(self):
         try:

@@ -72,6 +72,7 @@ class SettingsView(QWidget):
     theme_changed = pyqtSignal(str) # 'dark' or 'light'
     toast_requested = pyqtSignal(str, str) # message, type
     test_notification_requested = pyqtSignal()
+    show_onboarding_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -608,6 +609,10 @@ class SettingsView(QWidget):
         self.stats_lbl.setStyleSheet(f"color: {COLORS['text_muted']};")
         self._refresh_stats()
         about_l.addWidget(self.stats_lbl)
+
+        guide_btn = QPushButton(t("onboarding_reopen"))
+        guide_btn.clicked.connect(self.show_onboarding_requested.emit)
+        about_l.addWidget(guide_btn)
 
         about_card.add_layout(about_l)
         layout.addWidget(about_card)

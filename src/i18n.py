@@ -8,6 +8,20 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "ru": {
+        "onboarding_title": "Начните работу с WorkBOXig",
+        "onboarding_intro": "Три коротких шага, чтобы организовать дела и учёбу. Выберите раздел или закройте подсказку — её можно открыть позже в настройках.",
+        "onboarding_task_title": "Добавьте первую задачу",
+        "onboarding_task_desc": "Запишите дело и срок. Для быстрого ввода можно использовать дату и приоритет.",
+        "onboarding_notebook_title": "Создайте тетрадь",
+        "onboarding_notebook_desc": "Соберите конспекты по предмету или проекту в одном месте.",
+        "onboarding_calendar_title": "Посмотрите календарь",
+        "onboarding_calendar_desc": "Добавьте занятия и события, чтобы видеть план на день.",
+        "onboarding_open": "Открыть",
+        "onboarding_done": "Понятно",
+        "onboarding_reopen": "Показать знакомство с приложением",
+        "onboarding_quick_example": "Пример: Сдать отчёт @{date} !high → Enter",
+        "no_tasks_filtered": "По выбранным фильтрам задач нет.",
+        "clear_filters": "Сбросить фильтры",
         # App & Brand
         "app_title": "WorkBOXig — Рабочая станция и учёба",
         "app_subtitle": "Executive Work & Study OS",
@@ -539,6 +553,20 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sidebar_space_tt": "Личное пространство (Локально)",
     },
     "en": {
+        "onboarding_title": "Get started with WorkBOXig",
+        "onboarding_intro": "Three quick steps to organize your work and study. Pick a section or close this guide; you can reopen it in Settings.",
+        "onboarding_task_title": "Add your first task",
+        "onboarding_task_desc": "Write down a task and its due date. Quick entry also accepts a date and priority.",
+        "onboarding_notebook_title": "Create a notebook",
+        "onboarding_notebook_desc": "Keep notes for a subject or project together.",
+        "onboarding_calendar_title": "Explore the calendar",
+        "onboarding_calendar_desc": "Add classes and events to see your daily plan.",
+        "onboarding_open": "Open",
+        "onboarding_done": "Got it",
+        "onboarding_reopen": "Show getting started guide",
+        "onboarding_quick_example": "Example: Finish report @{date} !high → Enter",
+        "no_tasks_filtered": "No tasks match these filters.",
+        "clear_filters": "Clear filters",
         # App & Brand
         "app_title": "WorkBOXig — Executive Work & Study OS",
         "app_subtitle": "Executive Work & Study OS",
