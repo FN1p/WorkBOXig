@@ -739,30 +739,24 @@ class TasksView(QWidget):
 
         main_layout.addLayout(metrics_grid)
 
-        # 2. Row 1: Filter Segmented Pills & Main Action
+        # 2. Row 1: compact filter, view mode and main action
         row1_layout = QHBoxLayout()
         row1_layout.setSpacing(8)
 
-        self.filter_buttons = {}
         filters_list = [
             ("all", t("filter_all")),
             ("today", t("task_stat_today")),
-            ("upcoming", t("task_stat_pending")),
-            ("overdue", t("task_priority_urgent")),
-            ("urgent", t("task_priority_urgent")),
-            ("done", t("task_stat_done"))
+            ("upcoming", t("filter_upcoming")),
+            ("overdue", t("filter_overdue")),
+            ("urgent", t("filter_urgent")),
+            ("done", t("filter_done"))
         ]
-
-        for f_id, text in filters_list:
-            btn = QPushButton(text)
-            btn.setCheckable(True)
-            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            btn.setChecked(f_id == "all")
-            btn.clicked.connect(lambda checked, fid=f_id: self._set_filter(fid))
-            row1_layout.addWidget(btn)
-            self.filter_buttons[f_id] = btn
-
-        self._style_filter_buttons()
+        self.status_filter = QComboBox()
+        self.status_filter.setAccessibleName(t("filter_status_accessible"))
+        for f_id, label in filters_list:
+            self.status_filter.addItem(label, f_id)
+        self.status_filter.currentIndexChanged.connect(self._on_status_filter_changed)
+        row1_layout.addWidget(self.status_filter)
         row1_layout.addStretch()
 
         # View Mode switcher: List / Kanban
@@ -851,14 +845,12 @@ class TasksView(QWidget):
         self.subj_filter.currentIndexChanged.connect(self._on_subject_filter_changed)
         row2_layout.addWidget(self.subj_filter)
 
-        clear_done_btn = QPushButton(t("clear_completed"))
-        clear_done_btn.setIcon(get_icon("trash", COLORS['text_muted'], 16))
-        clear_done_btn.setIconSize(QSize(16, 16))
-        clear_done_btn.setObjectName("ghost-btn")
-        clear_done_btn.clicked.connect(self._clear_completed_tasks)
-        row2_layout.addWidget(clear_done_btn)
-
         row2_layout.addStretch()
+
+        self.clear_done_btn = QPushButton(t("clear_completed"))
+        self.clear_done_btn.setObjectName("ghost-btn")
+        self.clear_done_btn.clicked.connect(self._clear_completed_tasks)
+        row2_layout.addWidget(self.clear_done_btn)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(t("search_tasks_ph"))
@@ -908,7 +900,9 @@ class TasksView(QWidget):
         self._render_tasks()
 
     def _on_view_mode_switched(self):
-        if self.kanban_mode_btn.isChecked():
+        kanban = self.kanban_mode_btn.isChecked()
+        self.status_filter.setVisible(not kanban)
+        if kanban:
             self.content_stack.setCurrentIndex(1)
             self._render_kanban()
         else:
@@ -1067,43 +1061,19 @@ class TasksView(QWidget):
             card.findChild(QLabel, "stat_title").setStyleSheet(
                 f"color: {COLORS['text_muted']}; background: transparent;"
             )
-        self._style_filter_buttons()
         self._render_tasks()
-
-    def _style_filter_buttons(self):
-        for fid, btn in self.filter_buttons.items():
-            if btn.isChecked():
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {COLORS['primary']};
-                        color: #FFFFFF;
-                        border: 1px solid {COLORS['primary']};
-                        border-radius: 8px;
-                        font-weight: 600;
-                        padding: 6px 14px;
-                    }}
-                """)
-            else:
-                btn.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {COLORS['bg_card']};
-                        color: {COLORS['text_secondary']};
-                        border: 1px solid {COLORS['border_subtle']};
-                        border-radius: 8px;
-                        padding: 6px 14px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {COLORS['bg_card_hover']};
-                        color: #FFFFFF;
-                    }}
-                """)
 
     def _set_filter(self, filter_id: str):
         self.active_filter = filter_id
-        for fid, btn in self.filter_buttons.items():
-            btn.setChecked(fid == filter_id)
-        self._style_filter_buttons()
+        index = self.status_filter.findData(filter_id)
+        if index >= 0 and index != self.status_filter.currentIndex():
+            self.status_filter.blockSignals(True)
+            self.status_filter.setCurrentIndex(index)
+            self.status_filter.blockSignals(False)
         self._render_tasks()
+
+    def _on_status_filter_changed(self):
+        self._set_filter(self.status_filter.currentData() or "all")
 
     def _on_subject_filter_changed(self):
         self.active_subject = self.subj_filter.currentData() or "all"
@@ -1139,6 +1109,7 @@ class TasksView(QWidget):
         # Compute metrics
         total = len(tasks)
         done = sum(1 for task_item in tasks if task_item.get("completed"))
+        self.clear_done_btn.setVisible(self.active_filter == "done" and done > 0)
         pending = total - done
         today_due = sum(1 for task_item in tasks if not task_item.get("completed") and task_item.get("due_date") == today_iso)
 
@@ -1194,6 +1165,8 @@ class TasksView(QWidget):
             action.setObjectName("primary-btn" if not tasks else "ghost-btn")
             action.clicked.connect(self._open_new_task_dialog if not tasks else self._clear_empty_filters)
             self.tasks_layout.addWidget(action, alignment=Qt.AlignmentFlag.AlignCenter)
+            if self.kanban_mode_btn.isChecked():
+                self._render_kanban()
             return
 
         for task in sorted_tasks:

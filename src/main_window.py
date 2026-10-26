@@ -159,63 +159,6 @@ class MainWindow(QMainWindow):
         self.pomodoro.session_completed.connect(self._on_pomodoro_completed)
         tb_layout.addWidget(self.pomodoro)
 
-        # Study Streak Pill with vector icon
-        streak_frame = QFrame()
-        streak_frame.setObjectName("streak_frame")
-        streak_frame.setStyleSheet(f"""
-            QFrame#streak_frame {{
-                background-color: {COLORS['amber_subtle']};
-                border: 1px solid rgba(245, 158, 11, 0.25);
-                border-radius: 8px;
-                padding: 2px 8px;
-            }}
-        """)
-        streak_l = QHBoxLayout(streak_frame)
-        streak_l.setContentsMargins(6, 2, 6, 2)
-        streak_l.setSpacing(6)
-        streak_icon = QLabel()
-        streak_icon.setPixmap(get_pixmap("streak", COLORS['amber'], 14))
-        streak_icon.setStyleSheet("background: transparent;")
-        streak_l.addWidget(streak_icon)
-        streak_text = QLabel(t("streak_format", count=3))
-        streak_text.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        streak_text.setStyleSheet(f"color: {COLORS['amber']}; background: transparent;")
-        streak_l.addWidget(streak_text)
-        tb_layout.addWidget(streak_frame)
-
-        # Floating Mini Widget Button (Focus HUD)
-        self.mini_widget_btn = QPushButton()
-        self.mini_widget_btn.setIcon(get_icon("widget", COLORS['text_secondary'], 16))
-        self.mini_widget_btn.setIconSize(QSize(16, 16))
-        self.mini_widget_btn.setToolTip(t("mini_widget_tooltip"))
-        self.mini_widget_btn.setFixedSize(30, 30)
-        self.mini_widget_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.mini_widget_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS['bg_card']};
-                border: 1px solid {COLORS['border_subtle']};
-                border-radius: 8px;
-            }}
-            QPushButton:hover {{
-                border-color: {COLORS['primary_border']};
-                background-color: {COLORS['bg_card_hover']};
-            }}
-        """)
-        self.mini_widget_btn.clicked.connect(self.toggle_mini_widget)
-        tb_layout.addWidget(self.mini_widget_btn)
-
-        # Live Clock
-        self.clock_lbl = QLabel()
-        self.clock_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
-        self.clock_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
-        self._update_clock()
-        tb_layout.addWidget(self.clock_lbl)
-
-        self.clock_timer = QTimer(self)
-        self.clock_timer.setInterval(1000)
-        self.clock_timer.timeout.connect(self._update_clock)
-        self.clock_timer.start()
-
         # Quick Add Button with Menu
         self.quick_add_btn = QPushButton(t("quick_add_btn"))
         self.quick_add_btn.setIcon(get_icon("plus", "#FFFFFF", 12))
@@ -539,9 +482,6 @@ class MainWindow(QMainWindow):
         icon_name = "panel_left_open" if is_collapsed else "panel_left"
         self.sidebar_toggle_btn.setIcon(get_icon(icon_name, COLORS['text_secondary'], 16))
 
-    def _update_clock(self):
-        self.clock_lbl.setText(datetime.now().strftime("%H:%M:%S"))
-
     def _switch_page(self, tab_id: str):
         if tab_id in self.views:
             titles = {
@@ -595,7 +535,6 @@ class MainWindow(QMainWindow):
                 color: {COLORS['text_secondary']};
             }}
         """)
-        self.clock_lbl.setStyleSheet(f"color: {COLORS['text_secondary']};")
         self.page_title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         
         # Refresh current topbar icon
@@ -813,6 +752,7 @@ class MainWindow(QMainWindow):
     def _setup_shortcuts(self):
         # Universal Command Palette (Ctrl+K)
         QShortcut(QKeySequence("Ctrl+K"), self, self.open_command_palette)
+        QShortcut(QKeySequence("Ctrl+F"), self, self._focus_search)
         # Pomodoro Zen Mode (Ctrl+T)
         QShortcut(QKeySequence("Ctrl+T"), self, self.pomodoro.open_zen_mode)
         # Desktop Mini Widget (F8 and Ctrl+M)
@@ -833,6 +773,15 @@ class MainWindow(QMainWindow):
             self.storage.save_immediately(),
             self._show_toast(t("all_data_saved"), "success")
         ))
+
+    def _focus_search(self):
+        current = self.stack.currentWidget()
+        if current is self.tasks_view:
+            self.tasks_view.search_input.setFocus()
+        elif current is self.notes_view:
+            self.notes_view.search_input.setFocus()
+        else:
+            self.open_command_palette()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

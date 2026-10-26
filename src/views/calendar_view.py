@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCalendarWidget, QFrame, QScrollArea, QDialog, QLineEdit,
     QComboBox, QTextEdit, QTimeEdit, QDateEdit, QMessageBox, QCheckBox,
-    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog
+    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog, QMenu
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QTimer, QSize, QRectF
 from PyQt6.QtGui import QFont, QTextCharFormat, QColor, QCursor, QPainter, QPen, QBrush, QFontMetrics
@@ -1202,99 +1202,16 @@ class CalendarView(QWidget):
         self.add_lesson_btn.clicked.connect(self._open_add_lesson_dialog)
         ctrl_bar.addWidget(self.add_lesson_btn)
 
-        # Recurring lesson button
-        self.add_recurring_btn = QPushButton("Постоянный урок")
-        self.add_recurring_btn.setIcon(get_icon("repeat", COLORS['text_secondary'], 14))
-        self.add_recurring_btn.setIconSize(QSize(14, 14))
-        self.add_recurring_btn.setFixedHeight(32)
-        self.add_recurring_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.add_recurring_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS['bg_input']};
-                color: {COLORS['text_secondary']};
-                border: 1px solid {COLORS['border_subtle']};
-                border-radius: 8px;
-                padding: 5px 14px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS['bg_card_hover']};
-                color: {COLORS['text_primary']};
-                border-color: {COLORS['border_light']};
-            }}
-        """)
-        self.add_recurring_btn.clicked.connect(self._open_add_recurring_dialog)
-        ctrl_bar.addWidget(self.add_recurring_btn)
-
-        add_task_btn = QPushButton(t("btn_new_task"))
-        add_task_btn.setIcon(get_icon("tasks", COLORS['primary_light'], 16))
-        add_task_btn.setIconSize(QSize(16, 16))
-        add_task_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        add_task_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS['bg_input']};
-                color: {COLORS['primary_light']};
-                border: 1px solid {COLORS['primary_border']};
-                border-radius: 8px;
-                padding: 6px 14px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS['primary_subtle']};
-                color: #FFFFFF;
-            }}
-        """)
-        add_task_btn.clicked.connect(self._open_add_task_dialog)
-        ctrl_bar.addWidget(add_task_btn)
-
-        self.export_btn = QPushButton(t("export_ics"))
-        self.export_btn.setIcon(get_icon("calendar", COLORS['text_secondary'], 16))
-        self.export_btn.setIconSize(QSize(16, 16))
-        self.export_btn.setToolTip(t("act_export_ics_title"))
-        self.export_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.export_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS['bg_input']};
-                color: {COLORS['text_secondary']};
-                border: 1px solid {COLORS['border_subtle']};
-                border-radius: 8px;
-                padding: 6px 14px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS['bg_card_hover']};
-                color: {COLORS['text_primary']};
-                border-color: {COLORS['border_light']};
-            }}
-        """)
-        self.export_btn.clicked.connect(self.export_to_ics)
-        ctrl_bar.addWidget(self.export_btn)
-
-        self.google_sync_btn = QPushButton(t("btn_google_sync"))
-        self.google_sync_btn.setIcon(get_icon("sync", "#4285F4", 16))
-        self.google_sync_btn.setIconSize(QSize(16, 16))
-        self.google_sync_btn.setToolTip(t("google_sync_tooltip"))
-        self.google_sync_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.google_sync_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {COLORS['bg_input']};
-                color: {COLORS['text_primary']};
-                border: 1px solid {COLORS['border_subtle']};
-                border-radius: 8px;
-                padding: 6px 14px;
-                font-size: 12px;
-                font-weight: 600;
-            }}
-            QPushButton:hover {{
-                background-color: {COLORS['bg_card_hover']};
-                border-color: #4285F4;
-            }}
-        """)
-        self.google_sync_btn.clicked.connect(self._open_google_sync)
-        ctrl_bar.addWidget(self.google_sync_btn)
+        self.more_btn = QPushButton(t("more_actions"))
+        self.more_btn.setObjectName("ghost-btn")
+        actions_menu = QMenu(self.more_btn)
+        actions_menu.addAction(get_icon("repeat", COLORS['text_secondary'], 14), t("add_recurring_lesson"), self._open_add_recurring_dialog)
+        actions_menu.addAction(get_icon("tasks", COLORS['primary_light'], 14), t("btn_new_task"), self._open_add_task_dialog)
+        actions_menu.addSeparator()
+        actions_menu.addAction(get_icon("sync", "#4285F4", 14), t("btn_google_sync"), self._open_google_sync)
+        actions_menu.addAction(get_icon("calendar", COLORS['text_secondary'], 14), t("export_ics"), self.export_to_ics)
+        self.more_btn.setMenu(actions_menu)
+        ctrl_bar.addWidget(self.more_btn)
 
         layout.addLayout(ctrl_bar)
 

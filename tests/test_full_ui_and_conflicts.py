@@ -62,6 +62,7 @@ class TestFullUIAndConflicts(unittest.TestCase):
 
         cal.parity_all_btn.click()
         self.assertEqual(cal.current_parity, "all")
+        self.assertEqual(len([a for a in cal.more_btn.menu().actions() if not a.isSeparator()]), 4)
 
     def test_04_calendar_lesson_dialog_regular_and_recurring(self):
         """AddLessonDialog should populate both regular dates and recurring weekdays."""
@@ -92,9 +93,9 @@ class TestFullUIAndConflicts(unittest.TestCase):
         tasks_view.list_mode_btn.click()
         self.assertEqual(tasks_view.content_stack.currentIndex(), 0)
 
-        # Filter buttons
-        for fid, btn in tasks_view.filter_buttons.items():
-            btn.click()
+        # Compact status filter
+        for fid in ("all", "today", "upcoming", "overdue", "urgent", "done"):
+            tasks_view.status_filter.setCurrentIndex(tasks_view.status_filter.findData(fid))
             self.assertEqual(tasks_view.active_filter, fid)
 
         # Dialog with subtasks

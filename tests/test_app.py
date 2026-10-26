@@ -234,10 +234,19 @@ class TestUIWidgets(unittest.TestCase):
         cv._on_date_selected()
         self.assertEqual(cv.selected_qdate, QDate(2026, 12, 31))
 
-    def test_topbar_clock_and_search(self):
-        self.window._update_clock()
-        self.assertTrue(len(self.window.clock_lbl.text()) > 0)
+    def test_topbar_search_and_create(self):
         self.assertIsNotNone(self.window.search_btn)
+        self.assertIsNotNone(self.window.quick_add_btn.menu())
+
+    def test_ctrl_f_targets_current_search(self):
+        self.window._navigate_to("tasks")
+        with patch.object(self.window.tasks_view.search_input, "setFocus") as focus:
+            self.window._focus_search()
+            focus.assert_called_once()
+        self.window._navigate_to("notes")
+        with patch.object(self.window.notes_view.search_input, "setFocus") as focus:
+            self.window._focus_search()
+            focus.assert_called_once()
 
     def test_command_palette_search(self):
         palette = CommandPalette(self.window)
