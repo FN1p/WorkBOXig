@@ -19,7 +19,7 @@ from datetime import date, timedelta
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PyQt6.QtWidgets import QApplication, QFrame
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QCheckBox
 from PyQt6.QtCore import QDate
 from src.storage import StorageManager, set_storage_instance
 from src.main_window import MainWindow
@@ -200,9 +200,57 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("tasks", self.window.views)
 
     def test_dashboard_renders_existing_task(self):
-        self.mock_storage.add_task("Finish report", due_date="2026-10-28")
+        self.mock_storage.add_task("Finish report", due_date=date.today().isoformat())
         self.window.dashboard_view._refresh_all()
-        self.assertEqual(self.window.dashboard_view.today_tasks_layout.count(), 1)
+        self.assertEqual(self.window.dashboard_view.today_tasks_layout.count(), 2)
+
+    def test_today_shows_overdue_and_due_tasks_and_allows_completion(self):
+        today = date.today()
+        self.mock_storage.add_task("Overdue", due_date=(today - timedelta(days=1)).isoformat())
+        task = self.mock_storage.add_task("Today", due_date=today.isoformat())
+        self.mock_storage.add_task("Future", due_date=(today + timedelta(days=1)).isoformat(), priority="urgent")
+        self.mock_storage.add_task("Done", due_date=today.isoformat(), status="done")
+        for i in range(7):
+            self.mock_storage.add_task(f"Extra {i}", due_date=today.isoformat())
+        dash = self.window.dashboard_view
+        labels = [label.text() for label in dash.tasks_container.findChildren(QLabel)]
+        self.assertIn("Overdue", labels)
+        self.assertIn("Today", labels)
+        self.assertIn("Extra 6", labels)
+        self.assertNotIn("Future", labels)
+        self.assertNotIn("Done", labels)
+        self.assertEqual(dash.task_badge_lbl.text(), "9")
+        checkbox = next(cb for cb in dash.tasks_container.findChildren(QCheckBox) if cb.accessibleName() == "Today")
+        checkbox.setChecked(True)
+        self.assertTrue(task["completed"])
+        self.assertEqual(dash.task_badge_lbl.text(), "8")
+
+    def test_today_includes_recurring_lessons_for_the_current_week(self):
+        today = date.today()
+        parity = "even" if today.isocalendar().week % 2 == 0 else "odd"
+        other = "odd" if parity == "even" else "even"
+        self.mock_storage.add_event("Appointment", today.isoformat(), time_str="11:00")
+        self.mock_storage.add_recurring_lesson("Current week", today.weekday(), time_str="09:00", week_parity=parity)
+        self.mock_storage.add_recurring_lesson("Other week", today.weekday(), week_parity=other)
+        self.mock_storage.add_recurring_lesson("Other day", (today.weekday() + 1) % 7)
+        dash = self.window.dashboard_view
+        labels = [label.text() for label in dash.sched_container.findChildren(QLabel)]
+        self.assertIn("Appointment", labels)
+        self.assertIn("Current week", labels)
+        self.assertNotIn("Other week", labels)
+        self.assertNotIn("Other day", labels)
+        self.assertIn("2", dash.summary_lbl.text())
+
+    def test_today_refreshes_after_midnight(self):
+        today = date.today()
+        self.mock_storage.add_task("Tomorrow", due_date=(today + timedelta(days=1)).isoformat())
+        dash = self.window.dashboard_view
+        self.assertEqual(dash.task_badge_lbl.text(), "0")
+        with patch("src.views.dashboard_view.date", wraps=date) as clock:
+            clock.today.return_value = today + timedelta(days=1)
+            dash._refresh_day_if_needed()
+        self.assertEqual(dash.task_badge_lbl.text(), "1")
+        self.assertIn("Tomorrow", [label.text() for label in dash.tasks_container.findChildren(QLabel)])
 
     def test_task_cards_follow_theme_switch(self):
         self.mock_storage.add_task("Finish report", due_date="2026-10-28")
@@ -412,14 +460,14 @@ class TestUIWidgets(unittest.TestCase):
         
         # Switch to English
         settings._select_language("en")
-        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Dashboard")
+        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Today")
         self.assertIn("Quick task", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Calendar")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Settings")
         
         # Switch back to Russian
         settings._select_language("ru")
-        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Дашборд")
+        self.assertEqual(sidebar.nav_items["dashboard"].item_text, "Сегодня")
         self.assertIn("Быстрая задача", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
@@ -431,7 +479,7 @@ class TestI18n(unittest.TestCase):
         # Test Russian
         set_language("ru")
         self.assertEqual(get_language(), "ru")
-        self.assertEqual(t("nav_dashboard"), "Дашборд")
+        self.assertEqual(t("nav_dashboard"), "Сегодня")
         self.assertEqual(format_lessons(1), "1 урок")
         self.assertEqual(format_lessons(3), "3 урока")
         self.assertEqual(format_lessons(5), "5 уроков")
@@ -445,7 +493,7 @@ class TestI18n(unittest.TestCase):
         # Test English
         set_language("en")
         self.assertEqual(get_language(), "en")
-        self.assertEqual(t("nav_dashboard"), "Dashboard")
+        self.assertEqual(t("nav_dashboard"), "Today")
         self.assertEqual(format_lessons(1), "1 class")
         self.assertEqual(format_lessons(3), "3 classes")
         self.assertEqual(format_tasks(1), "1 task")

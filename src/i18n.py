@@ -8,6 +8,13 @@ from PyQt6.QtCore import QObject, pyqtSignal, QLocale
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "ru": {
+        "today_tasks_title": "Задачи на сегодня",
+        "today_overdue": "Просрочено",
+        "today_due": "Сегодня",
+        "today_no_tasks": "Нет задач на сегодня и просроченных дел",
+        "today_summary": "Занятий: {events}  •  Задач на сегодня: {today}  •  Просрочено: {overdue}",
+        "today_more": "Быстрая заметка и статистика",
+        "today_less": "Скрыть заметку и статистику",
         "installer_title": "Мастер установки WorkBOXig",
         "installer_uninstall_title": "Удаление WorkBOXig",
         "installer_subtitle": "Рабочее пространство для учёбы • Версия {version}",
@@ -147,7 +154,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "online_status": "● Онлайн",
         
         # Navigation
-        "nav_dashboard": "Дашборд",
+        "nav_dashboard": "Сегодня",
         "nav_calendar": "Календарь",
         "nav_notebooks": "Тетради",
         "nav_notes": "Заметки",
@@ -669,6 +676,13 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sidebar_space_tt": "Личное пространство (Локально)",
     },
     "en": {
+        "today_tasks_title": "Tasks for today",
+        "today_overdue": "Overdue",
+        "today_due": "Today",
+        "today_no_tasks": "No tasks due today or overdue",
+        "today_summary": "Events: {events}  •  Due today: {today}  •  Overdue: {overdue}",
+        "today_more": "Quick note and statistics",
+        "today_less": "Hide note and statistics",
         "installer_title": "WorkBOXig Setup",
         "installer_uninstall_title": "Uninstall WorkBOXig",
         "installer_subtitle": "Work and study workspace • Version {version}",
@@ -808,7 +822,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "online_status": "● Online",
         
         # Navigation
-        "nav_dashboard": "Dashboard",
+        "nav_dashboard": "Today",
         "nav_calendar": "Calendar",
         "nav_notebooks": "Notebooks",
         "nav_notes": "Notes",

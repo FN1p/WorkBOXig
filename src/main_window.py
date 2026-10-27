@@ -209,6 +209,7 @@ class MainWindow(QMainWindow):
         self.dashboard_view.navigate_requested.connect(self._navigate_to)
         self.dashboard_view.toast_requested.connect(self._show_toast)
         self.dashboard_view.start_pomodoro_requested.connect(self.pomodoro.start_timer)
+        self.dashboard_view.quick_add_task_requested.connect(self._quick_add_task)
         self.views["dashboard"] = self.dashboard_view
         self.stack.addWidget(self.dashboard_view)
 
@@ -832,6 +833,7 @@ class MainWindow(QMainWindow):
         self.dashboard_view.navigate_requested.connect(self._navigate_to)
         self.dashboard_view.toast_requested.connect(self._show_toast)
         self.dashboard_view.start_pomodoro_requested.connect(self.pomodoro.start_timer)
+        self.dashboard_view.quick_add_task_requested.connect(self._quick_add_task)
         self.settings_view.theme_changed.connect(self._apply_theme)
         self.settings_view.toast_requested.connect(self._show_toast)
         self.settings_view.test_notification_requested.connect(self._show_test_desktop_notification)

@@ -7,9 +7,9 @@ Combines daily agenda/lessons, urgent deadlines, quick scratchpad, and key produ
 from datetime import datetime, date
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QScrollArea, QLineEdit, QTextEdit, QCheckBox, QGridLayout
+    QFrame, QScrollArea, QLineEdit, QTextEdit, QCheckBox, QGridLayout, QSizePolicy
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QDate, QSize, QTimer
 from PyQt6.QtGui import QFont, QCursor
 from src.styles import COLORS
 from src.storage import get_storage
@@ -18,6 +18,7 @@ from src.utils.shortcuts import clear_layout
 from src.i18n import t, get_i18n, format_lessons, format_tasks, format_days, get_language
 from src.components.activity_heatmap import ActivityHeatmapWidget
 from src.components.grades_dialog import GradesTrackerWidget, AddGradeDialog, GradesManagementDialog
+from src.views.calendar_view import localized_badge
 
 
 def format_lessons_ru(n: int) -> str:
@@ -151,9 +152,11 @@ class DashboardView(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setStyleSheet("background: transparent; border: none;")
 
         self.scroll_content = QWidget()
+        self.scroll_content.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.scroll_content.setStyleSheet("background: transparent;")
         self.main_layout = QVBoxLayout(self.scroll_content)
         self.main_layout.setContentsMargins(28, 22, 28, 24)
@@ -166,6 +169,10 @@ class DashboardView(QWidget):
         self.storage.data_changed.connect(self._refresh_all)
         get_i18n().language_changed.connect(self._on_language_changed)
         self._refresh_all()
+        self._last_date = date.today()
+        self._day_timer = QTimer(self)
+        self._day_timer.timeout.connect(self._refresh_day_if_needed)
+        self._day_timer.start(60000)
 
     def _update_banner_style(self):
         is_dark = (COLORS.get("text_primary", "#FFFFFF") == "#FFFFFF")
@@ -193,27 +200,6 @@ class DashboardView(QWidget):
         # Left Info Stack
         g_layout = QVBoxLayout()
         g_layout.setSpacing(6)
-
-        # Status row
-        status_row = QHBoxLayout()
-        status_row.setSpacing(8)
-        sys_pill = QLabel(t("online_status"))
-        sys_pill.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        sys_pill.setStyleSheet(f"""
-            color: {COLORS['emerald']};
-            background-color: {COLORS['emerald_subtle']};
-            border: 1px solid rgba(16, 185, 129, 0.25);
-            border-radius: 6px;
-            padding: 2px 8px;
-        """)
-        status_row.addWidget(sys_pill)
-
-        self.mode_pill = QLabel(t("workspace_local"))
-        self.mode_pill.setFont(QFont("Segoe UI", 8))
-        self.mode_pill.setStyleSheet(f"color: {COLORS['text_muted']};")
-        status_row.addWidget(self.mode_pill)
-        status_row.addStretch()
-        g_layout.addLayout(status_row)
 
         now = datetime.now()
         greeting_text = t("welcome_msg")
@@ -286,7 +272,7 @@ class DashboardView(QWidget):
                 border-color: {COLORS['border_light']};
             }}
         """)
-        self.add_t_btn.clicked.connect(lambda: self.navigate_requested.emit("tasks"))
+        self.add_t_btn.clicked.connect(self.quick_add_task_requested.emit)
         banner_actions.addWidget(self.add_t_btn)
 
         self.add_l_btn = QPushButton(t("nav_calendar"))
@@ -359,24 +345,12 @@ class DashboardView(QWidget):
         self.date_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         dc_layout.addWidget(self.date_sub)
 
-        self.streak_chip = QLabel(t("streak_format", count=3))
-        self.streak_chip.setFont(QFont("Segoe UI", 8, QFont.Weight.DemiBold))
-        self.streak_chip.setStyleSheet(f"""
-            color: {COLORS['amber']};
-            background-color: {COLORS['amber_subtle']};
-            border: 1px solid rgba(245, 158, 11, 0.25);
-            border-radius: 6px;
-            padding: 3px 6px;
-            margin-top: 6px;
-        """)
-        self.streak_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dc_layout.addWidget(self.streak_chip)
-
         w_layout.addWidget(self.date_card)
         self.main_layout.addWidget(self.welcome_frame)
 
         # 2. Metrics 4-Card Grid with Glowing Borders
-        metrics_grid = QGridLayout()
+        self.metrics_container = QWidget(self)
+        metrics_grid = QGridLayout(self.metrics_container)
         metrics_grid.setSpacing(14)
 
         self.card_today_tasks = MetricCard(
@@ -407,7 +381,7 @@ class DashboardView(QWidget):
         self.card_notes.clicked.connect(self.navigate_requested)
         metrics_grid.addWidget(self.card_notes, 0, 3)
 
-        self.main_layout.addLayout(metrics_grid)
+        self.metrics_container.hide()
 
         # 3. Three-Column Main Working Area
         work_layout = QHBoxLayout()
@@ -415,6 +389,7 @@ class DashboardView(QWidget):
 
         # Col 1: Today's Schedule & Lessons
         self.sched_box = QFrame()
+        self.sched_box.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.sched_box.setObjectName("sched_box")
         self.sched_box.setStyleSheet(f"""
             QFrame#sched_box {{
@@ -475,6 +450,7 @@ class DashboardView(QWidget):
 
         # Col 2: Today's Tasks Interactive List
         self.left_box = QFrame()
+        self.left_box.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.left_box.setObjectName("left_box")
         self.left_box.setStyleSheet(f"""
             QFrame#left_box {{
@@ -492,7 +468,7 @@ class DashboardView(QWidget):
         self.h_icon.setPixmap(get_pixmap("tasks", COLORS['primary_light'], 16))
         lb_header.addWidget(self.h_icon)
 
-        self.t_title = QLabel(t("tasks_title"))
+        self.t_title = QLabel(t("today_tasks_title"))
         self.t_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.t_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         lb_header.addWidget(self.t_title)
@@ -622,11 +598,22 @@ class DashboardView(QWidget):
         self.quick_save_btn.clicked.connect(self._save_quick_note)
         rb_layout.addWidget(self.quick_save_btn)
 
-        work_layout.addWidget(self.right_box, stretch=3)
-        self.main_layout.addLayout(work_layout, stretch=1)
+        self.right_box.hide()
+        self.right_box.setMinimumHeight(260)
+        self.sched_box.setMinimumHeight(330)
+        self.left_box.setMinimumHeight(330)
+        self.main_layout.addLayout(work_layout)
+
+        self.more_btn = QPushButton(t("today_more"))
+        self.more_btn.setCheckable(True)
+        self.more_btn.toggled.connect(self._toggle_extras)
+        self.main_layout.addWidget(self.more_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.main_layout.addWidget(self.right_box)
 
         # 4. Sprint 2: Analytics Row (Activity Heatmap + Subject Focus & Grades / GPA Tracker)
-        self.analytics_row = QHBoxLayout()
+        self.analytics_container = QWidget()
+        self.analytics_row = QHBoxLayout(self.analytics_container)
+        self.analytics_row.setContentsMargins(0, 0, 0, 0)
         self.analytics_row.setSpacing(16)
 
         self.heatmap_widget = ActivityHeatmapWidget(self.storage, self)
@@ -636,7 +623,23 @@ class DashboardView(QWidget):
         self.grades_widget.grade_added.connect(lambda: self.toast_requested.emit(t("grade_added_toast"), "success"))
         self.analytics_row.addWidget(self.grades_widget, stretch=2)
 
-        self.main_layout.addLayout(self.analytics_row)
+        self.main_layout.addWidget(self.analytics_container)
+        self.analytics_container.hide()
+
+    def _toggle_extras(self, visible):
+        self.right_box.setVisible(visible)
+        self.analytics_container.setVisible(visible)
+        self.more_btn.setText(t("today_less" if visible else "today_more"))
+
+    def _refresh_day_if_needed(self):
+        if date.today() != self._last_date:
+            self._last_date = date.today()
+            self._update_date_card_text()
+            self._refresh_all()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._refresh_day_if_needed()
 
     def _apply_tag_chip(self, tag: str):
         self.selected_tag = tag
@@ -667,14 +670,6 @@ class DashboardView(QWidget):
             """)
             self.date_big.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
             self.date_sub.setStyleSheet(f"color: {COLORS['primary_light']}; background: transparent;")
-            self.streak_chip.setStyleSheet(f"""
-                color: {COLORS['amber']};
-                background-color: {COLORS['amber_subtle']};
-                border: 1px solid rgba(245, 158, 11, 0.25);
-                border-radius: 6px;
-                padding: 3px 6px;
-                margin-top: 6px;
-            """)
 
         cards = [
             (getattr(self, "card_today_tasks", None), COLORS['amber'], COLORS['amber_subtle']),
@@ -776,19 +771,35 @@ class DashboardView(QWidget):
         notes = self.storage.get_notes()
         events = self.storage.get_events()
 
-        today_iso = date.today().isoformat()
-        today_events = [e for e in events if e.get("date") == today_iso]
+        today = date.today()
+        today_iso = today.isoformat()
+        parity = "even" if today.isocalendar().week % 2 == 0 else "odd"
+        matches_week = lambda item: item.get("week_parity", "all") in ("all", parity, "", None)
+        today_events = [e for e in events if e.get("date") == today_iso and matches_week(e)]
+        today_events.extend(e for e in self.storage.get_recurring_lessons()
+                            if e.get("weekday") == today.weekday() and matches_week(e))
+
+        def task_date(task):
+            try:
+                return date.fromisoformat(task.get("due_date") or "")
+            except (TypeError, ValueError):
+                return None
+
+        pending = [task for task in tasks if not task.get("completed")]
+        overdue = [task for task in pending if task_date(task) and task_date(task) < today]
+        due_today = [task for task in pending if task_date(task) == today]
+        order = lambda item: (item.get("due_date") or "", item.get("due_time") or "", item.get("title") or "")
+        overdue.sort(key=order)
+        due_today.sort(key=order)
 
         # Update metric cards
-        urgent_or_today = sum(1 for t in tasks if not t.get("completed") and (t.get("due_date") == today_iso or t.get("priority") == "urgent"))
-        self.card_today_tasks.set_value(str(urgent_or_today))
+        self.card_today_tasks.set_value(str(len(due_today) + len(overdue)))
         self.card_events.set_value(str(len(today_events)))
         self.card_notebooks.set_value(str(len(notebooks)))
         self.card_notes.set_value(str(len(notes)))
 
         # Update summary text
-        pending_count = sum(1 for t in tasks if not t.get("completed"))
-        self.task_badge_lbl.setText(f"{pending_count} {t('active_tasks_count')}")
+        self.task_badge_lbl.setText(str(len(due_today) + len(overdue)))
         self.sched_badge_lbl.setText(format_lessons_ru(len(today_events)))
         
         if hasattr(self, "heatmap_widget"):
@@ -796,14 +807,7 @@ class DashboardView(QWidget):
         if hasattr(self, "grades_widget"):
             self.grades_widget.refresh_data()
 
-        if len(today_events) > 0 and urgent_or_today > 0:
-            self.summary_lbl.setText(t("dashboard_summary_classes_and_tasks", classes=format_lessons(len(today_events)), tasks=format_tasks(urgent_or_today)))
-        elif len(today_events) > 0:
-            self.summary_lbl.setText(t("dashboard_summary_classes_all_done", classes=format_lessons(len(today_events))))
-        elif pending_count > 0:
-            self.summary_lbl.setText(t("dashboard_summary_no_classes", tasks=format_tasks(pending_count)))
-        else:
-            self.summary_lbl.setText(t("dashboard_summary_all_done"))
+        self.summary_lbl.setText(t("today_summary", events=len(today_events), today=len(due_today), overdue=len(overdue)))
 
         # 1. Update Today's Schedule List
         clear_layout(self.today_sched_layout)
@@ -812,16 +816,17 @@ class DashboardView(QWidget):
             sorted_events = sorted(today_events, key=lambda x: x.get("time", "99:99"))
             for ev in sorted_events:
                 ev_card = QFrame()
+                ev_card.setObjectName("today_event_card")
                 col = ev.get("color", COLORS['primary_light'])
                 ev_card.setStyleSheet(f"""
-                    QFrame {{
+                    QFrame#today_event_card {{
                         background-color: {COLORS['bg_input']};
                         border: 1px solid {COLORS['border_subtle']};
                         border-left: 3px solid {col};
                         border-radius: 8px;
                         padding: 6px 10px;
                     }}
-                    QFrame:hover {{
+                    QFrame#today_event_card:hover {{
                         border-color: {COLORS['border_light']};
                         background-color: {COLORS['bg_card_hover']};
                     }}
@@ -839,7 +844,7 @@ class DashboardView(QWidget):
                 top_row.addStretch()
 
                 if ev.get("badge"):
-                    b_lbl = QLabel(ev.get("badge"))
+                    b_lbl = QLabel(localized_badge(ev.get("badge")))
                     b_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
                     b_lbl.setStyleSheet(f"""
                         color: {col};
@@ -852,6 +857,7 @@ class DashboardView(QWidget):
                 ec_layout.addLayout(top_row)
 
                 subj_lbl = QLabel(ev.get("title", ""))
+                subj_lbl.setWordWrap(True)
                 subj_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
                 subj_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
                 ec_layout.addWidget(subj_lbl)
@@ -900,14 +906,12 @@ class DashboardView(QWidget):
         # 2. Update Today Tasks list
         clear_layout(self.today_tasks_layout)
 
-        pending_tasks = [task_item for task_item in tasks if not task_item.get("completed")]
-        sorted_pending = sorted(pending_tasks, key=lambda x: (x.get("due_date", "9999-99-99"), x.get("priority") != "urgent"))[:6]
-
-        if not sorted_pending:
-            empty_lbl = QLabel(t("no_tasks_today"))
+        if not overdue and not due_today:
+            empty_lbl = QLabel(t("today_no_tasks"))
             empty_lbl.setFont(QFont("Segoe UI", 10))
             empty_lbl.setStyleSheet(f"color: {COLORS['emerald']}; padding: 20px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_lbl.setWordWrap(True)
             self.today_tasks_layout.addWidget(empty_lbl)
             return
 
@@ -918,9 +922,16 @@ class DashboardView(QWidget):
             "low": COLORS['emerald'],
         }
 
-        for task_card in sorted_pending:
+        for task_card in overdue + due_today:
+            group = "overdue" if task_card in overdue else "today"
+            if task_card is (overdue[0] if group == "overdue" else due_today[0]):
+                group_label = QLabel(t("today_overdue" if group == "overdue" else "today_due"))
+                group_label.setObjectName(f"today_group_{group}")
+                group_label.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+                group_label.setStyleSheet(f"color: {COLORS['rose'] if group == 'overdue' else COLORS['text_secondary']};")
+                self.today_tasks_layout.addWidget(group_label)
             prio = task_card.get("priority", "medium")
-            p_color = priority_colors.get(prio, COLORS['primary_light'])
+            p_color = COLORS['rose'] if group == "overdue" else priority_colors.get(prio, COLORS['primary_light'])
 
             row = QFrame()
             row.setObjectName("task_row")
@@ -943,10 +954,13 @@ class DashboardView(QWidget):
 
             cb = QCheckBox()
             cb.setChecked(False)
+            cb.setAccessibleName(task_card.get("title", ""))
             cb.toggled.connect(lambda checked, tid=task_card["id"]: self._toggle_task(tid))
             r_layout.addWidget(cb)
 
             t_lbl = QLabel(task_card.get("title", ""))
+            t_lbl.setWordWrap(True)
+            t_lbl.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
             t_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
             t_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
             r_layout.addWidget(t_lbl, stretch=1)
@@ -963,7 +977,7 @@ class DashboardView(QWidget):
                 """)
                 r_layout.addWidget(subj_lbl)
 
-            d_lbl = QLabel(task_card.get('due_date', ''))
+            d_lbl = QLabel(task_card.get('due_date', '') if group == "overdue" else (task_card.get('due_time') or ''))
             d_lbl.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
             d_lbl.setStyleSheet(f"color: {COLORS['amber'] if task_card.get('due_date') == today_iso else COLORS['text_muted']};")
             r_layout.addWidget(d_lbl)
@@ -973,7 +987,6 @@ class DashboardView(QWidget):
     def _toggle_task(self, task_id: str):
         self.storage.toggle_task(task_id)
         self.toast_requested.emit(t("task_marked_done"), "success")
-        self._refresh_all()
 
     def _save_quick_note(self):
         title = self.quick_note_title.text().strip() or t("quick_thought_default")
@@ -1012,6 +1025,8 @@ class DashboardView(QWidget):
 
     def _on_language_changed(self, _lang=None):
         self._update_date_card_text()
+        self.t_title.setText(t("today_tasks_title"))
+        self.more_btn.setText(t("today_less" if self.more_btn.isChecked() else "today_more"))
         if hasattr(self, "card_today_tasks"):
             self.card_today_tasks.t_lbl.setText(t("metric_today_title"))
             self.card_today_tasks.sub_lbl.setText(t("metric_today_sub"))
