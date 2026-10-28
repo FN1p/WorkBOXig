@@ -246,7 +246,8 @@ class RichEditor(QWidget):
 
         # Color picker button with quick menu
         color_btn = QPushButton()
-        color_btn.setIcon(get_icon("palette", "#FFFFFF", 18))
+        self.color_btn = color_btn
+        color_btn.setIcon(get_icon("palette", COLORS['text_secondary'], 18))
         color_btn.setIconSize(QSize(18, 18))
         color_btn.setFixedSize(36, 32)
         color_btn.setToolTip(t("editor_text_color"))
@@ -298,7 +299,8 @@ class RichEditor(QWidget):
 
         # Highlight marker
         hl_btn = QPushButton()
-        hl_btn.setIcon(get_icon("highlighter", "#FFFFFF", 18))
+        self.highlight_btn = hl_btn
+        hl_btn.setIcon(get_icon("highlighter", COLORS['text_secondary'], 18))
         hl_btn.setIconSize(QSize(18, 18))
         hl_btn.setFixedSize(36, 32)
         hl_btn.setToolTip(t("editor_highlight"))
@@ -477,8 +479,9 @@ class RichEditor(QWidget):
         empty_layout.addWidget(icon_ph)
 
         title_ph = QLabel(t("editor_empty_title"))
+        self.empty_title = title_ph
         title_ph.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        title_ph.setStyleSheet("color: #FFFFFF;")
+        title_ph.setStyleSheet(f"color: {COLORS['text_primary']};")
         title_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_layout.addWidget(title_ph)
 
@@ -631,7 +634,7 @@ class RichEditor(QWidget):
         fmt = QTextCharFormat()
         fmt.setFontPointSize(size)
         fmt.setFontWeight(QFont.Weight.Bold)
-        fmt.setForeground(QColor("#FFFFFF"))
+        fmt.setForeground(QColor(COLORS['text_primary']))
         cursor.mergeCharFormat(fmt)
         self.editor.mergeCurrentCharFormat(fmt)
 

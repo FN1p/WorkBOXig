@@ -439,7 +439,7 @@ class TaskItemWidget(QFrame):
         actions_layout.setSpacing(6)
 
         edit_btn = QPushButton()
-        edit_btn.setIcon(get_icon("edit", "#CBD5E1", 16))
+        edit_btn.setIcon(get_icon("edit", COLORS['text_secondary'], 16))
         edit_btn.setIconSize(QSize(16, 16))
         edit_btn.setFixedSize(36, 36)
         edit_btn.setToolTip(t("edit"))
@@ -900,6 +900,9 @@ class TasksView(QWidget):
         self._render_tasks()
 
     def _on_view_mode_switched(self):
+        checked_text = "#000000" if COLORS['primary'] == "#FCEE0A" else "#FFFFFF"
+        for button, icon in ((self.list_mode_btn, "list"), (self.kanban_mode_btn, "kanban")):
+            button.setIcon(get_icon(icon, checked_text if button.isChecked() else COLORS['text_muted'], 13))
         kanban = self.kanban_mode_btn.isChecked()
         self.status_filter.setVisible(not kanban)
         if kanban:
@@ -1040,6 +1043,14 @@ class TasksView(QWidget):
 
     def refresh_theme(self):
         """Rebuild styles captured when task cards were first created."""
+        checked_text = "#000000" if COLORS['primary'] == "#FCEE0A" else "#FFFFFF"
+        self.view_switcher.setStyleSheet(f"""
+            QFrame {{ background-color: {COLORS['bg_input']}; border: 1px solid {COLORS['border_subtle']}; border-radius: 8px; padding: 1px; }}
+            QPushButton {{ background: transparent; border: none; border-radius: 6px; padding: 5px 12px; color: {COLORS['text_muted']}; font-size: 11px; font-weight: 500; }}
+            QPushButton:checked {{ background: {COLORS['primary']}; color: {checked_text}; font-weight: 600; }}
+        """)
+        for button, icon in ((self.list_mode_btn, "list"), (self.kanban_mode_btn, "kanban")):
+            button.setIcon(get_icon(icon, checked_text if button.isChecked() else COLORS['text_muted'], 13))
         for card, icon_name, color in (
             (self.card_total, "tasks", COLORS['primary_light']),
             (self.card_pending, "clock", COLORS['sky']),

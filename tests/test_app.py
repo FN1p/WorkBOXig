@@ -260,6 +260,43 @@ class TestUIWidgets(unittest.TestCase):
         self.assertEqual(len(cards), 1)
         self.assertIn("#FFFFFF", cards[0].styleSheet())
 
+    def test_theme_switch_preserves_notes_and_notebook_content(self):
+        note = self.mock_storage.add_note(title="Important", content="Keep this note")
+        notebook = self.mock_storage.add_notebook("Physics")
+        self.mock_storage.add_page(notebook["id"], title="Page", content_html="<p>Keep this page</p>")
+        notes = self.window.notes_view
+        notebooks = self.window.notebooks_view
+        notes._refresh_list()
+        notebooks._refresh_notebooks_list()
+        notebooks._on_notebook_selected(0)
+        notebooks.pages_list_widget.setCurrentRow(1)
+        self.window._apply_theme("light")
+        self.assertEqual(notes.current_note_id, note["id"])
+        self.assertEqual(notes.body_edit.toPlainText(), "Keep this note")
+        self.assertIn("Keep this page", notebooks.rich_editor.editor.toPlainText())
+        self.assertIn("#0F172A", notes.title_input.styleSheet())
+        self.assertIn("#0F172A", notebooks.rich_editor.editor.styleSheet())
+        self.assertIn("background-color: #FFFFFF", notebooks.rich_editor.editor.styleSheet())
+        self.assertIn("#F1F5F9", notes.left_panel.styleSheet())
+        titles = notebooks.findChildren(QLabel, "notebook_item_title")
+        self.assertTrue(titles)
+        self.assertTrue(all("#0F172A" in label.styleSheet() for label in titles))
+        self.window._apply_theme("dark")
+        self.assertEqual(notes.body_edit.toPlainText(), "Keep this note")
+        self.assertIn("#0E1017", notes.left_panel.styleSheet())
+        self.assertIn("#FFFFFF", notebooks.rich_editor.editor.styleSheet())
+        self.assertIn("background-color: #131622", notebooks.rich_editor.editor.styleSheet())
+
+    def test_notes_empty_search_can_be_cleared(self):
+        self.mock_storage.add_note(title="Find me", content="content")
+        notes = self.window.notes_view
+        notes._refresh_list()
+        notes.search_input.setText("no matching notes")
+        self.assertEqual(notes.notes_list.count(), 0)
+        notes.empty_action.click()
+        self.assertEqual(notes.search_input.text(), "")
+        self.assertEqual(notes.notes_list.count(), 1)
+
     def test_navigation_switching(self):
         for tab_id in ["calendar", "notebooks", "notes", "tasks", "dashboard"]:
             self.window._switch_page(tab_id)

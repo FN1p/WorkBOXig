@@ -5,6 +5,7 @@ Pomodoro Focus mode, view stack, global shortcuts, and notifications.
 """
 
 import os
+import re
 from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
@@ -14,7 +15,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QFont, QCursor
 
-from src.styles import THEME_STYLESHEET, COLORS, set_active_theme, get_theme_stylesheet
+from src.styles import THEME_STYLESHEET, COLORS, set_active_theme, get_theme_stylesheet, refresh_inline_theme
 from src.styles_cyber import CyberpunkButtonFilter
 from src.storage import get_storage
 from src.icons import get_pixmap, get_icon, clear_icon_cache
@@ -501,10 +502,43 @@ class MainWindow(QMainWindow):
 
     def _apply_theme(self, theme_name: str):
         """Switches application theme, updates styles and icons without restart."""
+        previous_colors = dict(COLORS)
         clear_icon_cache()
         new_qss = set_active_theme(theme_name)
         self.setStyleSheet(new_qss)
         self.sidebar.refresh_theme()
+
+        for name in ("notes_view", "notebooks_view"):
+            view = getattr(self, name, None)
+            if view is not None:
+                refresh_inline_theme(view, previous_colors)
+        if hasattr(self, "notes_view"):
+            self.notes_view.left_panel.setStyleSheet(f"QFrame#notes_left_panel {{ background-color: {COLORS['bg_sidebar']}; }}")
+            self.notes_view.canvas_panel.setStyleSheet(f"QFrame#notes_canvas_panel {{ background-color: {COLORS['bg_root']}; }}")
+            for widget in (self.notes_view.title_input, self.notes_view.empty_title):
+                widget.setStyleSheet(re.sub(
+                    rf"(?<![-\w])color:\s*{re.escape(previous_colors['text_primary'])}\b",
+                    f"color: {COLORS['text_primary']}", widget.styleSheet(), flags=re.I))
+            for label in self.notes_view.findChildren(QLabel, "note_item_title"):
+                label.setStyleSheet(f"color: {COLORS['text_primary']};")
+            self.notes_view.copy_btn.setIcon(get_icon("copy", COLORS['text_secondary'], 16))
+            self.notes_view.export_btn.setIcon(get_icon("export", COLORS['text_secondary'], 16))
+            current_note = next((note for note in self.storage.get_notes() if note.get("id") == self.notes_view.current_note_id), None)
+            self.notes_view.pin_btn.setIcon(get_icon("pin", COLORS['amber'] if current_note and current_note.get("pinned") else COLORS['text_secondary'], 16))
+            self.notes_view._refresh_tag_chips()
+        if hasattr(self, "notebooks_view"):
+            self.notebooks_view.nb_col.setStyleSheet(f"QFrame#notebooks_column {{ background-color: {COLORS['bg_sidebar']}; }}")
+            self.notebooks_view.pages_col.setStyleSheet(f"QFrame#pages_column {{ background-color: {COLORS['bg_root']}; border-right: 1px solid {COLORS['border_subtle']}; }}")
+            self.notebooks_view.editor_container.setStyleSheet(f"QFrame#notebook_editor_container {{ background-color: {COLORS['bg_root']}; }}")
+            editor = self.notebooks_view.rich_editor
+            editor.color_btn.setIcon(get_icon("palette", COLORS['text_secondary'], 18))
+            editor.highlight_btn.setIcon(get_icon("highlighter", COLORS['text_secondary'], 18))
+            for widget in (editor.title_input, editor.editor, editor.empty_title):
+                widget.setStyleSheet(re.sub(
+                    rf"(?<![-\w])color:\s*{re.escape(previous_colors['text_primary'])}\b",
+                    f"color: {COLORS['text_primary']}", widget.styleSheet(), flags=re.I))
+            for label in self.notebooks_view.findChildren(QLabel, "notebook_item_title"):
+                label.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
 
         app = QApplication.instance()
         if theme_name == "cyberpunk":

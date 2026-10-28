@@ -8,6 +8,8 @@ from PyQt6.QtCore import QObject, pyqtSignal, QLocale
 
 TRANSLATIONS: Dict[str, Dict[str, str]] = {
     "ru": {
+        "notes_empty_filter": "По вашему запросу заметок не найдено",
+        "notes_reset_filter": "Сбросить поиск",
         "today_tasks_title": "Задачи на сегодня",
         "today_overdue": "Просрочено",
         "today_due": "Сегодня",
@@ -676,6 +678,8 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sidebar_space_tt": "Личное пространство (Локально)",
     },
     "en": {
+        "notes_empty_filter": "No notes match your search",
+        "notes_reset_filter": "Clear search",
         "today_tasks_title": "Tasks for today",
         "today_overdue": "Overdue",
         "today_due": "Today",

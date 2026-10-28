@@ -34,7 +34,8 @@ class NotebookItemWidget(QWidget):
         # Title
         title_lbl = QLabel(title)
         title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Medium))
-        title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
+        title_lbl.setObjectName("notebook_item_title")
+        title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         layout.addWidget(title_lbl, stretch=1)
 
         # Count badge
@@ -60,7 +61,8 @@ class PageItemWidget(QWidget):
 
         title_lbl = QLabel(title or t("untitled_page"))
         title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
-        title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
+        title_lbl.setObjectName("notebook_item_title")
+        title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         layout.addWidget(title_lbl)
 
         if snippet:
@@ -104,7 +106,8 @@ class NotebooksView(QWidget):
 
         # ---------------- Column 1: Subjects/Notebooks ----------------
         self.nb_col = QFrame()
-        self.nb_col.setStyleSheet(f"background-color: {COLORS['bg_sidebar']};")
+        self.nb_col.setObjectName("notebooks_column")
+        self.nb_col.setStyleSheet(f"QFrame#notebooks_column {{ background-color: {COLORS['bg_sidebar']}; }}")
         nb_col_layout = QVBoxLayout(self.nb_col)
         nb_col_layout.setContentsMargins(14, 18, 14, 16)
         nb_col_layout.setSpacing(12)
@@ -135,7 +138,8 @@ class NotebooksView(QWidget):
 
         # ---------------- Column 2: Pages in Notebook ----------------
         self.pages_col = QFrame()
-        self.pages_col.setStyleSheet(f"background-color: {COLORS['bg_root']}; border-right: 1px solid {COLORS['border_subtle']};")
+        self.pages_col.setObjectName("pages_column")
+        self.pages_col.setStyleSheet(f"QFrame#pages_column {{ background-color: {COLORS['bg_root']}; border-right: 1px solid {COLORS['border_subtle']}; }}")
         pages_col_layout = QVBoxLayout(self.pages_col)
         pages_col_layout.setContentsMargins(14, 18, 14, 16)
         pages_col_layout.setSpacing(12)
@@ -171,7 +175,8 @@ class NotebooksView(QWidget):
 
         # ---------------- Column 3: Editor Canvas ----------------
         self.editor_container = QFrame()
-        self.editor_container.setStyleSheet(f"background-color: {COLORS['bg_root']};")
+        self.editor_container.setObjectName("notebook_editor_container")
+        self.editor_container.setStyleSheet(f"QFrame#notebook_editor_container {{ background-color: {COLORS['bg_root']}; }}")
         editor_layout = QVBoxLayout(self.editor_container)
         editor_layout.setContentsMargins(0, 0, 0, 0)
 

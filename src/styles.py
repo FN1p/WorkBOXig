@@ -4,6 +4,8 @@ Inspired by modern high-end developer and productivity tools (Linear, Things 3, 
 Carefully crafted for high contrast, clean typography, and zero CSS cascade bleed.
 """
 
+import re
+
 DARK_COLORS = {
     # Backgrounds - Executive Slate/Zinc Dark Palette
     "bg_root": "#0A0B10",
@@ -64,7 +66,7 @@ LIGHT_COLORS = {
     # Primary & Accents - Deep vibrant indigo with high contrast
     "primary": "#4F46E5",
     "primary_hover": "#4338CA",
-    "primary_light": "#6366F1",
+    "primary_light": "#4F46E5",
     "primary_subtle": "rgba(79, 70, 229, 0.10)",
     "primary_border": "rgba(79, 70, 229, 0.30)",
     
@@ -83,7 +85,7 @@ LIGHT_COLORS = {
     "text_primary": "#0F172A",
     "text_secondary": "#334155",
     "text_muted": "#64748B",
-    "text_dim": "#94A3B8",
+    "text_dim": "#64748B",
 }
 
 CYBERPUNK_COLORS = {
@@ -518,6 +520,32 @@ def set_active_theme(theme_name: str) -> str:
     COLORS.clear()
     COLORS.update(target)
     return get_theme_stylesheet(theme_name)
+
+
+def refresh_inline_theme(root, previous_colors):
+    """Update captured palette values without recreating editors or changing their content."""
+    from PyQt6.QtWidgets import QWidget
+
+    candidates = {}
+    for role, old in previous_colors.items():
+        new = COLORS.get(role)
+        if isinstance(old, str) and isinstance(new, str) and old != new:
+            candidates.setdefault(old.lower(), set()).add(new)
+    # White and black are also used as fixed foregrounds on colored buttons.
+    mapping = {old: next(iter(values)) for old, values in candidates.items()
+               if len(values) == 1 and old not in ("#ffffff", "#000000")}
+    if not mapping:
+        return
+    pattern = re.compile("|".join(re.escape(value) for value in sorted(mapping, key=len, reverse=True)), re.I)
+    for widget in [root, *root.findChildren(QWidget)]:
+        style = widget.styleSheet()
+        if style:
+            updated = pattern.sub(lambda match: mapping[match.group(0).lower()], style)
+            if previous_colors.get("bg_card", "").lower() == "#ffffff":
+                updated = re.sub(r"(background(?:-color)?\s*:\s*)#ffffff\b",
+                                 lambda match: match.group(1) + COLORS['bg_card'], updated, flags=re.I)
+            if updated != style:
+                widget.setStyleSheet(updated)
 
 
 THEME_STYLESHEET = get_theme_stylesheet("dark")

@@ -33,6 +33,7 @@ class NoteCardItemWidget(QWidget):
     """Custom note card representation in the list."""
     def __init__(self, title: str, snippet: str, color_hex: str, pinned: bool, date_str: str, tags: list, parent=None):
         super().__init__(parent)
+        self.setObjectName("note_card")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
         layout.setSpacing(6)
@@ -42,6 +43,7 @@ class NoteCardItemWidget(QWidget):
         top_layout.setSpacing(6)
 
         title_lbl = QLabel(title or t("untitled_page"))
+        title_lbl.setObjectName("note_item_title")
         title_lbl.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
         title_lbl.setStyleSheet(f"color: {COLORS['text_primary']};")
         top_layout.addWidget(title_lbl, stretch=1)
@@ -92,13 +94,13 @@ class NoteCardItemWidget(QWidget):
 
         # Style card
         self.setStyleSheet(f"""
-            QWidget {{
+            QWidget#note_card {{
                 border: 1px solid {COLORS['border_subtle']};
                 border-left: 3px solid {color_hex};
                 border-radius: 8px;
                 background-color: {COLORS['bg_card']};
             }}
-            QWidget:hover {{
+            QWidget#note_card:hover {{
                 background-color: {COLORS['bg_card_hover']};
                 border-color: {COLORS['border_light']};
             }}
@@ -130,7 +132,9 @@ class NotesView(QWidget):
 
         # ---------------- Left Panel: Notes List & Search ----------------
         left_panel = QFrame()
-        left_panel.setStyleSheet(f"background-color: {COLORS['bg_sidebar']};")
+        self.left_panel = left_panel
+        left_panel.setObjectName("notes_left_panel")
+        left_panel.setStyleSheet(f"QFrame#notes_left_panel {{ background-color: {COLORS['bg_sidebar']}; }}")
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(16, 20, 16, 16)
         left_layout.setSpacing(12)
@@ -182,7 +186,8 @@ class NotesView(QWidget):
 
         # Canvas Page (Active Note)
         self.canvas_panel = QFrame()
-        self.canvas_panel.setStyleSheet(f"background-color: {COLORS['bg_root']};")
+        self.canvas_panel.setObjectName("notes_canvas_panel")
+        self.canvas_panel.setStyleSheet(f"QFrame#notes_canvas_panel {{ background-color: {COLORS['bg_root']}; }}")
         canvas_layout = QVBoxLayout(self.canvas_panel)
         canvas_layout.setContentsMargins(32, 24, 32, 20)
         canvas_layout.setSpacing(14)
@@ -233,6 +238,7 @@ class NotesView(QWidget):
         tb_layout.addWidget(self.pin_btn)
 
         copy_btn = QPushButton(t("notes_copy"))
+        self.copy_btn = copy_btn
         copy_btn.setIcon(get_icon("copy", COLORS['text_secondary'], 16))
         copy_btn.setIconSize(QSize(16, 16))
         copy_btn.setStyleSheet(self.pin_btn.styleSheet())
@@ -240,6 +246,7 @@ class NotesView(QWidget):
         tb_layout.addWidget(copy_btn)
 
         export_btn = QPushButton(t("notes_export"))
+        self.export_btn = export_btn
         export_btn.setIcon(get_icon("export", COLORS['text_secondary'], 16))
         export_btn.setIconSize(QSize(16, 16))
         export_btn.setStyleSheet(self.pin_btn.styleSheet())
@@ -264,7 +271,7 @@ class NotesView(QWidget):
                 background-color: transparent;
                 border: none;
                 border-bottom: 2px solid transparent;
-                color: #FFFFFF;
+                color: {COLORS['text_primary']};
                 padding: 4px 0px;
             }}
             QLineEdit:focus {{
@@ -340,17 +347,19 @@ class NotesView(QWidget):
         empty_l.addWidget(icon_ph)
 
         title_ph = QLabel(t("notes_select_prompt"))
+        self.empty_title = title_ph
         title_ph.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         title_ph.setStyleSheet(f"color: {COLORS['text_primary']};")
         title_ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_l.addWidget(title_ph)
 
         create_btn_ph = QPushButton(t("btn_new_note"))
+        self.empty_action = create_btn_ph
         create_btn_ph.setIcon(get_icon("plus", "#FFFFFF", 16))
         create_btn_ph.setIconSize(QSize(16, 16))
         create_btn_ph.setObjectName("primary-btn")
         create_btn_ph.setFixedWidth(160)
-        create_btn_ph.clicked.connect(self._create_note)
+        create_btn_ph.clicked.connect(self._empty_action_clicked)
         empty_l.addWidget(create_btn_ph, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.canvas_stack.addWidget(self.empty_page)
@@ -419,7 +428,7 @@ class NotesView(QWidget):
                 }}
                 QPushButton:hover {{
                     background-color: {COLORS['bg_card_hover']};
-                    color: #FFFFFF;
+                    color: {COLORS['text_primary']};
                 }}
             """)
 
@@ -474,7 +483,20 @@ class NotesView(QWidget):
             self.notes_list.setCurrentRow(target_row if found_target else 0)
         else:
             self.current_note_id = None
+            filtered = bool(all_notes) and (bool(query) or self.selected_tag != "all")
+            self.empty_title.setText(t("notes_empty_filter") if filtered else t("notes_select_prompt"))
+            self.empty_action.setText(t("notes_reset_filter") if filtered else t("btn_new_note"))
+            self.empty_action.setProperty("clear_filters", filtered)
             self.canvas_stack.setCurrentWidget(self.empty_page)
+
+    def _empty_action_clicked(self):
+        if self.empty_action.property("clear_filters"):
+            self.selected_tag = "all"
+            self.search_input.clear()
+            self._refresh_tag_chips()
+            self._refresh_list()
+        else:
+            self._create_note()
 
     def _on_note_selected(self, row: int):
         if row < 0:

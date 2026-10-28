@@ -503,20 +503,19 @@ class LessonCard(QFrame):
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
         color = event_data.get("color", "#8B5CF6")
-        rgba = hex_to_rgba(color, 0.22)
         
         self.setObjectName("lesson_card")
         self.setStyleSheet(f"""
             QFrame#lesson_card {{
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {rgba}, stop:1 #121524);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_subtle']};
                 border-left: 4px solid {color};
                 border-radius: 8px;
                 padding: 4px;
             }}
             QFrame#lesson_card:hover {{
                 border-color: {color};
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {hex_to_rgba(color, 0.35)}, stop:1 #181D2E);
+                background-color: {COLORS['bg_card_hover']};
             }}
         """)
 
@@ -530,7 +529,7 @@ class LessonCard(QFrame):
         
         title_lbl = QLabel(event_data.get("title", ""))
         title_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #FFFFFF; background: transparent;")
+        title_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         title_lbl.setWordWrap(True)
         top_l.addWidget(title_lbl, stretch=1)
 
@@ -580,8 +579,8 @@ class LessonCard(QFrame):
             badge_lbl = QLabel(badge_text)
             badge_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
             badge_lbl.setStyleSheet(f"""
-                color: #FFFFFF;
-                background-color: {hex_to_rgba(color, 0.45)};
+                color: {COLORS['text_primary']};
+                background-color: {hex_to_rgba(color, 0.20)};
                 border-radius: 4px;
                 padding: 1px 5px;
             """)
@@ -592,9 +591,9 @@ class LessonCard(QFrame):
         if par_val == "odd":
             par_lbl = QLabel(t("week_odd_short"))
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-            par_lbl.setStyleSheet("""
-                color: #FFFFFF;
-                background-color: rgba(59, 130, 246, 0.5);
+            par_lbl.setStyleSheet(f"""
+                color: {COLORS['text_primary']};
+                background-color: rgba(59, 130, 246, 0.20);
                 border-radius: 4px;
                 padding: 1px 5px;
             """)
@@ -602,9 +601,9 @@ class LessonCard(QFrame):
         elif par_val == "even":
             par_lbl = QLabel(t("week_even_short"))
             par_lbl.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-            par_lbl.setStyleSheet("""
-                color: #FFFFFF;
-                background-color: rgba(168, 85, 247, 0.5);
+            par_lbl.setStyleSheet(f"""
+                color: {COLORS['text_primary']};
+                background-color: rgba(168, 85, 247, 0.20);
                 border-radius: 4px;
                 padding: 1px 5px;
             """)
@@ -972,8 +971,9 @@ class WeeklyTimetableWidget(QWidget):
                 # Add tasks due in this slot
                 for tsk in matching_tasks:
                     t_card = QFrame()
+                    t_card.setObjectName("calendar_task_card")
                     t_card.setStyleSheet(f"""
-                        QFrame {{
+                        QFrame#calendar_task_card {{
                             background-color: {COLORS['amber_subtle']};
                             border: 1px solid rgba(245, 158, 11, 0.35);
                             border-radius: 6px;
@@ -988,7 +988,7 @@ class WeeklyTimetableWidget(QWidget):
                     t_l.addWidget(t_dot)
                     t_text = QLabel(f"{t('task_due_date')}: {tsk.get('title', '')}")
                     t_text.setFont(QFont("Segoe UI", 7, QFont.Weight.Bold))
-                    t_text.setStyleSheet("color: #FFFFFF;")
+                    t_text.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
                     t_l.addWidget(t_text, stretch=1)
                     cell.cell_layout.addWidget(t_card)
 
