@@ -204,6 +204,20 @@ class TestUIWidgets(unittest.TestCase):
         self.window.dashboard_view._refresh_all()
         self.assertEqual(self.window.dashboard_view.today_tasks_layout.count(), 2)
 
+    def test_today_week_preview_opens_future_plans(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        self.mock_storage.add_task("Prepare slides", due_date=tomorrow)
+        self.mock_storage.add_event("Project meeting", tomorrow, time_str="12:00")
+        dash = self.window.dashboard_view
+        self.assertEqual(dash.week_layout.count(), 7)
+        rows = [dash.upcoming_layout.itemAt(i).widget() for i in range(dash.upcoming_layout.count())]
+        self.assertTrue(any("Prepare slides" in row.text() for row in rows))
+        self.assertTrue(any("Project meeting" in row.text() for row in rows))
+        destinations = []
+        dash.navigate_requested.connect(destinations.append)
+        next(row for row in rows if "Prepare slides" in row.text()).click()
+        self.assertEqual(destinations, ["tasks"])
+
     def test_today_shows_overdue_and_due_tasks_and_allows_completion(self):
         today = date.today()
         self.mock_storage.add_task("Overdue", due_date=(today - timedelta(days=1)).isoformat())

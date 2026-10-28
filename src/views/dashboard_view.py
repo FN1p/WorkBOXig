@@ -4,7 +4,7 @@ Cyber-minimal, high-contrast, glow-accented productivity command center.
 Combines daily agenda/lessons, urgent deadlines, quick scratchpad, and key productivity metrics.
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QScrollArea, QLineEdit, QTextEdit, QCheckBox, QGridLayout, QSizePolicy
@@ -222,6 +222,12 @@ class DashboardView(QWidget):
         self.summary_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
         self.summary_lbl.setWordWrap(True)
         g_layout.addWidget(self.summary_lbl)
+
+        self.next_up_lbl = QLabel()
+        self.next_up_lbl.setObjectName("next_up_label")
+        self.next_up_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        self.next_up_lbl.setStyleSheet(f"color: {COLORS['primary_light']}; background: {COLORS['primary_subtle']}; border: 1px solid {COLORS['primary_border']}; border-radius: 7px; padding: 5px 10px;")
+        g_layout.addWidget(self.next_up_lbl, alignment=Qt.AlignmentFlag.AlignLeft)
 
         # Quick Actions Row inside Banner
         banner_actions = QHBoxLayout()
@@ -600,9 +606,29 @@ class DashboardView(QWidget):
 
         self.right_box.hide()
         self.right_box.setMinimumHeight(260)
-        self.sched_box.setMinimumHeight(330)
-        self.left_box.setMinimumHeight(330)
+        self.sched_box.setMinimumHeight(240)
+        self.left_box.setMinimumHeight(240)
+        self.sched_box.setMaximumHeight(380)
+        self.left_box.setMaximumHeight(380)
         self.main_layout.addLayout(work_layout)
+
+        self.upcoming_box = QFrame()
+        self.upcoming_box.setObjectName("upcoming_box")
+        upcoming_outer = QVBoxLayout(self.upcoming_box)
+        upcoming_outer.setContentsMargins(18, 14, 18, 14)
+        upcoming_outer.setSpacing(8)
+        self.upcoming_title = QLabel(t("today_upcoming"))
+        self.upcoming_title.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        upcoming_outer.addWidget(self.upcoming_title)
+        self.week_layout = QHBoxLayout()
+        self.week_layout.setSpacing(7)
+        upcoming_outer.addLayout(self.week_layout)
+        self.upcoming_layout = QVBoxLayout()
+        self.upcoming_layout.setSpacing(2)
+        upcoming_outer.addLayout(self.upcoming_layout)
+        self.main_layout.addWidget(self.upcoming_box)
+        self.upcoming_box.setStyleSheet(f"QFrame#upcoming_box {{ background-color: {COLORS['bg_card']}; border: 1px solid {COLORS['border_subtle']}; border-radius: 12px; }}")
+        self.upcoming_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
 
         self.more_btn = QPushButton(t("today_more"))
         self.more_btn.setCheckable(True)
@@ -625,6 +651,7 @@ class DashboardView(QWidget):
 
         self.main_layout.addWidget(self.analytics_container)
         self.analytics_container.hide()
+        self.main_layout.addStretch(1)
 
     def _toggle_extras(self, visible):
         self.right_box.setVisible(visible)
@@ -658,6 +685,11 @@ class DashboardView(QWidget):
             self.greeting_lbl.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
         if hasattr(self, "summary_lbl"):
             self.summary_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; background: transparent;")
+        if hasattr(self, "next_up_lbl"):
+            self.next_up_lbl.setStyleSheet(f"color: {COLORS['primary_light']}; background: {COLORS['primary_subtle']}; border: 1px solid {COLORS['primary_border']}; border-radius: 7px; padding: 5px 10px;")
+        if hasattr(self, "upcoming_box"):
+            self.upcoming_box.setStyleSheet(f"QFrame#upcoming_box {{ background-color: {COLORS['bg_card']}; border: 1px solid {COLORS['border_subtle']}; border-radius: 12px; }}")
+            self.upcoming_title.setStyleSheet(f"color: {COLORS['text_primary']}; background: transparent;")
 
         if hasattr(self, "date_card"):
             self.date_card.setStyleSheet(f"""
@@ -808,6 +840,51 @@ class DashboardView(QWidget):
             self.grades_widget.refresh_data()
 
         self.summary_lbl.setText(t("today_summary", events=len(today_events), today=len(due_today), overdue=len(overdue)))
+        current_time = datetime.now().strftime("%H:%M")
+        upcoming = sorted((event for event in today_events if (event.get("time") or "") >= current_time),
+                          key=lambda event: event.get("time") or "")
+        self.next_up_lbl.setText(t("today_next_event", time=upcoming[0].get("time", ""), title=upcoming[0].get("title", ""))
+                                 if upcoming else t("today_day_clear"))
+
+        clear_layout(self.upcoming_layout)
+        clear_layout(self.week_layout)
+        horizon = today + timedelta(days=7)
+        upcoming_items = [(day, item.get("title", ""), "tasks") for item in pending
+                          if (day := task_date(item)) and today < day <= horizon]
+        for item in events:
+            try:
+                day = date.fromisoformat(item.get("date") or "")
+            except (TypeError, ValueError):
+                continue
+            week_parity = "even" if day.isocalendar().week % 2 == 0 else "odd"
+            if today < day <= horizon and item.get("week_parity", "all") in ("all", week_parity, "", None):
+                upcoming_items.append((day, item.get("title", ""), "calendar"))
+        recurring = self.storage.get_recurring_lessons()
+        for offset in range(1, 8):
+            day = today + timedelta(days=offset)
+            week_parity = "even" if day.isocalendar().week % 2 == 0 else "odd"
+            for item in recurring:
+                if (item.get("weekday") == day.weekday()
+                        and item.get("week_parity", "all") in ("all", week_parity, "", None)):
+                    upcoming_items.append((day, item.get("title", ""), "calendar"))
+        upcoming_items.sort(key=lambda item: (item[0], item[1]))
+        weekdays = t("today_weekdays").split("|")
+        for offset in range(7):
+            day = today + timedelta(days=offset)
+            count = sum(1 for item in upcoming_items if item[0] == day)
+            if offset == 0:
+                count = len(today_events) + len(due_today)
+            day_button = QPushButton(f"{weekdays[day.weekday()]}  {day.day}\n{'●' if count else '·'}  {count if count else ''}")
+            day_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            day_button.setStyleSheet(f"QPushButton {{ color: {COLORS['primary_light'] if count else COLORS['text_muted']}; background-color: {COLORS['primary_subtle'] if offset == 0 else COLORS['bg_input']}; border: 1px solid {COLORS['primary_border'] if offset == 0 else COLORS['border_subtle']}; border-radius: 8px; padding: 8px 2px; }} QPushButton:hover {{ border-color: {COLORS['primary_light']}; }}")
+            day_button.clicked.connect(lambda _checked=False: self.navigate_requested.emit("calendar"))
+            self.week_layout.addWidget(day_button, 1)
+        for day, title, target in upcoming_items[:4]:
+            row = QPushButton(f"{day:%d.%m}   {title}  →")
+            row.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            row.setStyleSheet(f"text-align: left; color: {COLORS['text_secondary']}; border: none; padding: 5px 8px;")
+            row.clicked.connect(lambda _checked=False, tab=target: self.navigate_requested.emit(tab))
+            self.upcoming_layout.addWidget(row)
 
         # 1. Update Today's Schedule List
         clear_layout(self.today_sched_layout)
@@ -909,10 +986,14 @@ class DashboardView(QWidget):
         if not overdue and not due_today:
             empty_lbl = QLabel(t("today_no_tasks"))
             empty_lbl.setFont(QFont("Segoe UI", 10))
-            empty_lbl.setStyleSheet(f"color: {COLORS['emerald']}; padding: 20px 0;")
+            empty_lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; padding: 18px 0 6px 0;")
             empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             empty_lbl.setWordWrap(True)
             self.today_tasks_layout.addWidget(empty_lbl)
+            add_task_btn = QPushButton(t("today_add_task"))
+            add_task_btn.setObjectName("primary-btn")
+            add_task_btn.clicked.connect(self.quick_add_task_requested.emit)
+            self.today_tasks_layout.addWidget(add_task_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
             return
 
         priority_colors = {
@@ -1025,6 +1106,7 @@ class DashboardView(QWidget):
 
     def _on_language_changed(self, _lang=None):
         self._update_date_card_text()
+        self.upcoming_title.setText(t("today_upcoming"))
         self.t_title.setText(t("today_tasks_title"))
         self.more_btn.setText(t("today_less" if self.more_btn.isChecked() else "today_more"))
         if hasattr(self, "card_today_tasks"):
