@@ -67,6 +67,28 @@ class TestStorage(unittest.TestCase):
         self.assertFalse(self.storage.import_full_backup(backup))
         self.assertEqual(self.storage.get_notes()[0]["title"], "Keep me")
 
+    def test_legacy_json_backup_fills_missing_settings_without_losing_notes(self):
+        # Synthetic older-format fixture: required collections exist, newer
+        # optional collections/settings are absent.
+        legacy = {
+            "version": "1.4.0",
+            "settings": {"theme": "light", "custom_legacy_setting": "kept"},
+            "notebooks": [],
+            "notes": [{"id": "legacy-note", "title": "Legacy note", "content": "Retained"}],
+            "tasks": [],
+            "calendar_events": []
+        }
+        backup = os.path.join(self.test_dir, "legacy.json")
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump(legacy, handle)
+
+        self.assertTrue(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Legacy note")
+        self.assertEqual(self.storage.get_setting("theme"), "light")
+        self.assertEqual(self.storage.get_setting("custom_legacy_setting"), "kept")
+        self.assertTrue(self.storage.get_setting("check_updates_on_startup"))
+        self.assertEqual(self.storage.get_recurring_lessons(), [])
+
     def test_import_saves_previous_data_before_replacing_it(self):
         self.storage.add_note(title="Previous note")
         backup = os.path.join(self.test_dir, "import.json")
