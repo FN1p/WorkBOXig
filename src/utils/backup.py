@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 
 ARCHIVE_SUFFIXES = {".zip", ".workboxig"}
+MAX_STORAGE_BYTES = 20 * 1024 * 1024
 MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 500 * 1024 * 1024
 _ATTACHMENT_URL = re.compile(r"file://[^\s\"'<>]+/attachments/([^/\s\"'<>?#]+)", re.IGNORECASE)
@@ -37,8 +38,16 @@ def read_archive(path: str) -> tuple[dict, dict[str, bytes]]:
             raise ValueError("Backup archive is too large")
         if len([info for info in infos if info.filename == "storage.json"]) != 1:
             raise ValueError("Backup archive has no unique storage.json")
-        with archive.open("storage.json") as handle:
-            data = json.load(handle)
+        storage_info = next(info for info in infos if info.filename == "storage.json")
+        if storage_info.file_size > MAX_STORAGE_BYTES:
+            raise ValueError("Backup metadata is too large")
+        with archive.open(storage_info) as handle:
+            raw = handle.read(MAX_STORAGE_BYTES + 1)
+        if len(raw) > MAX_STORAGE_BYTES:
+            raise ValueError("Backup metadata is too large")
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Backup metadata must be an object")
         for info in infos:
             if info.filename == "storage.json" or info.is_dir():
                 continue
