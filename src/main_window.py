@@ -215,6 +215,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.dashboard_view)
 
         self.calendar_view = CalendarView(self)
+        # Month inspector deadlines open the Tasks page.
+        self.calendar_view.open_task_requested.connect(lambda _task_id: self._navigate_to("tasks"))
         self.views["calendar"] = self.calendar_view
         self.stack.addWidget(self.calendar_view)
 
