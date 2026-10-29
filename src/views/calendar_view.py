@@ -1539,7 +1539,9 @@ class CalendarView(QWidget):
         # Clear only formats previously set by WorkBOXig, so deleted/completed
         # events do not leave permanent highlights on the month calendar.
         for previous_date in getattr(self, "_highlighted_dates", set()):
-            self.calendar.setDateTextFormat(previous_date, QTextCharFormat())
+            qdate = QDate.fromString(previous_date, Qt.DateFormat.ISODate)
+            if qdate.isValid():
+                self.calendar.setDateTextFormat(qdate, QTextCharFormat())
         self._highlighted_dates = set()
         date_indicators = {}
         for evt in self.storage.get_events():
@@ -1562,7 +1564,7 @@ class CalendarView(QWidget):
                 fmt.setBackground(QColor(COLORS['primary_subtle']))
                 if qd.isValid():
                     self.calendar.setDateTextFormat(qd, fmt)
-                    self._highlighted_dates.add(qd)
+                    self._highlighted_dates.add(date_str)
             except Exception:
                 pass
 
