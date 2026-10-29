@@ -422,9 +422,9 @@ class TestUIWidgets(unittest.TestCase):
         cv = self.window.calendar_view
         selected = QDate(2026, 11, 5)
         task = self.mock_storage.add_task("Highlight deadline", due_date="2026-11-05")
-        self.assertEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold)
+        self.assertEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold.value)
         self.mock_storage.toggle_task(task["id"])
-        self.assertNotEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold)
+        self.assertNotEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold.value)
 
     def test_topbar_search_and_create(self):
         self.assertIsNotNone(self.window.search_btn)
