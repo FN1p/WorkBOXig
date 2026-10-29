@@ -426,6 +426,73 @@ class TestUIWidgets(unittest.TestCase):
         self.mock_storage.toggle_task(task["id"])
         self.assertNotEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold.value)
 
+    def test_month_highlights_recurring_lessons_on_matching_iso_weeks(self):
+        cv = self.window.calendar_view
+        odd_monday = QDate(2026, 11, 2)  # ISO week 45
+        even_monday = QDate(2026, 11, 9)  # ISO week 46
+        cv.calendar.setCurrentPage(2026, 11)
+        odd = self.mock_storage.add_recurring_lesson(
+            "Odd recurring", 0, week_parity="odd"
+        )
+        self.assertEqual(
+            cv.calendar.dateTextFormat(odd_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Even recurring", 0, week_parity="even"
+        )
+        self.assertEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.mock_storage.delete_recurring_lesson(odd["id"])
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(odd_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        cv.calendar.setCurrentPage(2026, 12)
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+
+    def test_calendar_rollover_advances_followed_week_and_selected_today(self):
+        cv = self.window.calendar_view
+        old_today = QDate(2026, 11, 1)  # Sunday
+        new_today = QDate(2026, 11, 2)  # Monday
+        cv._last_seen_today = old_today
+        cv.current_monday = QDate(2026, 10, 26)
+        cv.timetable.set_monday(cv.current_monday)
+        cv.calendar.setSelectedDate(old_today)
+
+        cv._apply_day_rollover(old_today, new_today)
+
+        self.assertEqual(cv.current_monday, new_today)
+        self.assertEqual(cv.timetable.monday_date, new_today)
+        self.assertEqual(cv.selected_qdate, new_today)
+        self.assertEqual(cv._last_seen_today, new_today)
+
+    def test_calendar_rollover_preserves_user_browsed_week(self):
+        cv = self.window.calendar_view
+        old_today = QDate(2026, 11, 1)
+        new_today = QDate(2026, 11, 2)
+        browsed_monday = QDate(2026, 10, 19)
+        browsed_day = QDate(2026, 10, 20)
+        cv._last_seen_today = old_today
+        cv.current_monday = browsed_monday
+        cv.timetable.set_monday(browsed_monday)
+        cv.calendar.setSelectedDate(browsed_day)
+
+        cv._apply_day_rollover(old_today, new_today)
+
+        self.assertEqual(cv.current_monday, browsed_monday)
+        self.assertEqual(cv.timetable.monday_date, browsed_monday)
+        self.assertEqual(cv.selected_qdate, browsed_day)
+
     def test_topbar_search_and_create(self):
         self.assertIsNotNone(self.window.search_btn)
         self.assertIsNotNone(self.window.quick_add_btn.menu())
