@@ -460,6 +460,43 @@ class TestUIWidgets(unittest.TestCase):
             QFont.Weight.Bold.value
         )
 
+    def test_weekly_timetable_uses_actual_parity_by_default(self):
+        cv = self.window.calendar_view
+        self.mock_storage.add_recurring_lesson(
+            "Odd-only class", 0, time_str="09:00", week_parity="odd"
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Even-only class", 0, time_str="09:00", week_parity="even"
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Every-week class", 0, time_str="09:00", week_parity="all"
+        )
+
+        def visible_titles():
+            return [
+                card.event_data["title"]
+                for card in cv.timetable.grid_container.findChildren(QFrame, "lesson_card")
+            ]
+
+        cv.current_monday = QDate(2026, 11, 2)  # ISO week 45
+        cv.timetable.set_monday(cv.current_monday)
+        cv.current_parity = "all"
+        cv._refresh_timetable()
+        self.assertIn("Odd-only class", visible_titles())
+        self.assertIn("Every-week class", visible_titles())
+        self.assertNotIn("Even-only class", visible_titles())
+
+        cv.current_monday = QDate(2026, 11, 9)  # ISO week 46
+        cv.timetable.set_monday(cv.current_monday)
+        cv._refresh_timetable()
+        self.assertIn("Even-only class", visible_titles())
+        self.assertNotIn("Odd-only class", visible_titles())
+
+        cv.current_parity = "odd"  # Explicit preview of odd-week lessons
+        cv._refresh_timetable()
+        self.assertIn("Odd-only class", visible_titles())
+        self.assertNotIn("Even-only class", visible_titles())
+
     def test_calendar_rollover_advances_followed_week_and_selected_today(self):
         cv = self.window.calendar_view
         old_today = QDate(2026, 11, 1)  # Sunday
