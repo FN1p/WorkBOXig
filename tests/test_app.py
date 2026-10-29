@@ -19,8 +19,9 @@ from datetime import date, timedelta
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QCheckBox
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QCheckBox, QPushButton
 from PyQt6.QtCore import QDate
+from PyQt6.QtGui import QFont
 from src.storage import StorageManager, set_storage_instance
 from src.main_window import MainWindow
 from src.components.command_palette import CommandPalette
@@ -392,6 +393,38 @@ class TestUIWidgets(unittest.TestCase):
         cv.calendar.setSelectedDate(QDate(2026, 12, 31))
         cv._on_date_selected()
         self.assertEqual(cv.selected_qdate, QDate(2026, 12, 31))
+
+    def test_month_inspector_shows_recurring_lesson_for_actual_week(self):
+        cv = self.window.calendar_view
+        selected = QDate(2026, 11, 2)  # Monday, ISO week 45 (odd)
+        self.assertEqual(selected.weekNumber()[0] % 2, 1)
+        cv.calendar.setSelectedDate(selected)
+        self.mock_storage.add_recurring_lesson("Odd-week class", 0, week_parity="odd")
+        self.mock_storage.add_recurring_lesson("Even-week class", 0, week_parity="even")
+        labels = [label.text() for label in cv.agenda_container.findChildren(QLabel)]
+        self.assertIn("Odd-week class", labels)
+        self.assertNotIn("Even-week class", labels)
+
+    def test_month_inspector_shows_tasks_and_updates_when_completed(self):
+        cv = self.window.calendar_view
+        cv.calendar.setSelectedDate(QDate(2026, 11, 4))
+        task = self.mock_storage.add_task("Monthly deadline", due_date="2026-11-04")
+        buttons = cv.agenda_container.findChildren(QPushButton, "agenda_task_card")
+        self.assertEqual(len(buttons), 1)
+        self.assertIn("Monthly deadline", buttons[0].text())
+        self.window._navigate_to("calendar")
+        buttons[0].click()
+        self.assertIs(self.window.stack.currentWidget(), self.window.tasks_view)
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(cv.agenda_container.findChildren(QPushButton, "agenda_task_card"), [])
+
+    def test_month_highlight_clears_when_deadline_is_completed(self):
+        cv = self.window.calendar_view
+        selected = QDate(2026, 11, 5)
+        task = self.mock_storage.add_task("Highlight deadline", due_date="2026-11-05")
+        self.assertEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold)
+        self.mock_storage.toggle_task(task["id"])
+        self.assertNotEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold)
 
     def test_topbar_search_and_create(self):
         self.assertIsNotNone(self.window.search_btn)
