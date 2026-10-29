@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import patch
 from pathlib import Path
 
 from src.utils.backup import read_archive, rewrite_attachment_urls, write_archive
@@ -25,6 +26,23 @@ class BackupArchiveTests(unittest.TestCase):
             restored = str(Path(directory, "restored.png"))
             rewrite_attachment_urls(loaded, {"image.png": restored})
             self.assertIn(Path(restored).as_uri(), loaded["notebooks"][0]["pages"][0]["content_html"])
+
+    def test_archive_rejects_non_object_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "invalid.workboxig")
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("storage.json", "[]")
+            with self.assertRaisesRegex(ValueError, "must be an object"):
+                read_archive(path)
+
+    def test_archive_rejects_oversized_metadata_before_loading(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "huge.workboxig")
+            with zipfile.ZipFile(path, "w") as archive:
+                archive.writestr("storage.json", "x" * 256)
+            with patch("src.utils.backup.MAX_STORAGE_BYTES", 128):
+                with self.assertRaisesRegex(ValueError, "metadata is too large"):
+                    read_archive(path)
 
     def test_archive_rejects_path_traversal(self):
         with tempfile.TemporaryDirectory() as directory:
