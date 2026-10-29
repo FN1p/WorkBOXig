@@ -1014,16 +1014,20 @@ class WeeklyTimetableWidget(QWidget):
             return 12
 
     def _check_time_update(self):
+        # The app may remain open overnight or resume after sleep at the same
+        # clock hour. Check the date as well as the hour to avoid stale weeks.
+        parent = self.parent()
+        while parent and not hasattr(parent, "_check_day_rollover"):
+            parent = parent.parent()
+        if parent and parent._check_day_rollover():
+            return
+
         now = datetime.now()
         cur_hour = now.hour
         cur_min = now.minute
 
-        # If hour changed, we need to refresh the timetable so indicator moves to the next hour slot
         if self.last_indicator_hour is not None and cur_hour != self.last_indicator_hour:
             self.last_indicator_hour = cur_hour
-            parent = self.parent()
-            while parent and not hasattr(parent, "_refresh_timetable"):
-                parent = parent.parent()
             if parent:
                 parent._refresh_timetable()
         elif self.current_time_cell:
@@ -1046,6 +1050,7 @@ class CalendarView(QWidget):
         super().__init__(parent)
         self.storage = get_storage()
         self.selected_qdate = QDate.currentDate()
+        self._last_seen_today = self.selected_qdate
         self.current_monday = self._get_monday_for_date(self.selected_qdate)
 
         layout = QVBoxLayout(self)
@@ -1248,6 +1253,9 @@ class CalendarView(QWidget):
         self.calendar.setGridVisible(True)
         self.calendar.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
         self.calendar.selectionChanged.connect(self._on_date_selected)
+        self.calendar.currentPageChanged.connect(
+            lambda _year, _month: self._highlight_calendar_days()
+        )
         month_layout.addWidget(self.calendar, stretch=6)
 
         # Right Month Inspector
@@ -1311,6 +1319,7 @@ class CalendarView(QWidget):
 
     def _jump_to_today(self):
         today = QDate.currentDate()
+        self._last_seen_today = today
         self.selected_qdate = today
         self.current_monday = self._get_monday_for_date(today)
         self.timetable.set_monday(self.current_monday)
@@ -1319,6 +1328,29 @@ class CalendarView(QWidget):
         self._refresh_timetable()
         self._on_date_selected()
         self.timetable.scroll_to_current_time()
+
+    def _check_day_rollover(self) -> bool:
+        today = QDate.currentDate()
+        if today == self._last_seen_today:
+            return False
+        self._apply_day_rollover(self._last_seen_today, today)
+        return True
+
+    def _apply_day_rollover(self, previous_today: QDate, today: QDate):
+        """Follow the new week only when the user was viewing the old current week."""
+        follow_week = self.current_monday == self._get_monday_for_date(previous_today)
+        follow_day = self.selected_qdate == previous_today
+        self._last_seen_today = today
+
+        if follow_week:
+            self.current_monday = self._get_monday_for_date(today)
+            self.timetable.set_monday(self.current_monday)
+            self._update_range_title()
+        if follow_day:
+            self.calendar.setSelectedDate(today)
+        self._refresh_timetable()
+        self._highlight_calendar_days()
+        self._on_date_selected()
 
     def _update_range_title(self):
         sun_date = self.current_monday.addDays(6)
@@ -1554,6 +1586,23 @@ class CalendarView(QWidget):
                 d = task["due_date"]
                 if d not in date_indicators:
                     date_indicators[d] = COLORS['amber']
+
+        # Recurring lessons have no stored date. Highlight only the visible
+        # month's actual occurrences, respecting odd/even ISO week parity.
+        recurring = self.storage.get_recurring_lessons()
+        if recurring:
+            year, month = self.calendar.yearShown(), self.calendar.monthShown()
+            for day_number in range(1, QDate(year, month, 1).daysInMonth() + 1):
+                day = QDate(year, month, day_number)
+                week_parity = "even" if day.weekNumber()[0] % 2 == 0 else "odd"
+                for lesson in recurring:
+                    if (lesson.get("weekday") == day.dayOfWeek() - 1
+                            and lesson.get("week_parity", "all") in ("all", "", None, week_parity)):
+                        date_indicators.setdefault(
+                            day.toString(Qt.DateFormat.ISODate),
+                            lesson.get("color") or COLORS['primary']
+                        )
+                        break
 
         for date_str, col_hex in date_indicators.items():
             try:
