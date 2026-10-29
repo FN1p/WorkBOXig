@@ -1490,10 +1490,21 @@ class CalendarView(QWidget):
 
         clear_layout(self.agenda_layout)
 
-        events = [e for e in self.storage.get_events() if e.get("date") == iso_str]
-        tasks = [t for t in self.storage.get_tasks() if t.get("due_date") == iso_str]
+        # The monthly inspector must use the selected day's real ISO week parity.
+        # Otherwise odd/even recurring lessons appear on dates when they do not occur.
+        week_parity = "even" if self.selected_qdate.weekNumber()[0] % 2 == 0 else "odd"
+        def occurs_this_week(item):
+            return item.get("week_parity", "all") in ("all", "", None, week_parity)
 
-        if not events and not tasks:
+        events = [e for e in self.storage.get_events()
+                  if e.get("date") == iso_str and occurs_this_week(e)]
+        recurring = [r for r in self.storage.get_recurring_lessons()
+                     if r.get("weekday") == self.selected_qdate.dayOfWeek() - 1
+                     and occurs_this_week(r)]
+        tasks = [task for task in self.storage.get_tasks()
+                 if task.get("due_date") == iso_str and not task.get("completed")]
+
+        if not events and not recurring and not tasks:
             empty_lbl = QLabel(t("no_classes_today"))
             empty_lbl.setFont(QFont("Segoe UI", 9))
             empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 20px 0;")
@@ -1501,13 +1512,35 @@ class CalendarView(QWidget):
             self.agenda_layout.addWidget(empty_lbl)
             return
 
-        for evt in events:
+        for evt in sorted(events + recurring, key=lambda item: item.get("time") or ""):
             card = LessonCard(evt, self.agenda_container)
             card.clicked.connect(self._edit_event)
             card.delete_requested.connect(self._delete_event)
             self.agenda_layout.addWidget(card)
 
+        # Previously tasks were queried but never added to the inspector, leaving
+        # a blank panel on days with only deadlines.
+        for task in sorted(tasks, key=lambda item: item.get("due_time") or ""):
+            label = f"{task.get('due_time') or ''}  {task.get('title') or ''}".strip()
+            button = QPushButton(label, self.agenda_container)
+            button.setObjectName("agenda_task_card")
+            button.setAccessibleName(task.get("title") or "")
+            button.setToolTip(t("nav_tasks"))
+            button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            button.setStyleSheet(
+                f"text-align: left; color: {COLORS['text_primary']}; "
+                f"background: {COLORS['amber_subtle']}; "
+                f"border: 1px solid {COLORS['amber']}; border-radius: 8px; padding: 9px;"
+            )
+            button.clicked.connect(lambda _checked=False, tid=task["id"]: self.open_task_requested.emit(tid))
+            self.agenda_layout.addWidget(button)
+
     def _highlight_calendar_days(self):
+        # Clear only formats previously set by WorkBOXig, so deleted/completed
+        # events do not leave permanent highlights on the month calendar.
+        for previous_date in getattr(self, "_highlighted_dates", set()):
+            self.calendar.setDateTextFormat(previous_date, QTextCharFormat())
+        self._highlighted_dates = set()
         date_indicators = {}
         for evt in self.storage.get_events():
             d = evt.get("date")
@@ -1527,7 +1560,9 @@ class CalendarView(QWidget):
                 fmt.setFontWeight(QFont.Weight.Bold)
                 fmt.setForeground(QColor(col_hex))
                 fmt.setBackground(QColor(COLORS['primary_subtle']))
-                self.calendar.setDateTextFormat(qd, fmt)
+                if qd.isValid():
+                    self.calendar.setDateTextFormat(qd, fmt)
+                    self._highlighted_dates.add(qd)
             except Exception:
                 pass
 
@@ -1535,6 +1570,7 @@ class CalendarView(QWidget):
         if entity_type in ("events", "tasks", "recurring", "all"):
             self._refresh_timetable()
             self._highlight_calendar_days()
+            self._on_date_selected()
 
     def export_to_ics(self):
         """Export all calendar lessons and events to an RFC 5545 iCalendar (.ics) file."""
