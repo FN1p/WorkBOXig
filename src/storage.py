@@ -63,6 +63,9 @@ def _validated_data(value: Any, require_complete: bool = False) -> Dict[str, Any
             raise ValueError(f"Invalid storage field: {key}")
         elif isinstance(default, list) and not all(isinstance(item, dict) for item in result[key]):
             raise ValueError(f"Invalid storage entries: {key}")
+    # Older backups may lack settings introduced in newer releases.
+    # Preserve all existing and custom settings while filling missing defaults.
+    result["settings"] = {**DEFAULT_DATA["settings"], **result["settings"]}
     return result
 
 
