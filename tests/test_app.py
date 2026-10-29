@@ -115,6 +115,48 @@ class TestStorage(unittest.TestCase):
         self.assertEqual(self.storage.get_notes()[0]["title"], "Previous note")
         self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(self.test_dir)))
 
+    def test_unreadable_storage_is_never_overwritten_when_recovery_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            with patch("src.storage.os.rename", side_effect=PermissionError("access denied")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid data loss"):
+                    StorageManager(storage_dir=directory)
+            self.assertEqual(storage_path.read_text(encoding="utf-8"), "{corrupt")
+
+    def test_unreadable_storage_is_preserved_as_recovery_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            recovered = StorageManager(storage_dir=directory)
+            try:
+                backups = list(Path(directory).glob("storage.json.bak-*"))
+                self.assertEqual(len(backups), 1)
+                self.assertEqual(backups[0].read_text(encoding="utf-8"), "{corrupt")
+                self.assertEqual(recovered.get_tasks(), [])
+            finally:
+                recovered._debounce_timer.stop()
+
+    def test_restore_name_collision_keeps_existing_attachment(self):
+        from src.utils.backup import write_archive
+
+        existing = Path(self.storage.get_attachments_dir(), "collision.png")
+        existing.write_bytes(b"existing attachment")
+        source_attachments = Path(self.test_dir, "incoming_attachments")
+        source_attachments.mkdir()
+        (source_attachments / "image.png").write_bytes(b"incoming image")
+        incoming = json.loads(json.dumps(self.storage._data))
+        incoming["notes"] = [{"id": "imported", "title": "Imported"}]
+        backup = os.path.join(self.test_dir, "incoming.workboxig")
+        write_archive(backup, incoming, str(source_attachments))
+
+        with patch("src.storage.new_attachment_name", return_value="collision.png"):
+            with self.assertRaises(FileExistsError):
+                self.storage.import_full_backup(backup)
+
+        self.assertEqual(existing.read_bytes(), b"existing attachment")
+        self.assertEqual(self.storage.get_notes(), [])
+
     def test_task_crud(self):
         t = self.storage.add_task(title="Тестовая задача", subject="Тест", priority="urgent")
         self.assertEqual(t["title"], "Тестовая задача")
