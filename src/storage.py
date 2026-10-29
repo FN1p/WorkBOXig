@@ -281,7 +281,12 @@ class StorageManager(QObject):
                     task["status"] = "done" if kwargs["completed"] else "todo"
                 elif "status" in kwargs and "completed" not in kwargs:
                     task["completed"] = (kwargs["status"] == "done")
-                    task["completed_at"] = datetime.now().isoformat() if task["completed"] else None
+                if ("completed" in kwargs or "status" in kwargs) and "completed_at" not in kwargs:
+                    # Keep the completion timestamp in sync even when a caller
+                    # updates the boolean directly instead of the Kanban status.
+                    task["completed_at"] = (
+                        task.get("completed_at") or datetime.now().isoformat()
+                    ) if task["completed"] else None
                 self.schedule_save("tasks")
                 return task
         return None
