@@ -831,6 +831,14 @@ class WeeklyTimetableWidget(QWidget):
 
     def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]], recurring_lessons: Optional[List[Dict[str, Any]]] = None, parity_filter: str = "all"):
         recurring_lessons = recurring_lessons or []
+        # "All" means all lessons actually taking place this ISO week.
+        # Odd/even buttons explicitly preview that timetable instead.
+        actual_parity = "even" if self.monday_date.weekNumber()[0] % 2 == 0 else "odd"
+        selected_parity = actual_parity if parity_filter == "all" else parity_filter
+
+        def matches_parity(item):
+            return item.get("week_parity", "all") in ("all", "", None, selected_parity)
+
         # 1. Update Header
         clear_layout(self.header_layout)
 
@@ -887,7 +895,7 @@ class WeeklyTimetableWidget(QWidget):
                 ch_layout.addWidget(sub_t)
 
             # Show recurring indicator if there are recurring lessons for this weekday
-            if any(r.get("weekday") == i for r in recurring_lessons):
+            if any(r.get("weekday") == i and matches_parity(r) for r in recurring_lessons):
                 rec_sub = QLabel()
                 rec_sub.setPixmap(get_pixmap("repeat", COLORS['sky'], 10))
                 rec_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -933,12 +941,6 @@ class WeeklyTimetableWidget(QWidget):
                 cell.clicked.connect(self.slot_clicked.emit)
 
                 # Filter events for this date & hour matching parity
-                def matches_parity(item):
-                    if parity_filter == "all":
-                        return True
-                    p = item.get("week_parity", "all")
-                    return p in ("all", parity_filter)
-
                 matching_events = [
                     e for e in events
                     if e.get("date") == date_str and self._get_event_hour(e) == h and matches_parity(e)
