@@ -111,12 +111,16 @@ class StorageManager(QObject):
                     return
             except Exception as e:
                 print(f"[StorageManager] Error reading {self.file_path}: {e}. Initializing backup...")
-                # Backup corrupted file
+                # Preserve the original before creating defaults. Never overwrite it
+                # if the filesystem prevents us from making a recovery copy.
+                backup_path = self.file_path + f".bak-{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}-{uuid.uuid4().hex}"
                 try:
-                    backup_path = self.file_path + f".bak-{int(datetime.now().timestamp())}"
                     os.rename(self.file_path, backup_path)
-                except Exception:
-                    pass
+                except OSError as backup_error:
+                    raise RuntimeError(
+                        f"Unable to preserve unreadable WorkBOXig data at {self.file_path}; "
+                        "startup aborted to avoid data loss"
+                    ) from backup_error
 
         # Populate with fresh default data
         self._data = json.loads(json.dumps(DEFAULT_DATA))
@@ -219,8 +223,10 @@ class StorageManager(QObject):
             replacements = {}
             for name, content in attachments.items():
                 new_path = os.path.join(self.attachments_dir, new_attachment_name(name))
-                restored_paths.append(new_path)
                 with open(new_path, "xb") as handle:
+                    # Only track files we actually created: a name collision
+                    # must never cause deletion of an existing attachment.
+                    restored_paths.append(new_path)
                     handle.write(content)
                 replacements[name] = new_path
             rewrite_attachment_urls(new_data, replacements)
