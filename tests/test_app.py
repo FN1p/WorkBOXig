@@ -174,6 +174,24 @@ class TestStorage(unittest.TestCase):
         del_res = self.storage.delete_task(t["id"])
         self.assertTrue(del_res)
 
+    def test_direct_task_completion_updates_timestamp(self):
+        task = self.storage.add_task("Timestamp check")
+        self.assertIsNone(task["completed_at"])
+
+        updated = self.storage.update_task(task["id"], completed=True)
+        self.assertEqual(updated["status"], "done")
+        self.assertTrue(updated["completed"])
+        self.assertIsNotNone(updated["completed_at"])
+        finished_at = updated["completed_at"]
+
+        self.storage.update_task(task["id"], title="Renamed")
+        self.assertEqual(task["completed_at"], finished_at)
+
+        reopened = self.storage.update_task(task["id"], completed=False)
+        self.assertEqual(reopened["status"], "todo")
+        self.assertFalse(reopened["completed"])
+        self.assertIsNone(reopened["completed_at"])
+
     def test_notebooks_and_pages(self):
         nb = self.storage.add_notebook(title="Химия")
         self.assertEqual(nb["title"], "Химия")
