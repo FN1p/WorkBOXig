@@ -25,8 +25,8 @@ Goal: improve reliability and day-to-day usability before adding major features.
 - [ ] Check RU/EN strings and small-window layouts.
 
 ## P1 — release quality
-- [x] Windows unit tests passed for calendar commit `3f69b216`; newer changes await CI.
-- [x] Portable EXE and installer built successfully for `3f69b216`; newer changes await CI.
+- [x] Windows unit tests passed for calendar commit `99e09512`; updater hardening awaits CI.
+- [x] Portable EXE and installer built successfully for `99e09512`; updater hardening awaits CI.
 - [ ] Manually launch both builds and test first-run onboarding, update checks and data migration.
 - [ ] Confirm that updating preserves existing user data.
 - [ ] Publish a prerelease only after checks pass.
@@ -57,3 +57,11 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Older JSON backups now receive missing settings defaults without overwriting existing or custom settings; synthetic legacy fixture added.
 - Added UI regression tests for recurring highlights, weekly parity and midnight rollover, plus a legacy import test.
 - **Pending:** verify Windows CI on the latest branch head, confirm new review artifact, and manually smoke-test EXE/installer and historical backup files.
+
+## Progress notes — 2026-10-30 updater hardening
+- Found a rate-limit fallback that omitted `is_newer` and fabricated direct EXE URLs/sizes. Redirects now require a real version tag and return the GitHub release page without guessing assets.
+- Installer launch now stops if a pre-update backup fails; the dialog reports the failure and re-enables controls.
+- Portable-only releases open the release page rather than launching a portable EXE as if it were an installer.
+- Downloads now use unique temporary directories, validate filenames and reject empty or incomplete responses before exposing an EXE.
+- Added mocked-network regression tests for redirects, download validation, backup failures and dialog recovery.
+- **Pending:** Windows CI and artifact upload for latest updater changes; manually test updating from 1.4.2 with a copy of real user data.
