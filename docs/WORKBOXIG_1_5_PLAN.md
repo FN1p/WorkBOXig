@@ -129,3 +129,13 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Shared layout cleanup now recursively removes controls in nested subtask rows instead of leaving orphaned children that can flash or persist.
 - Add tests for visible modal forms, scrollable content, color selection, and nested layout cleanup.
 - **Verification required:** review latest Windows CI before recommending any EXE; manually test on Windows at 100%, 125%, 150% DPI, add/edit/delete lessons and tasks, keyboard Escape / close controls and long subtask lists.
+
+## Progress notes — 2026-10-30 beta update channel and updater safety
+- Opt-in "Receive beta updates" checkbox in Settings > About > Updates, persisted in `update_channel` (defaults to stable). RU/EN strings and helper text included.
+- Stable channel uses GitHub Releases /latest; beta channel checks published releases, selects highest SemVer (including a newer final/stable release) and ignores drafts/invalid tags. Rate-limit fallback does not silently switch beta users to stable.
+- Correct semantic version precedence: same-number stable > beta; numeric prerelease identifiers order numerically. Prevent unintended downgrades.
+- Verify official GitHub release asset SHA-256 digest when provided, as well as expected download size; reject tampered files and arbitrary EXE-as-installer fallback.
+- Label prereleases explicitly in the update dialog. Safely cancel a running download on Escape/window close without destroying a live QThread.
+- Use saved update channel for background startup checks and manual settings checks.
+- Added mocked API, settings persistence, release ranking, checksum and cancellation tests.
+- **Still required:** Windows CI on latest branch head; manual Windows beta opt-in, update from v1.4.7 / v1.5.0-beta.1, and installer smoke test with copied user data. Leave PR draft and stable release unchanged.
