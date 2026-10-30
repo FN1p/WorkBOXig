@@ -101,6 +101,17 @@ class UpdateDialog(QDialog):
         h_layout.addWidget(ver_sub)
         layout.addWidget(header_card)
 
+        if self.release_info.get("prerelease"):
+            beta_notice = QLabel(t("update_beta_warning"))
+            beta_notice.setObjectName("update_beta_warning")
+            beta_notice.setWordWrap(True)
+            beta_notice.setStyleSheet(
+                f"color: {COLORS['amber']}; background-color: rgba(245, 158, 11, 0.1); "
+                f"border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; "
+                f"padding: 8px;"
+            )
+            layout.addWidget(beta_notice)
+
         # 2. Release Notes / Changelog
         notes_lbl = QLabel(t("update_notes_title"))
         notes_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
