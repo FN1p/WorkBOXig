@@ -90,7 +90,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
                         latest_tag = urllib.parse.unquote(
                             redirected.path[len(expected_prefix):]
                         )
-                        if re.fullmatch(r"v?\\d+\\.\\d+(?:\\.\\d+)?", latest_tag, re.IGNORECASE):
+                        if re.fullmatch(r"v?\d+\.\d+(?:\.\d+)?", latest_tag, re.IGNORECASE):
                             return {
                                 "tag_name": latest_tag,
                                 "title": f"WorkBOXig {latest_tag}",
