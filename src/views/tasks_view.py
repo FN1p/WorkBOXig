@@ -71,11 +71,16 @@ class TaskDialog(QDialog):
         outer_layout.setSpacing(0)
         self.form_scroll = QScrollArea(self)
         self.form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.form_scroll.setStyleSheet(
+            f"QScrollArea {{ background-color: {COLORS['bg_card']}; border: 0; }}"
+        )
         self.form_scroll.setWidgetResizable(True)
         self.form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.form_container = QWidget(self.form_scroll)
         self.form_container.setObjectName("task_form_container")
-        self.form_container.setStyleSheet("QWidget#task_form_container { background: transparent; }")
+        self.form_container.setStyleSheet(
+            f"QWidget#task_form_container {{ background-color: {COLORS['bg_card']}; }}"
+        )
         layout = QVBoxLayout(self.form_container)
         layout.setContentsMargins(26, 24, 26, 16)
         layout.setSpacing(14)
