@@ -92,3 +92,10 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Startup now aborts with a clear storage error when the first atomic save fails. Corrupt originals already moved to `storage.json.bak-*` remain preserved.
 - Added regression tests for fresh-profile write failure and corrupt-file recovery followed by write failure; updated `docs/DATA_RECOVERY.md`.
 - **Pending:** Windows CI and new review artifact for this iteration, plus manual Windows disk-full/permissions and installer smoke tests. Do not claim these changes verified until CI passes.
+
+## Progress notes — 2026-10-30 failed-save visibility
+- Verified storage initialization safety on Windows CI [run 40994978935](https://github.com/FN1p/WorkBOXig/actions/runs/40994978935): unit tests, portable EXE, installer and review artifact all succeeded for `92ceaff0`. Artifact `WorkBOXig-Windows-review` (119,657,854 bytes; expires 2026-10-31 03:03 UTC).
+- Found that failed atomic autosaves after startup only printed to console; user edits could remain unsaved with no visible warning. Ctrl+S incorrectly displayed “All data saved” even when the save returned False.
+- StorageManager now emits `save_failed` on failed atomic writes. MainWindow shows a localized error toast **and persistent status-bar warning**, cleared only after a successful save. Ctrl+S displays success only on success.
+- Added regression tests for disk-full autosave, retry persistence and Ctrl+S error/success feedback.
+- **Pending:** Windows CI on the new commits; manual Windows disk-full, permissions and first-run checks. Do not treat the new EXE as verified until CI passes.
