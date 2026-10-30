@@ -228,8 +228,7 @@ class DownloadUpdateThread(QThread):
                 with open(partial_path, "wb") as f:
                     while True:
                         if self._is_cancelled:
-                            shutil.rmtree(temp_dir, ignore_errors=True)
-                            return
+                            break
 
                         chunk = resp.read(chunk_size)
                         if not chunk:
