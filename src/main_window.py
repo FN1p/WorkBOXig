@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
         self.sidebar_toggle_btn.setIcon(get_icon("panel_left", COLORS['text_secondary'], 16))
         self.sidebar_toggle_btn.setFixedSize(32, 32)
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.sidebar_toggle_btn.setAccessibleName(t("collapse_sidebar"))
         self.sidebar_toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.sidebar_toggle_btn.setStyleSheet(f"""
             QPushButton {{
@@ -828,6 +829,7 @@ class MainWindow(QMainWindow):
     def _on_language_changed(self, lang: str):
         self.setWindowTitle(t("app_title"))
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.sidebar_toggle_btn.setAccessibleName(t("collapse_sidebar"))
         self.search_btn.setText(t("search_placeholder"))
         self.quick_add_btn.setText(t("quick_add_btn"))
         self.quick_add_btn.setToolTip(t("quick_add"))
