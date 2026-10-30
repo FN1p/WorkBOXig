@@ -99,3 +99,9 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - StorageManager now emits `save_failed` on failed atomic writes. MainWindow shows a localized error toast **and persistent status-bar warning**, cleared only after a successful save. Ctrl+S displays success only on success.
 - Added regression tests for disk-full autosave, retry persistence and Ctrl+S error/success feedback.
 - **Pending:** Windows CI on the new commits; manual Windows disk-full, permissions and first-run checks. Do not treat the new EXE as verified until CI passes.
+
+## Progress notes — 2026-10-30 legacy task deadlines and live Today updates
+- Task filters previously compared raw deadline strings: missing/empty deadlines were treated as overdue, and `None` mixed with strings could crash date sorting.
+- Parse deadlines defensively in the Tasks view; exclude undated/invalid legacy tasks from Today/Upcoming/Overdue while retaining them in All. Sorting places undated tasks after dated ones.
+- Added UI regression tests for empty, null and invalid dates, plus immediate Today badge updates on task creation, completion and rescheduling.
+- **Pending:** confirm Windows CI on latest branch head and a new `WorkBOXig-Windows-review` artifact; manually test legacy profiles and real Windows UI. No merge or stable release.
