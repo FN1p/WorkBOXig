@@ -33,6 +33,7 @@ DEFAULT_DATA = {
         "font_size": 14,
         "auto_save_interval": 1000,
         "check_updates_on_startup": True,
+        "update_channel": "stable",
         "google_calendar_url": "",
         "google_calendar_auto_sync": True
     },
