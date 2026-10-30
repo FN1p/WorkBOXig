@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QProgressBar, QFrame,
     QDialog, QTextEdit, QDateEdit, QTimeEdit, QMessageBox, QScrollArea,
-    QGridLayout, QButtonGroup, QStackedWidget
+    QGridLayout, QButtonGroup, QStackedWidget, QApplication
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QCursor, QIcon
@@ -51,8 +51,13 @@ class TaskDialog(QDialog):
     def __init__(self, existing_task=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("task_edit_title") if existing_task else t("task_new_title"))
-        self.resize(520, 580)
-        self.setMinimumSize(480, 520)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumSize(450, 420)
+        screen = (parent.window().screen() if parent is not None else None) or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        width = min(560, max(450, available.width() - 48)) if available else 560
+        height = min(650, max(420, available.height() - 80)) if available else 650
+        self.resize(width, height)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['bg_card']};
@@ -61,8 +66,18 @@ class TaskDialog(QDialog):
             }}
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(26, 24, 26, 24)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+        self.form_scroll = QScrollArea(self)
+        self.form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.form_scroll.setWidgetResizable(True)
+        self.form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.form_container = QWidget(self.form_scroll)
+        self.form_container.setObjectName("task_form_container")
+        self.form_container.setStyleSheet("QWidget#task_form_container { background: transparent; }")
+        layout = QVBoxLayout(self.form_container)
+        layout.setContentsMargins(26, 24, 26, 16)
         layout.setSpacing(14)
 
         dlg_title = QLabel(t("task_new_title") if not existing_task else t("task_edit_title"))
@@ -176,8 +191,18 @@ class TaskDialog(QDialog):
         add_sub_btn.clicked.connect(self._add_subtask_item)
         add_sub_row.addWidget(add_sub_btn)
         layout.addLayout(add_sub_row)
+        self.form_scroll.setWidget(self.form_container)
+        outer_layout.addWidget(self.form_scroll, stretch=1)
 
-        # Buttons
+        # Buttons remain visible even when many subtasks overflow the form.
+        footer = QWidget(self)
+        footer.setObjectName("task_dialog_footer")
+        footer.setStyleSheet(
+            f"QWidget#task_dialog_footer {{ background-color: {COLORS['bg_card']}; "
+            f"border-top: 1px solid {COLORS['border_subtle']}; }}"
+        )
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 10, 24, 16)
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         cancel_btn = QPushButton(t("cancel"))
@@ -194,7 +219,8 @@ class TaskDialog(QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
+        footer_layout.addLayout(btn_layout)
+        outer_layout.addWidget(footer)
 
         if existing_task:
             self.title_input.setText(existing_task.get("title", ""))
@@ -216,6 +242,8 @@ class TaskDialog(QDialog):
             idx = self.p_combo.findData(p_val)
             if idx >= 0:
                 self.p_combo.setCurrentIndex(idx)
+
+        self.title_input.setFocus()
 
     def _add_subtask_item(self):
         text = self.new_sub_input.text().strip()
