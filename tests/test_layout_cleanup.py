@@ -14,7 +14,7 @@ app = QApplication.instance() or QApplication([])
 
 
 class LayoutCleanupTests(unittest.TestCase):
-    def test_visible_calendar_like_cells_are_hidden_not_detached(self):
+    def test_visible_calendar_like_cells_are_hidden_before_detach(self):
         parent = QWidget()
         layout = QGridLayout(parent)
         widgets = [QLabel("Monday"), QLabel("Tuesday"), QLabel("Lesson")]
