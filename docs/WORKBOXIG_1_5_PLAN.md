@@ -79,3 +79,9 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Both icon-only sidebar collapse buttons now expose translated accessible names; added an isolated regression test.
 - Broader keyboard focus-order, DPI and screen-reader audits remain manual review items.
 - Latest CI is pending for these commits; do not treat the new EXE as verified until the workflow succeeds.
+
+## Progress notes — 2026-10-30 reminder rollover
+- Found a long-running-window bug: event/task reminder ID sets were never reset, so an item moved to the next day could silently miss its notification.
+- Reset per-day notification keys at local date rollover; event deduplication also includes scheduled time so a moved lesson can notify at its new time.
+- Added UI-level regression tests for same-day polling, next-day rescheduling and same-day time changes.
+- **Pending:** Windows CI on reminder commits; confirm review artifact before manual testing. No real Windows notification delivery test yet.
