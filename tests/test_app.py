@@ -138,6 +138,28 @@ class TestStorage(unittest.TestCase):
         self.assertEqual(self.storage.get_notes()[0]["title"], "Previous note")
         self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(self.test_dir)))
 
+    def test_fresh_storage_aborts_if_initial_save_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid unsaved data"):
+                    StorageManager(storage_dir=directory)
+            self.assertFalse(storage_path.exists())
+            self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(directory)))
+
+    def test_corrupt_storage_recovery_aborts_if_new_save_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid unsaved data"):
+                    StorageManager(storage_dir=directory)
+            copies = list(Path(directory).glob("storage.json.bak-*"))
+            self.assertEqual(len(copies), 1)
+            self.assertEqual(copies[0].read_text(encoding="utf-8"), "{corrupt")
+            self.assertFalse(storage_path.exists())
+            self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(directory)))
+
     def test_unreadable_storage_is_never_overwritten_when_recovery_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             storage_path = Path(directory, "storage.json")
