@@ -10,6 +10,7 @@ import re
 import json
 import urllib.request
 import urllib.error
+import urllib.parse
 import subprocess
 import tempfile
 from typing import Optional, Dict, Any, Tuple
@@ -79,21 +80,33 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
                     headers={"User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) {APP_NAME}"}
                 )
                 with urllib.request.urlopen(web_req, timeout=timeout) as web_resp:
-                    latest_tag = web_resp.geturl().split("/")[-1]
-                    if latest_tag:
-                        return {
-                            "tag_name": latest_tag,
-                            "title": f"WorkBOXig {latest_tag}",
-                            "body": t("update_available_generic"),
-                            "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
-                            "published_at": "",
-                            "installer_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig_Setup.exe",
-                            "installer_name": "WorkBOXig_Setup.exe",
-                            "installer_size": 79409368,
-                            "portable_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig.exe",
-                            "portable_name": "WorkBOXig.exe",
-                            "portable_size": 39875746,
-                        }
+                    redirected = urllib.parse.urlparse(web_resp.geturl())
+                    expected_prefix = f"/{repo}/releases/tag/"
+                    # The /latest URL may redirect to the releases index when
+                    # no published release exists. Never treat 'latest' as a tag.
+                    if (redirected.scheme == "https"
+                            and redirected.netloc == "github.com"
+                            and redirected.path.startswith(expected_prefix)):
+                        latest_tag = urllib.parse.unquote(
+                            redirected.path[len(expected_prefix):]
+                        )
+                        if re.fullmatch(r"v?\\d+\\.\\d+(?:\\.\\d+)?", latest_tag, re.IGNORECASE):
+                            return {
+                                "tag_name": latest_tag,
+                                "title": f"WorkBOXig {latest_tag}",
+                                "body": t("update_available_generic"),
+                                "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
+                                "published_at": "",
+                                # A redirect does not tell us which assets exist.
+                                # Offer the release page instead of inventing EXE links.
+                                "installer_url": None,
+                                "installer_name": None,
+                                "installer_size": 0,
+                                "portable_url": None,
+                                "portable_name": None,
+                                "portable_size": 0,
+                                "is_newer": is_newer_version(latest_tag, __version__),
+                            }
             except Exception:
                 pass
             raise RuntimeError(t("update_rate_limit_error")) from he
@@ -251,7 +264,10 @@ def launch_installer_and_quit(installer_path: str, storage=None) -> bool:
             try:
                 storage.create_pre_update_backup()
             except Exception as be:
-                print(f"[Updater] Pre-update backup warning: {be}")
+                # Do not close the app or start an installer without a
+                # recoverable copy of the user's current data.
+                print(f"[Updater] Pre-update backup failed; update cancelled: {be}")
+                return False
 
         # Launch the installer in detached mode
         if sys.platform == "win32":
