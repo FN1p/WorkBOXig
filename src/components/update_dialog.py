@@ -171,7 +171,10 @@ class UpdateDialog(QDialog):
         self.later_btn.clicked.connect(self.reject)
         btn_row.addWidget(self.later_btn)
 
-        self.install_btn = QPushButton(t("btn_download_update"))
+        self.install_btn = QPushButton(
+            t("btn_download_update") if self.release_info.get("installer_url")
+            else t("btn_open_github")
+        )
         self.install_btn.setObjectName("primary-btn")
         self.install_btn.setFixedHeight(40)
         self.install_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -233,7 +236,8 @@ class UpdateDialog(QDialog):
         self.progress_lbl.setText(t("download_complete_msg"))
         self.progress_bar.setValue(100)
         # Execute installer and quit safely
-        launch_installer_and_quit(local_path, self.storage)
+        if not launch_installer_and_quit(local_path, self.storage):
+            self._on_download_error(t("update_install_failed"))
 
     def _on_download_error(self, err_msg: str):
         self.progress_container.setVisible(False)
