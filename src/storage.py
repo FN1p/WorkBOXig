@@ -76,6 +76,7 @@ class StorageManager(QObject):
     """
     data_changed = pyqtSignal(str) # entity_type: 'tasks', 'notebooks', 'notes', 'events', 'all'
     save_completed = pyqtSignal()
+    save_failed = pyqtSignal(str)  # Persist failures must be visible to the UI.
 
     def __init__(self, storage_dir: Optional[str] = None):
         super().__init__()
@@ -159,6 +160,7 @@ class StorageManager(QObject):
             return True
         except Exception as e:
             print(f"[StorageManager] Failed to save data: {e}")
+            self.save_failed.emit(str(e))
             return False
         finally:
             if tmp_path and os.path.exists(tmp_path):
