@@ -73,3 +73,9 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Added five regression tests covering size mismatch, missing headers, truncated downloads, oversized headers and size forwarding.
 - Prior updater-hardening commit `3ee0490e` passed Windows CI (run 40983422164, review artifact available). New download-integrity commits await CI.
 - Next: verify the latest Windows CI and review artifact, then smoke-test actual 1.4.2 → 1.5 update and rollback with a copied user profile.
+
+## Progress notes — 2026-10-30 accessibility follow-up
+- Navigation uses custom QLabel children inside QPushButton; their button text was empty for assistive technology. NavItem now exposes its visible label as accessibleName, including collapsed mode and language changes.
+- Both icon-only sidebar collapse buttons now expose translated accessible names; added an isolated regression test.
+- Broader keyboard focus-order, DPI and screen-reader audits remain manual review items.
+- Latest CI is pending for these commits; do not treat the new EXE as verified until the workflow succeeds.
