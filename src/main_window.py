@@ -245,6 +245,10 @@ class MainWindow(QMainWindow):
 
         # 4. Notifications & Desktop Alert Card
         self.toast = ToastNotification(self)
+        # A failed autosave must remain visible after the transient toast fades.
+        self._storage_save_warning_active = False
+        self.storage.save_failed.connect(self._on_storage_save_failed)
+        self.storage.save_completed.connect(self._on_storage_save_completed)
         self.desktop_notification = DesktopNotification()
         self.desktop_notification.action_clicked.connect(self._handle_notification_action)
 
@@ -616,6 +620,22 @@ class MainWindow(QMainWindow):
 
     show_toast = _show_toast
 
+    def _on_storage_save_failed(self, _reason: str):
+        self._storage_save_warning_active = True
+        message = t("storage_save_failed")
+        self.statusBar().showMessage(message)
+        self._show_toast(message, "error")
+
+    def _on_storage_save_completed(self):
+        if self._storage_save_warning_active:
+            self._storage_save_warning_active = False
+            self.statusBar().clearMessage()
+
+    def _save_now(self):
+        # Never show a success toast when the atomic write failed.
+        if self.storage.save_immediately():
+            self._show_toast(t("all_data_saved"), "success")
+
     def _on_pomodoro_completed(self, mode: str):
         if mode == "focus":
             self._show_toast(t("pomo_focus_finished_toast"), "success")
@@ -816,10 +836,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+6"), self, lambda: self._navigate_to("settings"))
         QShortcut(QKeySequence("Ctrl+,"), self, lambda: self._navigate_to("settings"))
         QShortcut(QKeySequence("Ctrl+N"), self, self._quick_add_note)
-        QShortcut(QKeySequence("Ctrl+S"), self, lambda: (
-            self.storage.save_immediately(),
-            self._show_toast(t("all_data_saved"), "success")
-        ))
+        QShortcut(QKeySequence("Ctrl+S"), self, self._save_now)
 
     def _focus_search(self):
         current = self.stack.currentWidget()
