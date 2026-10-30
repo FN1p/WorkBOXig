@@ -13,6 +13,7 @@ import urllib.error
 import urllib.parse
 import subprocess
 import tempfile
+import shutil
 from typing import Optional, Dict, Any, Tuple
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtWidgets import QApplication
@@ -204,7 +205,12 @@ class DownloadUpdateThread(QThread):
         self._is_cancelled = True
 
     def run(self):
-        temp_dir = tempfile.gettempdir()
+        # Release metadata supplies the filename; never let it escape our
+        # isolated download directory or reuse another update's partial file.
+        if not re.fullmatch(r"[\w .()-]+\.exe", self.filename, re.IGNORECASE):
+            self.error.emit("Invalid update filename")
+            return
+        temp_dir = tempfile.mkdtemp(prefix="workboxig_update_")
         dest_path = os.path.join(temp_dir, self.filename)
         partial_path = dest_path + ".download"
 
@@ -222,9 +228,7 @@ class DownloadUpdateThread(QThread):
                 with open(partial_path, "wb") as f:
                     while True:
                         if self._is_cancelled:
-                            f.close()
-                            if os.path.exists(partial_path):
-                                os.remove(partial_path)
+                            shutil.rmtree(temp_dir, ignore_errors=True)
                             return
 
                         chunk = resp.read(chunk_size)
@@ -236,21 +240,16 @@ class DownloadUpdateThread(QThread):
                         pct = (downloaded / total_size * 100.0) if total_size > 0 else 0.0
                         self.progress.emit(downloaded, total_size, pct)
 
-            # Atomic rename after full download
-            if os.path.exists(dest_path):
-                try:
-                    os.remove(dest_path)
-                except Exception:
-                    pass
-            os.rename(partial_path, dest_path)
+            if self._is_cancelled:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return
+            if downloaded == 0 or (total_size > 0 and downloaded != total_size):
+                raise IOError("Update download was empty or incomplete")
+            os.replace(partial_path, dest_path)
             self.completed.emit(dest_path)
 
         except Exception as e:
-            if os.path.exists(partial_path):
-                try:
-                    os.remove(partial_path)
-                except Exception:
-                    pass
+            shutil.rmtree(temp_dir, ignore_errors=True)
             self.error.emit(str(e))
 
 
