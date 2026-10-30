@@ -460,6 +460,51 @@ class TestUIWidgets(unittest.TestCase):
             tv._set_filter(fid)
             self.assertEqual(tv.active_filter, fid)
 
+    def test_task_filters_ignore_missing_and_invalid_deadlines(self):
+        """Undated legacy tasks must not appear overdue or crash sorting."""
+        tv = self.window.tasks_view
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        past = self.mock_storage.add_task("Past deadline", due_date=yesterday)
+        future = self.mock_storage.add_task("Future deadline", due_date=tomorrow)
+        invalid = self.mock_storage.add_task("Invalid deadline", due_date="2026-02-30")
+        empty = self.mock_storage.add_task("Empty deadline")
+        self.mock_storage.update_task(empty["id"], due_date="")
+        missing = self.mock_storage.add_task("Missing deadline")
+        self.mock_storage.update_task(missing["id"], due_date=None)
+
+        def visible_ids():
+            return {
+                item.widget().task_id
+                for index in range(tv.tasks_layout.count())
+                if (item := tv.tasks_layout.itemAt(index)).widget()
+                and hasattr(item.widget(), "task_id")
+            }
+
+        tv._set_filter("overdue")
+        self.assertEqual(visible_ids(), {past["id"]})
+        tv._set_filter("upcoming")
+        self.assertEqual(visible_ids(), {future["id"]})
+        tv._set_filter("all")
+        self.assertEqual(
+            visible_ids(),
+            {past["id"], future["id"], invalid["id"], empty["id"], missing["id"]},
+        )
+
+    def test_dashboard_updates_immediately_after_task_changes(self):
+        """The Today badge reacts to create, complete and reschedule events."""
+        dashboard = self.window.dashboard_view
+        task = self.mock_storage.add_task("Live deadline", due_date=date.today().isoformat())
+        self.assertEqual(dashboard.task_badge_lbl.text(), "1")
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(dashboard.task_badge_lbl.text(), "0")
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(dashboard.task_badge_lbl.text(), "1")
+        self.mock_storage.update_task(
+            task["id"], due_date=(date.today() + timedelta(days=1)).isoformat()
+        )
+        self.assertEqual(dashboard.task_badge_lbl.text(), "0")
+
     def test_notes_tag_filtering(self):
         nv = self.window.notes_view
         nv._select_tag("all")
