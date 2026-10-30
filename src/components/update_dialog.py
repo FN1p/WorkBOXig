@@ -203,7 +203,8 @@ class UpdateDialog(QDialog):
         QDesktopServices.openUrl(QUrl(url))
 
     def _start_update(self):
-        installer_url = self.release_info.get("installer_url") or self.release_info.get("portable_url")
+        # A portable EXE is not an installer. Do not launch it as an upgrade.
+        installer_url = self.release_info.get("installer_url")
         if not installer_url:
             # If no direct asset exists, open GitHub release page in browser
             self._open_github()
