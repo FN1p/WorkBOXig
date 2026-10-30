@@ -1,6 +1,7 @@
 """Stable/beta release selection and update channel UI regressions."""
 
 import json
+import hashlib
 import os
 import tempfile
 import unittest
@@ -107,6 +108,57 @@ class UpdateChannelsTest(unittest.TestCase):
             info = fetch_latest_release("FN1p/WorkBOXig", channel="stable")
         self.assertIsNone(info["installer_url"])
         self.assertIsNotNone(info["portable_url"])
+
+    def test_release_metadata_exposes_installer_sha256(self):
+        digest = hashlib.sha256(b"installer").hexdigest()
+        assets = [{
+            "name": "WorkBOXig_Setup.exe",
+            "browser_download_url": "https://github.com/FN1p/WorkBOXig/releases/download/v1.5.0/WorkBOXig_Setup.exe",
+            "digest": "sha256:" + digest,
+            "size": 9,
+        }]
+        with patch("src.utils.updater.urllib.request.urlopen",
+                   return_value=api_response(release("v1.5.0", assets=assets))):
+            info = fetch_latest_release("FN1p/WorkBOXig")
+        self.assertEqual(info["installer_sha256"], digest)
+
+    def test_download_rejects_invalid_checksum(self):
+        from src.utils.updater import DownloadUpdateThread
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {"content-length": "3"}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+            expected_size=3, expected_sha256="0" * 64,
+        )
+        errors, completed = [], []
+        worker.error.connect(errors.append)
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertIn("checksum mismatch", " ".join(errors))
+        self.assertFalse(completed)
+
+    def test_download_accepts_matching_checksum(self):
+        from src.utils.updater import DownloadUpdateThread
+        import shutil
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+            expected_size=3, expected_sha256=hashlib.sha256(b"abc").hexdigest(),
+        )
+        errors, completed = [], []
+        worker.error.connect(errors.append)
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertFalse(errors)
+        self.assertEqual(len(completed), 1)
+        shutil.rmtree(os.path.dirname(completed[0]), ignore_errors=True)
 
     def test_worker_passes_beta_channel(self):
         with patch("src.utils.updater.fetch_latest_release",
