@@ -65,3 +65,11 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Downloads now use unique temporary directories, validate filenames and reject empty or incomplete responses before exposing an EXE.
 - Added mocked-network regression tests for redirects, download validation, backup failures and dialog recovery.
 - **Pending:** Windows CI and artifact upload for latest updater changes; manually test updating from 1.4.2 with a copy of real user data.
+
+## Progress notes — 2026-10-30 download integrity
+- GitHub release asset downloads now verify the expected byte count supplied by the Releases API, even if the HTTP response omits Content-Length.
+- Reject mismatched Content-Length, truncated/oversized transfers, and assets above a 1 GiB safety cap before launching an installer; retain private temporary download cleanup on failure.
+- Update dialog forwards the release asset size to the downloader.
+- Added five regression tests covering size mismatch, missing headers, truncated downloads, oversized headers and size forwarding.
+- Prior updater-hardening commit `3ee0490e` passed Windows CI (run 40983422164, review artifact available). New download-integrity commits await CI.
+- Next: verify the latest Windows CI and review artifact, then smoke-test actual 1.4.2 → 1.5 update and rollback with a copied user profile.
