@@ -235,6 +235,7 @@ class UpdateDialog(QDialog):
         self.download_thread = DownloadUpdateThread(
             installer_url, filename, self,
             expected_size=asset_size if asset_size else None,
+            expected_sha256=self.release_info.get("installer_sha256"),
         )
         self.download_thread.progress.connect(self._on_progress)
         self.download_thread.completed.connect(self._on_download_completed)
