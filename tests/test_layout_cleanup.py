@@ -5,7 +5,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication, QGridLayout, QLabel, QWidget
+from PyQt6.QtWidgets import QApplication, QGridLayout, QHBoxLayout, QLabel, QPushButton, QWidget
 
 from src.utils.shortcuts import clear_layout
 
@@ -36,6 +36,32 @@ class LayoutCleanupTests(unittest.TestCase):
             self.assertNotIn(widget, [top for top in QApplication.topLevelWidgets()
                                        if top.isVisible()])
 
+        parent.close()
+        parent.deleteLater()
+
+    def test_nested_layout_controls_are_removed_on_refresh(self):
+        parent = QWidget()
+        layout = QGridLayout(parent)
+        row = QHBoxLayout()
+        label = QLabel("A subtask")
+        delete = QPushButton("Delete")
+        row.addWidget(label)
+        row.addWidget(delete)
+        layout.addLayout(row, 0, 0)
+
+        parent.show()
+        app.processEvents()
+        self.assertTrue(label.isVisible())
+        self.assertTrue(delete.isVisible())
+
+        clear_layout(layout)
+        self.assertEqual(layout.count(), 0)
+        for widget in (label, delete):
+            self.assertFalse(widget.isVisible())
+            self.assertIsNone(widget.parentWidget())
+            self.assertNotIn(widget, [top for top in QApplication.topLevelWidgets()
+                                       if top.isVisible()])
+        self.assertEqual(parent.findChildren(QPushButton), [])
         parent.close()
         parent.deleteLater()
 
