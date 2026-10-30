@@ -189,16 +189,24 @@ class CheckUpdateThread(QThread):
             self.error.emit(str(e))
 
 
+MAX_UPDATE_DOWNLOAD_BYTES = 1024 * 1024 * 1024  # Hard limit: 1 GiB
+
+
 class DownloadUpdateThread(QThread):
     """Background worker for downloading the update asset with real-time progress."""
     progress = pyqtSignal(int, int, float)  # downloaded, total, percentage
     completed = pyqtSignal(str)           # local file path
     error = pyqtSignal(str)
 
-    def __init__(self, download_url: str, filename: str, parent: Optional[QObject] = None):
+    def __init__(self, download_url: str, filename: str, parent: Optional[QObject] = None,
+                 expected_size: Optional[int] = None):
         super().__init__(parent)
         self.download_url = download_url
         self.filename = filename
+        # The GitHub Releases API supplies the asset size independently of
+        # Content-Length. Use it to catch truncated/incorrect downloads even
+        # when the server omits that header.
+        self.expected_size = expected_size
         self._is_cancelled = False
 
     def cancel(self):
@@ -209,6 +217,11 @@ class DownloadUpdateThread(QThread):
         # isolated download directory or reuse another update's partial file.
         if not re.fullmatch(r"[\w .()-]+\.exe", self.filename, re.IGNORECASE):
             self.error.emit("Invalid update filename")
+            return
+        if self.expected_size is not None and (
+                type(self.expected_size) is not int or
+                not 0 < self.expected_size <= MAX_UPDATE_DOWNLOAD_BYTES):
+            self.error.emit("Invalid update asset size")
             return
         temp_dir = tempfile.mkdtemp(prefix="workboxig_update_")
         dest_path = os.path.join(temp_dir, self.filename)
@@ -221,7 +234,12 @@ class DownloadUpdateThread(QThread):
             )
 
             with urllib.request.urlopen(req, timeout=30) as resp:
-                total_size = int(resp.headers.get("content-length", 0))
+                header_size = int(resp.headers.get("content-length") or 0)
+                if header_size < 0 or header_size > MAX_UPDATE_DOWNLOAD_BYTES:
+                    raise IOError("Update download exceeds allowed size")
+                if self.expected_size and header_size and header_size != self.expected_size:
+                    raise IOError("Update asset size differs from release metadata")
+                total_size = self.expected_size or header_size
                 downloaded = 0
                 chunk_size = 65536  # 64 KB
 
@@ -233,6 +251,10 @@ class DownloadUpdateThread(QThread):
                         chunk = resp.read(chunk_size)
                         if not chunk:
                             break
+                        if downloaded + len(chunk) > MAX_UPDATE_DOWNLOAD_BYTES:
+                            raise IOError("Update download exceeds allowed size")
+                        if total_size and downloaded + len(chunk) > total_size:
+                            raise IOError("Update download exceeds declared size")
                         f.write(chunk)
                         downloaded += len(chunk)
 
