@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 from unittest.mock import patch
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -741,6 +741,48 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("Быстрая задача", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
+
+
+    def test_reminders_repeat_on_new_day_but_not_on_same_day_poll(self):
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        event = self.mock_storage.add_event("Lecture", today.isoformat(), time_str="09:00")
+        task = self.mock_storage.add_task(
+            "Urgent deadline", due_date=today.isoformat(), priority="urgent"
+        )
+        with patch.object(self.window.desktop_notification, "notify") as notify:
+            with patch("src.main_window.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+
+                self.mock_storage.update_event(event["id"], date=tomorrow.isoformat())
+                self.mock_storage.update_task(task["id"], due_date=tomorrow.isoformat())
+                clock.now.return_value = datetime.combine(tomorrow, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 4)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 4)
+                self.assertEqual(self.window._reminder_day, tomorrow.isoformat())
+                self.assertEqual(len(self.window._notified_events), 1)
+                self.assertEqual(len(self.window._notified_tasks), 1)
+
+    def test_rescheduled_lesson_can_notify_again_at_new_time(self):
+        today = date.today()
+        event = self.mock_storage.add_event("Rescheduled", today.isoformat(), time_str="09:00")
+        with patch.object(self.window.desktop_notification, "notify") as notify:
+            with patch("src.main_window.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 1)
+                self.mock_storage.update_event(event["id"], time="10:00")
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=9, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
 
 class TestSidebarAccessibility(unittest.TestCase):
     def test_custom_nav_button_has_accessible_name_when_collapsed(self):
