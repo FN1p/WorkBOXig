@@ -130,6 +130,46 @@ class TestUpdater(unittest.TestCase):
         self.assertIn(t("update_install_failed"), dialog.notes_browser.toPlainText())
         dialog.close()
 
+    def test_download_rejects_unsafe_filename_without_network_access(self):
+        worker = DownloadUpdateThread("https://example.invalid/setup.exe", "../setup.exe")
+        errors = []
+        worker.error.connect(errors.append)
+        with patch("src.utils.updater.urllib.request.urlopen") as urlopen:
+            worker.run()
+            urlopen.assert_not_called()
+        self.assertEqual(errors, ["Invalid update filename"])
+
+    def test_download_rejects_truncated_executable(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {"content-length": "6"}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread("https://example.invalid/setup.exe", "WorkBOXig_Setup.exe")
+        errors, completed = [], []
+        worker.error.connect(errors.append)
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertTrue(errors)
+        self.assertEqual(completed, [])
+
+    def test_download_saves_complete_executable_to_private_temp_dir(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {"content-length": "3"}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread("https://example.invalid/setup.exe", "WorkBOXig_Setup.exe")
+        completed = []
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertEqual(len(completed), 1)
+        try:
+            with open(completed[0], "rb") as downloaded:
+                self.assertEqual(downloaded.read(), b"abc")
+        finally:
+            shutil.rmtree(os.path.dirname(completed[0]), ignore_errors=True)
+
     def test_update_dialog_instantiation(self):
         mock_info = {
             "tag_name": "v1.0.1",
