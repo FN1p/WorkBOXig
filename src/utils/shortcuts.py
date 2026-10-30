@@ -193,9 +193,10 @@ def clear_layout(layout):
         if item is not None:
             w = item.widget()
             if w is not None:
-                # Detaching a visible widget first turns it into a temporary
-                # top-level window on Windows. This produces blank flashing
-                # windows during calendar refreshes. Hide it before scheduling
-                # deletion and retain its QWidget parent until Qt disposes it.
+                # Hiding before detaching prevents a visible widget from
+                # flashing as a separate top-level Windows window. Detach it
+                # after hiding so stale children are not returned by Qt
+                # findChildren() during the same refresh.
                 w.hide()
+                w.setParent(None)
                 w.deleteLater()
