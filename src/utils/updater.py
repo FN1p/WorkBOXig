@@ -39,9 +39,9 @@ def parse_version_tuple(version_str: str) -> Tuple[int, ...]:
 
 
 _RELEASE_TAG_PATTERN = re.compile(
-    r"^[vV]?(\\d+)\\.(\\d+)\\.(\\d+)"
-    r"(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
-    r"(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    r"^[vV]?(\d+)\.(\d+)\.(\d+)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 
 
