@@ -220,7 +220,11 @@ class UpdateDialog(QDialog):
         self.later_btn.setEnabled(False)
         self.progress_container.setVisible(True)
 
-        self.download_thread = DownloadUpdateThread(installer_url, filename, self)
+        asset_size = self.release_info.get("installer_size")
+        self.download_thread = DownloadUpdateThread(
+            installer_url, filename, self,
+            expected_size=asset_size if asset_size else None,
+        )
         self.download_thread.progress.connect(self._on_progress)
         self.download_thread.completed.connect(self._on_download_completed)
         self.download_thread.error.connect(self._on_download_error)
