@@ -250,6 +250,7 @@ class MainWindow(QMainWindow):
 
         self._notified_events = set()
         self._notified_tasks = set()
+        self._reminder_day = None
 
         # Reminder polling timer (every 30 sec)
         self._reminder_timer = QTimer(self)
@@ -666,20 +667,27 @@ class MainWindow(QMainWindow):
         """Background checker for upcoming lessons and urgent tasks."""
         now = datetime.now()
         today_iso = now.date().isoformat()
+        if self._reminder_day != today_iso:
+            # An open app may run for days. Yesterday's notification IDs must
+            # not suppress a lesson or deadline moved to a new date.
+            self._notified_events.clear()
+            self._notified_tasks.clear()
+            self._reminder_day = today_iso
 
         # 1. Lesson Reminders (15 min before)
         if self.storage.get_setting("notif_lessons", True):
             for ev in self.storage.get_events():
                 ev_id = ev.get("id")
-                if ev.get("date") == today_iso and ev_id not in self._notified_events:
-                    time_str = ev.get("time", "")
+                time_str = ev.get("time", "")
+                reminder_key = (ev_id, today_iso, time_str)
+                if ev.get("date") == today_iso and reminder_key not in self._notified_events:
                     if time_str and ":" in time_str:
                         try:
                             h, m = map(int, time_str.split(":"))
                             ev_time = now.replace(hour=h, minute=m, second=0, microsecond=0)
                             diff_min = (ev_time - now).total_seconds() / 60.0
                             if 0 <= diff_min <= 15:
-                                self._notified_events.add(ev_id)
+                                self._notified_events.add(reminder_key)
                                 room_txt = f" • {ev.get('room')}" if ev.get('room') else ""
                                 self.desktop_notification.notify(
                                     title=t("notif_lesson_soon_title", title=ev.get('title')),
@@ -696,8 +704,9 @@ class MainWindow(QMainWindow):
         if self.storage.get_setting("notif_tasks", True):
             for task_item in self.storage.get_tasks():
                 t_id = task_item.get("id")
-                if not task_item.get("completed") and task_item.get("priority") == "urgent" and task_item.get("due_date") == today_iso and t_id not in self._notified_tasks:
-                    self._notified_tasks.add(t_id)
+                reminder_key = (t_id, today_iso)
+                if not task_item.get("completed") and task_item.get("priority") == "urgent" and task_item.get("due_date") == today_iso and reminder_key not in self._notified_tasks:
+                    self._notified_tasks.add(reminder_key)
                     due_txt = f" {task_item.get('due_time')}" if task_item.get('due_time') else ""
                     self.desktop_notification.notify(
                         title=t("notif_deadline_title"),
