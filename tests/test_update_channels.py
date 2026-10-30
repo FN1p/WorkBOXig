@@ -183,6 +183,22 @@ class UpdateChannelsTest(unittest.TestCase):
             self.assertEqual(reloaded.get_setting("update_channel"), "beta")
             reloaded._debounce_timer.stop()
 
+    def test_escape_cancels_download_before_closing_dialog(self):
+        dialog = UpdateDialog(release("v1.5.0-beta.2", prerelease=True))
+        worker = MagicMock()
+        worker.isRunning.return_value = True
+        dialog.download_thread = worker
+        dialog.install_btn.setEnabled(False)
+        dialog.later_btn.setEnabled(False)
+        dialog.reject()
+        worker.cancel.assert_called_once()
+        self.assertEqual(dialog.result(), 0)  # Still open while worker runs
+        dialog._on_download_finished()
+        self.assertIsNone(dialog.download_thread)
+        self.assertTrue(dialog.install_btn.isEnabled())
+        self.assertTrue(dialog.later_btn.isEnabled())
+        dialog.reject()
+
     def test_prerelease_shows_warning(self):
         dialog = UpdateDialog(release("v1.5.0-beta.2", prerelease=True))
         notice = dialog.findChild(QLabel, "update_beta_warning")
