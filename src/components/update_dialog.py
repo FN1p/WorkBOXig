@@ -240,6 +240,7 @@ class UpdateDialog(QDialog):
         self.download_thread.progress.connect(self._on_progress)
         self.download_thread.completed.connect(self._on_download_completed)
         self.download_thread.error.connect(self._on_download_error)
+        self.download_thread.finished.connect(self._on_download_finished)
         self.download_thread.start()
 
     def _on_progress(self, downloaded: int, total: int, pct: float):
@@ -261,7 +262,35 @@ class UpdateDialog(QDialog):
         self.later_btn.setEnabled(True)
         self.notes_browser.append(f"\n\n**{t('update_error_title')}:** {err_msg}")
 
-    def closeEvent(self, event):
+    def _on_download_finished(self):
+        worker = self.download_thread
+        if worker is None:
+            return
+        worker.deleteLater()
+        self.download_thread = None
+        # The cancelled download does not emit completed/error. Restore the
+        # dialog so it cannot be stranded with disabled buttons.
+        if not self.install_btn.isEnabled():
+            self.install_btn.setEnabled(True)
+            self.later_btn.setEnabled(True)
+            self.progress_container.setVisible(False)
+
+    def _cancel_active_download(self):
         if self.download_thread and self.download_thread.isRunning():
             self.download_thread.cancel()
+            self.progress_lbl.setText(t("update_canceling"))
+            return True
+        return False
+
+    def reject(self):
+        # Escape normally calls reject() without a closeEvent. Never destroy
+        # a dialog while its child QThread is still downloading.
+        if self._cancel_active_download():
+            return
+        super().reject()
+
+    def closeEvent(self, event):
+        if self._cancel_active_download():
+            event.ignore()
+            return
         super().closeEvent(event)
