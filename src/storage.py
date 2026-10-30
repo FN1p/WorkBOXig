@@ -127,7 +127,13 @@ class StorageManager(QObject):
 
         # Populate with fresh default data
         self._data = json.loads(json.dumps(DEFAULT_DATA))
-        self.save_immediately()
+        # Do not launch with a default dataset that cannot be persisted.
+        # Otherwise the UI accepts edits that will disappear on restart.
+        if not self.save_immediately():
+            raise RuntimeError(
+                f"Unable to initialize WorkBOXig storage at {self.file_path}; "
+                "startup aborted to avoid unsaved data. Check disk space and permissions."
+            )
 
     def schedule_save(self, entity_type: str = "all"):
         """Schedules debounced save and notifies listeners."""
