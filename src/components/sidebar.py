@@ -22,6 +22,9 @@ class NavItem(QPushButton):
         self.tab_id = tab_id
         self.icon_name = icon_name
         self.item_text = text
+        # The visible label is a child QLabel, not QPushButton.text().
+        # Supply a stable accessible name for keyboard/screen-reader users.
+        self.setAccessibleName(text)
         self.shortcut_str = shortcut_str
         self.is_collapsed = False
         self.is_active = False
@@ -95,6 +98,7 @@ class NavItem(QPushButton):
 
     def set_label_text(self, text: str):
         self.item_text = text
+        self.setAccessibleName(text)
         self.text_lbl.setText(text)
         if self.is_collapsed:
             self.setToolTip(f"{self.item_text} ({self.shortcut_str})")
@@ -268,6 +272,7 @@ class Sidebar(QWidget):
         self.toggle_btn.setIconSize(QSize(18, 18))
         self.toggle_btn.setFixedSize(32, 32)
         self.toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.toggle_btn.setAccessibleName(t("collapse_sidebar"))
         self.toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.toggle_btn.setStyleSheet(f"""
             QPushButton {{
@@ -485,6 +490,7 @@ class Sidebar(QWidget):
         self.name_lbl.setText(t("workspace_personal"))
         self.status_text.setText(f"● {t('workspace_local')}")
         self.toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.toggle_btn.setAccessibleName(t("collapse_sidebar"))
         titles = {
             "dashboard": t("nav_dashboard"),
             "calendar": t("nav_calendar"),

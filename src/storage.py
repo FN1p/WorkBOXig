@@ -33,6 +33,7 @@ DEFAULT_DATA = {
         "font_size": 14,
         "auto_save_interval": 1000,
         "check_updates_on_startup": True,
+        "update_channel": "stable",
         "google_calendar_url": "",
         "google_calendar_auto_sync": True
     },
@@ -63,6 +64,9 @@ def _validated_data(value: Any, require_complete: bool = False) -> Dict[str, Any
             raise ValueError(f"Invalid storage field: {key}")
         elif isinstance(default, list) and not all(isinstance(item, dict) for item in result[key]):
             raise ValueError(f"Invalid storage entries: {key}")
+    # Older backups may lack settings introduced in newer releases.
+    # Preserve all existing and custom settings while filling missing defaults.
+    result["settings"] = {**DEFAULT_DATA["settings"], **result["settings"]}
     return result
 
 
@@ -73,6 +77,7 @@ class StorageManager(QObject):
     """
     data_changed = pyqtSignal(str) # entity_type: 'tasks', 'notebooks', 'notes', 'events', 'all'
     save_completed = pyqtSignal()
+    save_failed = pyqtSignal(str)  # Persist failures must be visible to the UI.
 
     def __init__(self, storage_dir: Optional[str] = None):
         super().__init__()
@@ -111,16 +116,26 @@ class StorageManager(QObject):
                     return
             except Exception as e:
                 print(f"[StorageManager] Error reading {self.file_path}: {e}. Initializing backup...")
-                # Backup corrupted file
+                # Preserve the original before creating defaults. Never overwrite it
+                # if the filesystem prevents us from making a recovery copy.
+                backup_path = self.file_path + f".bak-{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}-{uuid.uuid4().hex}"
                 try:
-                    backup_path = self.file_path + f".bak-{int(datetime.now().timestamp())}"
                     os.rename(self.file_path, backup_path)
-                except Exception:
-                    pass
+                except OSError as backup_error:
+                    raise RuntimeError(
+                        f"Unable to preserve unreadable WorkBOXig data at {self.file_path}; "
+                        "startup aborted to avoid data loss"
+                    ) from backup_error
 
         # Populate with fresh default data
         self._data = json.loads(json.dumps(DEFAULT_DATA))
-        self.save_immediately()
+        # Do not launch with a default dataset that cannot be persisted.
+        # Otherwise the UI accepts edits that will disappear on restart.
+        if not self.save_immediately():
+            raise RuntimeError(
+                f"Unable to initialize WorkBOXig storage at {self.file_path}; "
+                "startup aborted to avoid unsaved data. Check disk space and permissions."
+            )
 
     def schedule_save(self, entity_type: str = "all"):
         """Schedules debounced save and notifies listeners."""
@@ -146,6 +161,7 @@ class StorageManager(QObject):
             return True
         except Exception as e:
             print(f"[StorageManager] Failed to save data: {e}")
+            self.save_failed.emit(str(e))
             return False
         finally:
             if tmp_path and os.path.exists(tmp_path):
@@ -219,8 +235,10 @@ class StorageManager(QObject):
             replacements = {}
             for name, content in attachments.items():
                 new_path = os.path.join(self.attachments_dir, new_attachment_name(name))
-                restored_paths.append(new_path)
                 with open(new_path, "xb") as handle:
+                    # Only track files we actually created: a name collision
+                    # must never cause deletion of an existing attachment.
+                    restored_paths.append(new_path)
                     handle.write(content)
                 replacements[name] = new_path
             rewrite_attachment_urls(new_data, replacements)
@@ -275,7 +293,12 @@ class StorageManager(QObject):
                     task["status"] = "done" if kwargs["completed"] else "todo"
                 elif "status" in kwargs and "completed" not in kwargs:
                     task["completed"] = (kwargs["status"] == "done")
-                    task["completed_at"] = datetime.now().isoformat() if task["completed"] else None
+                if ("completed" in kwargs or "status" in kwargs) and "completed_at" not in kwargs:
+                    # Keep the completion timestamp in sync even when a caller
+                    # updates the boolean directly instead of the Kanban status.
+                    task["completed_at"] = (
+                        task.get("completed_at") or datetime.now().isoformat()
+                    ) if task["completed"] else None
                 self.schedule_save("tasks")
                 return task
         return None

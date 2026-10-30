@@ -580,6 +580,21 @@ class SettingsView(QWidget):
         up_row2.addStretch()
         updates_layout.addLayout(up_row2)
 
+        # Explicit opt-in: regular users never receive beta builds by default.
+        self.beta_updates_cb = QCheckBox(t("receive_beta_updates_cb"))
+        self.beta_updates_cb.setFont(QFont("Segoe UI", 10))
+        self.beta_updates_cb.setChecked(
+            self.storage.get_setting("update_channel", "stable") == "beta"
+        )
+        self.beta_updates_cb.toggled.connect(self._on_beta_updates_toggled)
+        updates_layout.addWidget(self.beta_updates_cb)
+
+        self.beta_updates_hint = QLabel(t("receive_beta_updates_hint"))
+        self.beta_updates_hint.setWordWrap(True)
+        self.beta_updates_hint.setFont(QFont("Segoe UI", 9))
+        self.beta_updates_hint.setStyleSheet(f"color: {COLORS['text_muted']};")
+        updates_layout.addWidget(self.beta_updates_hint)
+
         up_safety = QLabel(t("data_safe_guarantee"))
         up_safety.setWordWrap(True)
         up_safety.setFont(QFont("Segoe UI", 9))
@@ -814,6 +829,9 @@ class SettingsView(QWidget):
                     break
             self.break_combo.blockSignals(False)
 
+        if hasattr(self, "beta_updates_cb"):
+            self.beta_updates_cb.setText(t("receive_beta_updates_cb"))
+            self.beta_updates_hint.setText(t("receive_beta_updates_hint"))
         self.toast_requested.emit(t("language_changed_toast"), "check")
 
     def _update_lang_buttons(self, active_lang: str):
@@ -837,16 +855,31 @@ class SettingsView(QWidget):
                 }}
             """)
 
+    def _on_beta_updates_toggled(self, enabled: bool):
+        self.storage.set_setting("update_channel", "beta" if enabled else "stable")
+        # A previous channel's status is no longer applicable.
+        self.update_status_pill.setText(t("check_updates_btn"))
+
     def _check_updates(self):
+        if self._check_update_thread is not None and self._check_update_thread.isRunning():
+            return
         self.check_updates_btn.setEnabled(False)
         self.update_status_pill.setText(t("checking_updates"))
         self.update_status_pill.setStyleSheet(f"color: {COLORS['amber']}; background-color: rgba(245, 158, 11, 0.12); padding: 4px 10px; border-radius: 6px;")
 
-        self._check_update_thread = CheckUpdateThread(parent=self)
+        channel = self.storage.get_setting("update_channel", "stable")
+        self._check_update_thread = CheckUpdateThread(parent=self, channel=channel)
         self._check_update_thread.update_available.connect(self._on_update_available)
         self._check_update_thread.up_to_date.connect(self._on_up_to_date)
         self._check_update_thread.error.connect(self._on_update_check_error)
+        self._check_update_thread.finished.connect(self._on_update_thread_finished)
         self._check_update_thread.start()
+
+    def _on_update_thread_finished(self):
+        worker = self.sender()
+        if worker is self._check_update_thread:
+            self._check_update_thread = None
+        worker.deleteLater()
 
     def _on_update_available(self, info: dict):
         self.check_updates_btn.setEnabled(True)

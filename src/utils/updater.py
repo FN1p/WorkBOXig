@@ -8,10 +8,13 @@ import os
 import sys
 import re
 import json
+import hashlib
 import urllib.request
 import urllib.error
+import urllib.parse
 import subprocess
 import tempfile
+import shutil
 from typing import Optional, Dict, Any, Tuple
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtWidgets import QApplication
@@ -36,22 +39,72 @@ def parse_version_tuple(version_str: str) -> Tuple[int, ...]:
     return tuple(parts[:3])
 
 
+_RELEASE_TAG_PATTERN = re.compile(
+    r"^[vV]?(\d+)\.(\d+)\.(\d+)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+
+
+def parse_release_version(tag: str):
+    """Parse a GitHub release version including SemVer pre-release identifiers."""
+    if not isinstance(tag, str):
+        return None
+    match = _RELEASE_TAG_PATTERN.fullmatch(tag.strip())
+    if not match:
+        return None
+    base = tuple(int(match.group(i)) for i in (1, 2, 3))
+    raw = match.group(4)
+    identifiers = tuple(
+        int(part) if part.isdigit() and (part == "0" or not part.startswith("0"))
+        else part for part in raw.split(".")
+    ) if raw else ()
+    return base, identifiers
+
+
+def compare_release_versions(left: str, right: str) -> int:
+    """SemVer precedence: stable > prerelease at the same major.minor.patch."""
+    a, b = parse_release_version(left), parse_release_version(right)
+    if a is None or b is None:
+        raise ValueError("Invalid GitHub release version")
+    if a[0] != b[0]:
+        return (a[0] > b[0]) - (a[0] < b[0])
+    a_pre, b_pre = a[1], b[1]
+    if not a_pre or not b_pre:
+        return (not a_pre) - (not b_pre)
+    for x, y in zip(a_pre, b_pre):
+        if x == y:
+            continue
+        if isinstance(x, int) and isinstance(y, int):
+            return (x > y) - (x < y)
+        if isinstance(x, int):
+            return -1
+        if isinstance(y, int):
+            return 1
+        return (x > y) - (x < y)
+    return (len(a_pre) > len(b_pre)) - (len(a_pre) < len(b_pre))
+
+
 def is_newer_version(latest_tag: str, current_version: str = __version__) -> bool:
-    """Check if latest_tag from GitHub is strictly newer than current_version."""
+    """Compare stable and prerelease tags without treating beta as stable."""
     try:
-        remote_tuple = parse_version_tuple(latest_tag)
-        local_tuple = parse_version_tuple(current_version)
-        return remote_tuple > local_tuple
-    except Exception:
+        return compare_release_versions(latest_tag, current_version) > 0
+    except (TypeError, ValueError):
         return False
 
 
-def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str, Any]:
+def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: str = "stable") -> Dict[str, Any]:
     """
     Fetch latest release metadata from GitHub Releases API.
     Raises urllib.error.URLError or ValueError on failure.
     """
-    api_url = f"https://api.github.com/repos/{repo}/releases/latest"
+    if channel not in ("stable", "beta"):
+        raise ValueError("Invalid update channel")
+    # GitHub /releases/latest deliberately excludes prereleases. For the beta
+    # channel, inspect published releases and select the highest SemVer tag,
+    # not the most recently edited release.
+    api_url = (f"https://api.github.com/repos/{repo}/releases/latest" if channel == "stable"
+               else f"https://api.github.com/repos/{repo}/releases?per_page=100")
     headers = {
         "User-Agent": f"{APP_NAME}-Updater/{__version__}",
         "Accept": "application/vnd.github.v3+json"
@@ -71,6 +124,10 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
             raw_data = response.read().decode("utf-8")
             data = json.loads(raw_data)
     except urllib.error.HTTPError as he:
+        if he.code in (403, 429) and channel == "beta":
+            # The /latest redirect cannot discover prereleases. Do not silently
+            # switch the user's beta channel to the stable channel.
+            raise RuntimeError(t("update_rate_limit_error")) from he
         if he.code in (403, 429):
             # Seamless fallback to web redirect when unauthenticated API rate limit is reached
             try:
@@ -79,21 +136,33 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
                     headers={"User-Agent": f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) {APP_NAME}"}
                 )
                 with urllib.request.urlopen(web_req, timeout=timeout) as web_resp:
-                    latest_tag = web_resp.geturl().split("/")[-1]
-                    if latest_tag:
-                        return {
-                            "tag_name": latest_tag,
-                            "title": f"WorkBOXig {latest_tag}",
-                            "body": t("update_available_generic"),
-                            "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
-                            "published_at": "",
-                            "installer_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig_Setup.exe",
-                            "installer_name": "WorkBOXig_Setup.exe",
-                            "installer_size": 79409368,
-                            "portable_url": f"https://github.com/{repo}/releases/download/{latest_tag}/WorkBOXig.exe",
-                            "portable_name": "WorkBOXig.exe",
-                            "portable_size": 39875746,
-                        }
+                    redirected = urllib.parse.urlparse(web_resp.geturl())
+                    expected_prefix = f"/{repo}/releases/tag/"
+                    # The /latest URL may redirect to the releases index when
+                    # no published release exists. Never treat 'latest' as a tag.
+                    if (redirected.scheme == "https"
+                            and redirected.netloc == "github.com"
+                            and redirected.path.startswith(expected_prefix)):
+                        latest_tag = urllib.parse.unquote(
+                            redirected.path[len(expected_prefix):]
+                        )
+                        if re.fullmatch(r"v?\d+\.\d+(?:\.\d+)?", latest_tag, re.IGNORECASE):
+                            return {
+                                "tag_name": latest_tag,
+                                "title": f"WorkBOXig {latest_tag}",
+                                "body": t("update_available_generic"),
+                                "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
+                                "published_at": "",
+                                # A redirect does not tell us which assets exist.
+                                # Offer the release page instead of inventing EXE links.
+                                "installer_url": None,
+                                "installer_name": None,
+                                "installer_size": 0,
+                                "portable_url": None,
+                                "portable_name": None,
+                                "portable_size": 0,
+                                "is_newer": is_newer_version(latest_tag, __version__),
+                            }
             except Exception:
                 pass
             raise RuntimeError(t("update_rate_limit_error")) from he
@@ -103,13 +172,33 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
     except urllib.error.URLError as ue:
         raise RuntimeError(t("update_network_error", reason=ue.reason)) from ue
 
-    tag_name = data.get("tag_name", "")
+    if channel == "beta":
+        if not isinstance(data, list):
+            raise ValueError("Invalid GitHub releases response")
+        candidates = [
+            release for release in data
+            if isinstance(release, dict) and not release.get("draft")
+            and parse_release_version(release.get("tag_name", "")) is not None
+        ]
+        if not candidates:
+            raise RuntimeError(t("update_no_releases"))
+        from functools import cmp_to_key
+        data = max(
+            candidates,
+            key=cmp_to_key(lambda a, b: compare_release_versions(
+                a["tag_name"], b["tag_name"]
+            )),
+        )
+    if not isinstance(data, dict) or not parse_release_version(data.get("tag_name", "")):
+        raise ValueError("Invalid GitHub release metadata")
+    tag_name = data["tag_name"]
     assets = data.get("assets", [])
 
     # Identify primary installer and portable assets
     installer_url = None
     installer_name = None
     installer_size = 0
+    installer_sha256 = None
 
     portable_url = None
     portable_name = None
@@ -119,27 +208,26 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
         name = asset.get("name", "")
         url = asset.get("browser_download_url", "")
         size = asset.get("size", 0)
-        
-        if "setup" in name.lower() and name.endswith(".exe"):
+        digest = asset.get("digest") or ""
+        sha256 = digest[7:].lower() if re.fullmatch(r"sha256:[a-fA-F0-9]{64}", digest) else None
+
+        if "setup" in name.lower() and name.lower().endswith(".exe"):
             installer_url = url
             installer_name = name
             installer_size = size
-        elif name.endswith(".exe") and "setup" not in name.lower():
+            installer_sha256 = sha256
+        elif name.lower().endswith(".exe") and "setup" not in name.lower():
             portable_url = url
             portable_name = name
             portable_size = size
 
-    # Fallback to any .exe asset if specific names aren't matched
-    if not installer_url and not portable_url:
-        for asset in assets:
-            if asset.get("name", "").endswith(".exe"):
-                installer_url = asset.get("browser_download_url")
-                installer_name = asset.get("name")
-                installer_size = asset.get("size", 0)
-                break
+    # Never execute a random executable from a release as an installer.
+    # Portable-only releases are opened in the browser by UpdateDialog.
 
     return {
         "tag_name": tag_name,
+        "prerelease": bool(data.get("prerelease")),
+        "channel": channel,
         "title": data.get("name", tag_name),
         "body": data.get("body", ""),
         "html_url": data.get("html_url", f"https://github.com/{repo}/releases"),
@@ -147,6 +235,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
         "installer_url": installer_url,
         "installer_name": installer_name,
         "installer_size": installer_size,
+        "installer_sha256": installer_sha256,
         "portable_url": portable_url,
         "portable_name": portable_name,
         "portable_size": portable_size,
@@ -160,13 +249,15 @@ class CheckUpdateThread(QThread):
     up_to_date = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, repo: str = GITHUB_REPO, parent: Optional[QObject] = None):
+    def __init__(self, repo: str = GITHUB_REPO, parent: Optional[QObject] = None,
+                 channel: str = "stable"):
         super().__init__(parent)
         self.repo = repo
+        self.channel = channel if channel in ("stable", "beta") else "stable"
 
     def run(self):
         try:
-            info = fetch_latest_release(self.repo)
+            info = fetch_latest_release(self.repo, channel=self.channel)
             if info["is_newer"]:
                 self.update_available.emit(info)
             else:
@@ -175,23 +266,45 @@ class CheckUpdateThread(QThread):
             self.error.emit(str(e))
 
 
+MAX_UPDATE_DOWNLOAD_BYTES = 1024 * 1024 * 1024  # Hard limit: 1 GiB
+
+
 class DownloadUpdateThread(QThread):
     """Background worker for downloading the update asset with real-time progress."""
     progress = pyqtSignal(int, int, float)  # downloaded, total, percentage
     completed = pyqtSignal(str)           # local file path
     error = pyqtSignal(str)
 
-    def __init__(self, download_url: str, filename: str, parent: Optional[QObject] = None):
+    def __init__(self, download_url: str, filename: str, parent: Optional[QObject] = None,
+                 expected_size: Optional[int] = None, expected_sha256: Optional[str] = None):
         super().__init__(parent)
         self.download_url = download_url
         self.filename = filename
+        # The GitHub Releases API supplies the asset size independently of
+        # Content-Length. Use it to catch truncated/incorrect downloads even
+        # when the server omits that header.
+        self.expected_size = expected_size
+        self.expected_sha256 = expected_sha256
         self._is_cancelled = False
 
     def cancel(self):
         self._is_cancelled = True
 
     def run(self):
-        temp_dir = tempfile.gettempdir()
+        # Release metadata supplies the filename; never let it escape our
+        # isolated download directory or reuse another update's partial file.
+        if not re.fullmatch(r"[\w .()-]+\.exe", self.filename, re.IGNORECASE):
+            self.error.emit("Invalid update filename")
+            return
+        if self.expected_size is not None and (
+                type(self.expected_size) is not int or
+                not 0 < self.expected_size <= MAX_UPDATE_DOWNLOAD_BYTES):
+            self.error.emit("Invalid update asset size")
+            return
+        if self.expected_sha256 is not None and not re.fullmatch(r"[a-fA-F0-9]{64}", self.expected_sha256):
+            self.error.emit("Invalid update asset digest")
+            return
+        temp_dir = tempfile.mkdtemp(prefix="workboxig_update_")
         dest_path = os.path.join(temp_dir, self.filename)
         partial_path = dest_path + ".download"
 
@@ -202,42 +315,47 @@ class DownloadUpdateThread(QThread):
             )
 
             with urllib.request.urlopen(req, timeout=30) as resp:
-                total_size = int(resp.headers.get("content-length", 0))
+                header_size = int(resp.headers.get("content-length") or 0)
+                if header_size < 0 or header_size > MAX_UPDATE_DOWNLOAD_BYTES:
+                    raise IOError("Update download exceeds allowed size")
+                if self.expected_size and header_size and header_size != self.expected_size:
+                    raise IOError("Update asset size differs from release metadata")
+                total_size = self.expected_size or header_size
                 downloaded = 0
+                sha256_hash = hashlib.sha256()
                 chunk_size = 65536  # 64 KB
 
                 with open(partial_path, "wb") as f:
                     while True:
                         if self._is_cancelled:
-                            f.close()
-                            if os.path.exists(partial_path):
-                                os.remove(partial_path)
-                            return
+                            break
 
                         chunk = resp.read(chunk_size)
                         if not chunk:
                             break
+                        if downloaded + len(chunk) > MAX_UPDATE_DOWNLOAD_BYTES:
+                            raise IOError("Update download exceeds allowed size")
+                        if total_size and downloaded + len(chunk) > total_size:
+                            raise IOError("Update download exceeds declared size")
                         f.write(chunk)
+                        sha256_hash.update(chunk)
                         downloaded += len(chunk)
 
                         pct = (downloaded / total_size * 100.0) if total_size > 0 else 0.0
                         self.progress.emit(downloaded, total_size, pct)
 
-            # Atomic rename after full download
-            if os.path.exists(dest_path):
-                try:
-                    os.remove(dest_path)
-                except Exception:
-                    pass
-            os.rename(partial_path, dest_path)
+            if self._is_cancelled:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                return
+            if downloaded == 0 or (total_size > 0 and downloaded != total_size):
+                raise IOError("Update download was empty or incomplete")
+            if self.expected_sha256 and sha256_hash.hexdigest() != self.expected_sha256.lower():
+                raise IOError("Update checksum mismatch; download rejected")
+            os.replace(partial_path, dest_path)
             self.completed.emit(dest_path)
 
         except Exception as e:
-            if os.path.exists(partial_path):
-                try:
-                    os.remove(partial_path)
-                except Exception:
-                    pass
+            shutil.rmtree(temp_dir, ignore_errors=True)
             self.error.emit(str(e))
 
 
@@ -251,7 +369,10 @@ def launch_installer_and_quit(installer_path: str, storage=None) -> bool:
             try:
                 storage.create_pre_update_backup()
             except Exception as be:
-                print(f"[Updater] Pre-update backup warning: {be}")
+                # Do not close the app or start an installer without a
+                # recoverable copy of the user's current data.
+                print(f"[Updater] Pre-update backup failed; update cancelled: {be}")
+                return False
 
         # Launch the installer in detached mode
         if sys.platform == "win32":

@@ -101,6 +101,17 @@ class UpdateDialog(QDialog):
         h_layout.addWidget(ver_sub)
         layout.addWidget(header_card)
 
+        if self.release_info.get("prerelease"):
+            beta_notice = QLabel(t("update_beta_warning"))
+            beta_notice.setObjectName("update_beta_warning")
+            beta_notice.setWordWrap(True)
+            beta_notice.setStyleSheet(
+                f"color: {COLORS['amber']}; background-color: rgba(245, 158, 11, 0.1); "
+                f"border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; "
+                f"padding: 8px;"
+            )
+            layout.addWidget(beta_notice)
+
         # 2. Release Notes / Changelog
         notes_lbl = QLabel(t("update_notes_title"))
         notes_lbl.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -171,7 +182,10 @@ class UpdateDialog(QDialog):
         self.later_btn.clicked.connect(self.reject)
         btn_row.addWidget(self.later_btn)
 
-        self.install_btn = QPushButton(t("btn_download_update"))
+        self.install_btn = QPushButton(
+            t("btn_download_update") if self.release_info.get("installer_url")
+            else t("btn_open_github")
+        )
         self.install_btn.setObjectName("primary-btn")
         self.install_btn.setFixedHeight(40)
         self.install_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -203,7 +217,8 @@ class UpdateDialog(QDialog):
         QDesktopServices.openUrl(QUrl(url))
 
     def _start_update(self):
-        installer_url = self.release_info.get("installer_url") or self.release_info.get("portable_url")
+        # A portable EXE is not an installer. Do not launch it as an upgrade.
+        installer_url = self.release_info.get("installer_url")
         if not installer_url:
             # If no direct asset exists, open GitHub release page in browser
             self._open_github()
@@ -216,10 +231,16 @@ class UpdateDialog(QDialog):
         self.later_btn.setEnabled(False)
         self.progress_container.setVisible(True)
 
-        self.download_thread = DownloadUpdateThread(installer_url, filename, self)
+        asset_size = self.release_info.get("installer_size")
+        self.download_thread = DownloadUpdateThread(
+            installer_url, filename, self,
+            expected_size=asset_size if asset_size else None,
+            expected_sha256=self.release_info.get("installer_sha256"),
+        )
         self.download_thread.progress.connect(self._on_progress)
         self.download_thread.completed.connect(self._on_download_completed)
         self.download_thread.error.connect(self._on_download_error)
+        self.download_thread.finished.connect(self._on_download_finished)
         self.download_thread.start()
 
     def _on_progress(self, downloaded: int, total: int, pct: float):
@@ -232,7 +253,8 @@ class UpdateDialog(QDialog):
         self.progress_lbl.setText(t("download_complete_msg"))
         self.progress_bar.setValue(100)
         # Execute installer and quit safely
-        launch_installer_and_quit(local_path, self.storage)
+        if not launch_installer_and_quit(local_path, self.storage):
+            self._on_download_error(t("update_install_failed"))
 
     def _on_download_error(self, err_msg: str):
         self.progress_container.setVisible(False)
@@ -240,7 +262,35 @@ class UpdateDialog(QDialog):
         self.later_btn.setEnabled(True)
         self.notes_browser.append(f"\n\n**{t('update_error_title')}:** {err_msg}")
 
-    def closeEvent(self, event):
+    def _on_download_finished(self):
+        worker = self.download_thread
+        if worker is None:
+            return
+        worker.deleteLater()
+        self.download_thread = None
+        # The cancelled download does not emit completed/error. Restore the
+        # dialog so it cannot be stranded with disabled buttons.
+        if not self.install_btn.isEnabled():
+            self.install_btn.setEnabled(True)
+            self.later_btn.setEnabled(True)
+            self.progress_container.setVisible(False)
+
+    def _cancel_active_download(self):
         if self.download_thread and self.download_thread.isRunning():
             self.download_thread.cancel()
+            self.progress_lbl.setText(t("update_canceling"))
+            return True
+        return False
+
+    def reject(self):
+        # Escape normally calls reject() without a closeEvent. Never destroy
+        # a dialog while its child QThread is still downloading.
+        if self._cancel_active_download():
+            return
+        super().reject()
+
+    def closeEvent(self, event):
+        if self._cancel_active_download():
+            event.ignore()
+            return
         super().closeEvent(event)

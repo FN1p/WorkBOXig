@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QProgressBar, QFrame,
     QDialog, QTextEdit, QDateEdit, QTimeEdit, QMessageBox, QScrollArea,
-    QGridLayout, QButtonGroup, QStackedWidget
+    QGridLayout, QButtonGroup, QStackedWidget, QApplication
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QSize
 from PyQt6.QtGui import QFont, QCursor, QIcon
@@ -18,6 +18,17 @@ from src.icons import get_pixmap, get_icon
 from src.i18n import t
 from src.utils.shortcuts import clear_layout
 from src.utils.quick_task import parse_quick_task
+
+
+def _task_due_date(task: dict):
+    """Parse a task deadline; legacy imports may contain empty or invalid dates."""
+    raw = task.get("due_date")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
 
 
 def get_priority_config(priority: str) -> dict:
@@ -40,8 +51,13 @@ class TaskDialog(QDialog):
     def __init__(self, existing_task=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t("task_edit_title") if existing_task else t("task_new_title"))
-        self.resize(520, 580)
-        self.setMinimumSize(480, 520)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumSize(450, 420)
+        screen = (parent.window().screen() if parent is not None else None) or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        width = min(560, max(450, available.width() - 48)) if available else 560
+        height = min(650, max(420, available.height() - 80)) if available else 650
+        self.resize(width, height)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['bg_card']};
@@ -50,8 +66,23 @@ class TaskDialog(QDialog):
             }}
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(26, 24, 26, 24)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+        self.form_scroll = QScrollArea(self)
+        self.form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.form_scroll.setStyleSheet(
+            f"QScrollArea {{ background-color: {COLORS['bg_card']}; border: 0; }}"
+        )
+        self.form_scroll.setWidgetResizable(True)
+        self.form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.form_container = QWidget(self.form_scroll)
+        self.form_container.setObjectName("task_form_container")
+        self.form_container.setStyleSheet(
+            f"QWidget#task_form_container {{ background-color: {COLORS['bg_card']}; }}"
+        )
+        layout = QVBoxLayout(self.form_container)
+        layout.setContentsMargins(26, 24, 26, 16)
         layout.setSpacing(14)
 
         dlg_title = QLabel(t("task_new_title") if not existing_task else t("task_edit_title"))
@@ -165,8 +196,18 @@ class TaskDialog(QDialog):
         add_sub_btn.clicked.connect(self._add_subtask_item)
         add_sub_row.addWidget(add_sub_btn)
         layout.addLayout(add_sub_row)
+        self.form_scroll.setWidget(self.form_container)
+        outer_layout.addWidget(self.form_scroll, stretch=1)
 
-        # Buttons
+        # Buttons remain visible even when many subtasks overflow the form.
+        footer = QWidget(self)
+        footer.setObjectName("task_dialog_footer")
+        footer.setStyleSheet(
+            f"QWidget#task_dialog_footer {{ background-color: {COLORS['bg_card']}; "
+            f"border-top: 1px solid {COLORS['border_subtle']}; }}"
+        )
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 10, 24, 16)
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         cancel_btn = QPushButton(t("cancel"))
@@ -183,7 +224,8 @@ class TaskDialog(QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
+        footer_layout.addLayout(btn_layout)
+        outer_layout.addWidget(footer)
 
         if existing_task:
             self.title_input.setText(existing_task.get("title", ""))
@@ -205,6 +247,8 @@ class TaskDialog(QDialog):
             idx = self.p_combo.findData(p_val)
             if idx >= 0:
                 self.p_combo.setCurrentIndex(idx)
+
+        self.title_input.setFocus()
 
     def _add_subtask_item(self):
         text = self.new_sub_input.text().strip()
@@ -1114,7 +1158,7 @@ class TasksView(QWidget):
         clear_layout(self.tasks_layout)
 
         tasks = self.storage.get_tasks()
-        today_iso = date.today().isoformat()
+        today = date.today()
         query = self.search_input.text().lower().strip()
 
         # Compute metrics
@@ -1122,7 +1166,7 @@ class TasksView(QWidget):
         done = sum(1 for task_item in tasks if task_item.get("completed"))
         self.clear_done_btn.setVisible(self.active_filter == "done" and done > 0)
         pending = total - done
-        today_due = sum(1 for task_item in tasks if not task_item.get("completed") and task_item.get("due_date") == today_iso)
+        today_due = sum(1 for task_item in tasks if not task_item.get("completed") and _task_due_date(task_item) == today)
 
         self.card_total.findChild(QLabel, "stat_value").setText(str(total))
         self.card_pending.findChild(QLabel, "stat_value").setText(str(pending))
@@ -1133,7 +1177,7 @@ class TasksView(QWidget):
         filtered = []
         for single_task in tasks:
             is_done = single_task.get("completed", False)
-            d_date = single_task.get("due_date", "")
+            due_date = _task_due_date(single_task)
             priority = single_task.get("priority", "medium")
             subj = single_task.get("subject", "")
 
@@ -1147,13 +1191,13 @@ class TasksView(QWidget):
 
             # Status filter
             if self.active_filter == "today":
-                if not (not is_done and d_date == today_iso):
+                if not (not is_done and due_date == today):
                     continue
             elif self.active_filter == "upcoming":
-                if not (not is_done and d_date >= today_iso):
+                if not (not is_done and due_date is not None and due_date >= today):
                     continue
             elif self.active_filter == "overdue":
-                if not (not is_done and d_date < today_iso):
+                if not (not is_done and due_date is not None and due_date < today):
                     continue
             elif self.active_filter == "urgent":
                 if not (not is_done and priority in ("urgent", "high")):
@@ -1164,7 +1208,7 @@ class TasksView(QWidget):
 
             filtered.append(single_task)
 
-        sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), x.get("due_date", "9999-99-99")))
+        sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), _task_due_date(x) or date.max))
 
         if not sorted_tasks:
             empty_lbl = QLabel(t("no_tasks") if not tasks else t("no_tasks_filtered"))

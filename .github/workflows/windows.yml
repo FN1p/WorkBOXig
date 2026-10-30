@@ -3,6 +3,16 @@ name: Windows checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 2 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-checks-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -23,3 +33,13 @@ jobs:
         run: pyinstaller WorkBOXig.spec --noconfirm
       - name: Check installer build
         run: pyinstaller installer.spec --noconfirm
+      - name: Upload Windows build for review
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.head_ref == 'workboxig-1-5-backup-hardening')
+        uses: actions/upload-artifact@v4
+        with:
+          name: WorkBOXig-Windows-review
+          path: |
+            dist/WorkBOXig.exe
+            dist/WorkBOXig_Setup.exe
+          if-no-files-found: error
+          retention-days: 1

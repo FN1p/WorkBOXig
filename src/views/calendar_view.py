@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCalendarWidget, QFrame, QScrollArea, QDialog, QLineEdit,
     QComboBox, QTextEdit, QTimeEdit, QDateEdit, QMessageBox, QCheckBox,
-    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog, QMenu
+    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog, QMenu, QApplication
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QTimer, QSize, QRectF
 from PyQt6.QtGui import QFont, QTextCharFormat, QColor, QCursor, QPainter, QPen, QBrush, QFontMetrics
@@ -93,9 +93,15 @@ class AddLessonDialog(QDialog):
             dialog_title = t("cal_new_title")
 
         self.setWindowTitle(dialog_title)
-        # Remove system title bar
-        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
-        self.setFixedSize(540, 680)
+        # Use a native, parent-owned modal window: unlike a frameless fixed
+        # popup it can be moved/closed and remains usable at high DPI.
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumSize(450, 450)
+        screen = (parent.window().screen() if parent is not None else None) or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        width = min(560, max(450, available.width() - 48)) if available else 560
+        height = min(700, max(450, available.height() - 80)) if available else 700
+        self.resize(width, height)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['bg_card']};
@@ -104,8 +110,27 @@ class AddLessonDialog(QDialog):
             }}
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(26, 22, 26, 22)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        # Keep the form scrollable while keeping Save/Cancel visible at the
+        # bottom. Large font sizes and Windows display scaling must not clip
+        # lesson fields or prevent submitting the form.
+        self.form_scroll = QScrollArea(self)
+        self.form_scroll.setWidgetResizable(True)
+        self.form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.form_scroll.setStyleSheet(
+            f"QScrollArea {{ background-color: {COLORS['bg_card']}; border: 0; }}"
+        )
+        self.form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.form_container = QWidget(self.form_scroll)
+        self.form_container.setObjectName("lesson_form_container")
+        self.form_container.setStyleSheet(
+            f"QWidget#lesson_form_container {{ background-color: {COLORS['bg_card']}; }}"
+        )
+        layout = QVBoxLayout(self.form_container)
+        layout.setContentsMargins(26, 22, 26, 16)
         layout.setSpacing(10)
 
         # Header
@@ -372,6 +397,7 @@ class AddLessonDialog(QDialog):
             c_btn.setCheckable(True)
             c_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             c_btn.setToolTip(t(color_name))
+            c_btn.setProperty("lesson_hex_color", hex_code)
             c_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {hex_code};
@@ -415,9 +441,6 @@ class AddLessonDialog(QDialog):
                 pass
             c_val = existing_event.get("color", COLOR_PALETTE[0][0])
             self._set_color(c_val)
-            for btn in self.color_group.buttons():
-                if btn.toolTip() == c_val:
-                    btn.setChecked(True)
             b_val = existing_event.get("badge", "cal_badge_lesson")
             idx = next((i for i, key in enumerate(BADGE_KEYS) if localized_badge(b_val) == t(key)), -1)
             if idx >= 0:
@@ -428,8 +451,18 @@ class AddLessonDialog(QDialog):
                 self.parity_combo.setCurrentIndex(idx_p)
 
         layout.addStretch()
+        self.form_scroll.setWidget(self.form_container)
+        outer_layout.addWidget(self.form_scroll, stretch=1)
 
-        # Action Buttons
+        # Keep actions outside the scrolling form.
+        footer = QWidget(self)
+        footer.setObjectName("lesson_dialog_footer")
+        footer.setStyleSheet(
+            f"QWidget#lesson_dialog_footer {{ background-color: {COLORS['bg_card']}; "
+            f"border-top: 1px solid {COLORS['border_subtle']}; }}"
+        )
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 10, 24, 16)
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         cancel_btn = QPushButton(t("cancel"))
@@ -445,10 +478,14 @@ class AddLessonDialog(QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
+        footer_layout.addLayout(btn_layout)
+        outer_layout.addWidget(footer)
+        self.title_input.setFocus()
 
     def _set_color(self, hex_color: str):
         self.selected_color = hex_color
+        for button in self.color_group.buttons():
+            button.setChecked(button.property("lesson_hex_color") == hex_color)
 
     def _apply_pair_times(self, start_str: str, end_str: str):
         try:
@@ -459,10 +496,7 @@ class AddLessonDialog(QDialog):
 
     def _apply_preset(self, subject_name: str, color: str):
         self.title_input.setText(subject_name)
-        self.selected_color = color
-        for btn in self.color_group.buttons():
-            # Check button by color
-            btn.setChecked(btn.styleSheet().find(color) != -1)
+        self._set_color(color)
 
     def _on_save(self):
         if not self.title_input.text().strip():
@@ -831,6 +865,14 @@ class WeeklyTimetableWidget(QWidget):
 
     def render_schedule(self, events: List[Dict[str, Any]], tasks: List[Dict[str, Any]], recurring_lessons: Optional[List[Dict[str, Any]]] = None, parity_filter: str = "all"):
         recurring_lessons = recurring_lessons or []
+        # "All" means all lessons actually taking place this ISO week.
+        # Odd/even buttons explicitly preview that timetable instead.
+        actual_parity = "even" if self.monday_date.weekNumber()[0] % 2 == 0 else "odd"
+        selected_parity = actual_parity if parity_filter == "all" else parity_filter
+
+        def matches_parity(item):
+            return item.get("week_parity", "all") in ("all", "", None, selected_parity)
+
         # 1. Update Header
         clear_layout(self.header_layout)
 
@@ -887,7 +929,7 @@ class WeeklyTimetableWidget(QWidget):
                 ch_layout.addWidget(sub_t)
 
             # Show recurring indicator if there are recurring lessons for this weekday
-            if any(r.get("weekday") == i for r in recurring_lessons):
+            if any(r.get("weekday") == i and matches_parity(r) for r in recurring_lessons):
                 rec_sub = QLabel()
                 rec_sub.setPixmap(get_pixmap("repeat", COLORS['sky'], 10))
                 rec_sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -933,12 +975,6 @@ class WeeklyTimetableWidget(QWidget):
                 cell.clicked.connect(self.slot_clicked.emit)
 
                 # Filter events for this date & hour matching parity
-                def matches_parity(item):
-                    if parity_filter == "all":
-                        return True
-                    p = item.get("week_parity", "all")
-                    return p in ("all", parity_filter)
-
                 matching_events = [
                     e for e in events
                     if e.get("date") == date_str and self._get_event_hour(e) == h and matches_parity(e)
@@ -1014,16 +1050,20 @@ class WeeklyTimetableWidget(QWidget):
             return 12
 
     def _check_time_update(self):
+        # The app may remain open overnight or resume after sleep at the same
+        # clock hour. Check the date as well as the hour to avoid stale weeks.
+        parent = self.parent()
+        while parent and not hasattr(parent, "_check_day_rollover"):
+            parent = parent.parent()
+        if parent and parent._check_day_rollover():
+            return
+
         now = datetime.now()
         cur_hour = now.hour
         cur_min = now.minute
 
-        # If hour changed, we need to refresh the timetable so indicator moves to the next hour slot
         if self.last_indicator_hour is not None and cur_hour != self.last_indicator_hour:
             self.last_indicator_hour = cur_hour
-            parent = self.parent()
-            while parent and not hasattr(parent, "_refresh_timetable"):
-                parent = parent.parent()
             if parent:
                 parent._refresh_timetable()
         elif self.current_time_cell:
@@ -1046,6 +1086,7 @@ class CalendarView(QWidget):
         super().__init__(parent)
         self.storage = get_storage()
         self.selected_qdate = QDate.currentDate()
+        self._last_seen_today = self.selected_qdate
         self.current_monday = self._get_monday_for_date(self.selected_qdate)
 
         layout = QVBoxLayout(self)
@@ -1248,6 +1289,9 @@ class CalendarView(QWidget):
         self.calendar.setGridVisible(True)
         self.calendar.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
         self.calendar.selectionChanged.connect(self._on_date_selected)
+        self.calendar.currentPageChanged.connect(
+            lambda _year, _month: self._highlight_calendar_days()
+        )
         month_layout.addWidget(self.calendar, stretch=6)
 
         # Right Month Inspector
@@ -1311,6 +1355,7 @@ class CalendarView(QWidget):
 
     def _jump_to_today(self):
         today = QDate.currentDate()
+        self._last_seen_today = today
         self.selected_qdate = today
         self.current_monday = self._get_monday_for_date(today)
         self.timetable.set_monday(self.current_monday)
@@ -1319,6 +1364,29 @@ class CalendarView(QWidget):
         self._refresh_timetable()
         self._on_date_selected()
         self.timetable.scroll_to_current_time()
+
+    def _check_day_rollover(self) -> bool:
+        today = QDate.currentDate()
+        if today == self._last_seen_today:
+            return False
+        self._apply_day_rollover(self._last_seen_today, today)
+        return True
+
+    def _apply_day_rollover(self, previous_today: QDate, today: QDate):
+        """Follow the new week only when the user was viewing the old current week."""
+        follow_week = self.current_monday == self._get_monday_for_date(previous_today)
+        follow_day = self.selected_qdate == previous_today
+        self._last_seen_today = today
+
+        if follow_week:
+            self.current_monday = self._get_monday_for_date(today)
+            self.timetable.set_monday(self.current_monday)
+            self._update_range_title()
+        if follow_day:
+            self.calendar.setSelectedDate(today)
+        self._refresh_timetable()
+        self._highlight_calendar_days()
+        self._on_date_selected()
 
     def _update_range_title(self):
         sun_date = self.current_monday.addDays(6)
@@ -1490,10 +1558,21 @@ class CalendarView(QWidget):
 
         clear_layout(self.agenda_layout)
 
-        events = [e for e in self.storage.get_events() if e.get("date") == iso_str]
-        tasks = [t for t in self.storage.get_tasks() if t.get("due_date") == iso_str]
+        # The monthly inspector must use the selected day's real ISO week parity.
+        # Otherwise odd/even recurring lessons appear on dates when they do not occur.
+        week_parity = "even" if self.selected_qdate.weekNumber()[0] % 2 == 0 else "odd"
+        def occurs_this_week(item):
+            return item.get("week_parity", "all") in ("all", "", None, week_parity)
 
-        if not events and not tasks:
+        events = [e for e in self.storage.get_events()
+                  if e.get("date") == iso_str and occurs_this_week(e)]
+        recurring = [r for r in self.storage.get_recurring_lessons()
+                     if r.get("weekday") == self.selected_qdate.dayOfWeek() - 1
+                     and occurs_this_week(r)]
+        tasks = [task for task in self.storage.get_tasks()
+                 if task.get("due_date") == iso_str and not task.get("completed")]
+
+        if not events and not recurring and not tasks:
             empty_lbl = QLabel(t("no_classes_today"))
             empty_lbl.setFont(QFont("Segoe UI", 9))
             empty_lbl.setStyleSheet(f"color: {COLORS['text_muted']}; padding: 20px 0;")
@@ -1501,13 +1580,37 @@ class CalendarView(QWidget):
             self.agenda_layout.addWidget(empty_lbl)
             return
 
-        for evt in events:
+        for evt in sorted(events + recurring, key=lambda item: item.get("time") or ""):
             card = LessonCard(evt, self.agenda_container)
             card.clicked.connect(self._edit_event)
             card.delete_requested.connect(self._delete_event)
             self.agenda_layout.addWidget(card)
 
+        # Previously tasks were queried but never added to the inspector, leaving
+        # a blank panel on days with only deadlines.
+        for task in sorted(tasks, key=lambda item: item.get("due_time") or ""):
+            label = f"{task.get('due_time') or ''}  {task.get('title') or ''}".strip()
+            button = QPushButton(label, self.agenda_container)
+            button.setObjectName("agenda_task_card")
+            button.setAccessibleName(task.get("title") or "")
+            button.setToolTip(t("nav_tasks"))
+            button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            button.setStyleSheet(
+                f"text-align: left; color: {COLORS['text_primary']}; "
+                f"background: {COLORS['amber_subtle']}; "
+                f"border: 1px solid {COLORS['amber']}; border-radius: 8px; padding: 9px;"
+            )
+            button.clicked.connect(lambda _checked=False, tid=task["id"]: self.open_task_requested.emit(tid))
+            self.agenda_layout.addWidget(button)
+
     def _highlight_calendar_days(self):
+        # Clear only formats previously set by WorkBOXig, so deleted/completed
+        # events do not leave permanent highlights on the month calendar.
+        for previous_date in getattr(self, "_highlighted_dates", set()):
+            qdate = QDate.fromString(previous_date, Qt.DateFormat.ISODate)
+            if qdate.isValid():
+                self.calendar.setDateTextFormat(qdate, QTextCharFormat())
+        self._highlighted_dates = set()
         date_indicators = {}
         for evt in self.storage.get_events():
             d = evt.get("date")
@@ -1520,6 +1623,23 @@ class CalendarView(QWidget):
                 if d not in date_indicators:
                     date_indicators[d] = COLORS['amber']
 
+        # Recurring lessons have no stored date. Highlight only the visible
+        # month's actual occurrences, respecting odd/even ISO week parity.
+        recurring = self.storage.get_recurring_lessons()
+        if recurring:
+            year, month = self.calendar.yearShown(), self.calendar.monthShown()
+            for day_number in range(1, QDate(year, month, 1).daysInMonth() + 1):
+                day = QDate(year, month, day_number)
+                week_parity = "even" if day.weekNumber()[0] % 2 == 0 else "odd"
+                for lesson in recurring:
+                    if (lesson.get("weekday") == day.dayOfWeek() - 1
+                            and lesson.get("week_parity", "all") in ("all", "", None, week_parity)):
+                        date_indicators.setdefault(
+                            day.toString(Qt.DateFormat.ISODate),
+                            lesson.get("color") or COLORS['primary']
+                        )
+                        break
+
         for date_str, col_hex in date_indicators.items():
             try:
                 qd = QDate.fromString(date_str, Qt.DateFormat.ISODate)
@@ -1527,7 +1647,9 @@ class CalendarView(QWidget):
                 fmt.setFontWeight(QFont.Weight.Bold)
                 fmt.setForeground(QColor(col_hex))
                 fmt.setBackground(QColor(COLORS['primary_subtle']))
-                self.calendar.setDateTextFormat(qd, fmt)
+                if qd.isValid():
+                    self.calendar.setDateTextFormat(qd, fmt)
+                    self._highlighted_dates.add(date_str)
             except Exception:
                 pass
 
@@ -1535,6 +1657,7 @@ class CalendarView(QWidget):
         if entity_type in ("events", "tasks", "recurring", "all"):
             self._refresh_timetable()
             self._highlight_calendar_days()
+            self._on_date_selected()
 
     def export_to_ics(self):
         """Export all calendar lessons and events to an RFC 5545 iCalendar (.ics) file."""

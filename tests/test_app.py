@@ -14,13 +14,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 from unittest.mock import patch
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QCheckBox
+from PyQt6.QtWidgets import QApplication, QFrame, QLabel, QCheckBox, QPushButton
 from PyQt6.QtCore import QDate
+from PyQt6.QtGui import QFont
 from src.storage import StorageManager, set_storage_instance
 from src.main_window import MainWindow
 from src.components.command_palette import CommandPalette
@@ -65,6 +66,28 @@ class TestStorage(unittest.TestCase):
             json.dump({}, handle)
         self.assertFalse(self.storage.import_full_backup(backup))
         self.assertEqual(self.storage.get_notes()[0]["title"], "Keep me")
+
+    def test_legacy_json_backup_fills_missing_settings_without_losing_notes(self):
+        # Synthetic older-format fixture: required collections exist, newer
+        # optional collections/settings are absent.
+        legacy = {
+            "version": "1.4.0",
+            "settings": {"theme": "light", "custom_legacy_setting": "kept"},
+            "notebooks": [],
+            "notes": [{"id": "legacy-note", "title": "Legacy note", "content": "Retained"}],
+            "tasks": [],
+            "calendar_events": []
+        }
+        backup = os.path.join(self.test_dir, "legacy.json")
+        with open(backup, "w", encoding="utf-8") as handle:
+            json.dump(legacy, handle)
+
+        self.assertTrue(self.storage.import_full_backup(backup))
+        self.assertEqual(self.storage.get_notes()[0]["title"], "Legacy note")
+        self.assertEqual(self.storage.get_setting("theme"), "light")
+        self.assertEqual(self.storage.get_setting("custom_legacy_setting"), "kept")
+        self.assertTrue(self.storage.get_setting("check_updates_on_startup"))
+        self.assertEqual(self.storage.get_recurring_lessons(), [])
 
     def test_import_saves_previous_data_before_replacing_it(self):
         self.storage.add_note(title="Previous note")
@@ -115,6 +138,87 @@ class TestStorage(unittest.TestCase):
         self.assertEqual(self.storage.get_notes()[0]["title"], "Previous note")
         self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(self.test_dir)))
 
+    def test_failed_autosave_emits_warning_and_successful_retry_recovers(self):
+        failed, completed = [], []
+        self.storage.save_failed.connect(failed.append)
+        self.storage.save_completed.connect(lambda: completed.append(True))
+        self.storage.add_task("Not yet saved")
+        with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+            self.assertFalse(self.storage.save_immediately())
+        self.assertEqual(len(failed), 1)
+        self.assertIn("disk full", failed[0])
+        self.assertEqual(completed, [])
+        with open(self.storage.file_path, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["tasks"], [])
+        self.assertTrue(self.storage.save_immediately())
+        self.assertEqual(completed, [True])
+        with open(self.storage.file_path, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["tasks"][0]["title"], "Not yet saved")
+
+    def test_fresh_storage_aborts_if_initial_save_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid unsaved data"):
+                    StorageManager(storage_dir=directory)
+            self.assertFalse(storage_path.exists())
+            self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(directory)))
+
+    def test_corrupt_storage_recovery_aborts_if_new_save_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid unsaved data"):
+                    StorageManager(storage_dir=directory)
+            copies = list(Path(directory).glob("storage.json.bak-*"))
+            self.assertEqual(len(copies), 1)
+            self.assertEqual(copies[0].read_text(encoding="utf-8"), "{corrupt")
+            self.assertFalse(storage_path.exists())
+            self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(directory)))
+
+    def test_unreadable_storage_is_never_overwritten_when_recovery_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            with patch("src.storage.os.rename", side_effect=PermissionError("access denied")):
+                with self.assertRaisesRegex(RuntimeError, "startup aborted to avoid data loss"):
+                    StorageManager(storage_dir=directory)
+            self.assertEqual(storage_path.read_text(encoding="utf-8"), "{corrupt")
+
+    def test_unreadable_storage_is_preserved_as_recovery_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory, "storage.json")
+            storage_path.write_text("{corrupt", encoding="utf-8")
+            recovered = StorageManager(storage_dir=directory)
+            try:
+                backups = list(Path(directory).glob("storage.json.bak-*"))
+                self.assertEqual(len(backups), 1)
+                self.assertEqual(backups[0].read_text(encoding="utf-8"), "{corrupt")
+                self.assertEqual(recovered.get_tasks(), [])
+            finally:
+                recovered._debounce_timer.stop()
+
+    def test_restore_name_collision_keeps_existing_attachment(self):
+        from src.utils.backup import write_archive
+
+        existing = Path(self.storage.get_attachments_dir(), "collision.png")
+        existing.write_bytes(b"existing attachment")
+        source_attachments = Path(self.test_dir, "incoming_attachments")
+        source_attachments.mkdir()
+        (source_attachments / "image.png").write_bytes(b"incoming image")
+        incoming = json.loads(json.dumps(self.storage._data))
+        incoming["notes"] = [{"id": "imported", "title": "Imported"}]
+        backup = os.path.join(self.test_dir, "incoming.workboxig")
+        write_archive(backup, incoming, str(source_attachments))
+
+        with patch("src.storage.new_attachment_name", return_value="collision.png"):
+            with self.assertRaises(FileExistsError):
+                self.storage.import_full_backup(backup)
+
+        self.assertEqual(existing.read_bytes(), b"existing attachment")
+        self.assertEqual(self.storage.get_notes(), [])
+
     def test_task_crud(self):
         t = self.storage.add_task(title="Тестовая задача", subject="Тест", priority="urgent")
         self.assertEqual(t["title"], "Тестовая задача")
@@ -131,6 +235,24 @@ class TestStorage(unittest.TestCase):
         # Delete
         del_res = self.storage.delete_task(t["id"])
         self.assertTrue(del_res)
+
+    def test_direct_task_completion_updates_timestamp(self):
+        task = self.storage.add_task("Timestamp check")
+        self.assertIsNone(task["completed_at"])
+
+        updated = self.storage.update_task(task["id"], completed=True)
+        self.assertEqual(updated["status"], "done")
+        self.assertTrue(updated["completed"])
+        self.assertIsNotNone(updated["completed_at"])
+        finished_at = updated["completed_at"]
+
+        self.storage.update_task(task["id"], title="Renamed")
+        self.assertEqual(task["completed_at"], finished_at)
+
+        reopened = self.storage.update_task(task["id"], completed=False)
+        self.assertEqual(reopened["status"], "todo")
+        self.assertFalse(reopened["completed"])
+        self.assertIsNone(reopened["completed_at"])
 
     def test_notebooks_and_pages(self):
         nb = self.storage.add_notebook(title="Химия")
@@ -198,6 +320,22 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("notebooks", self.window.views)
         self.assertIn("notes", self.window.views)
         self.assertIn("tasks", self.window.views)
+
+    def test_ctrl_s_does_not_claim_success_on_failed_write(self):
+        from src.i18n import t
+
+        self.mock_storage.add_task("Unsaved task")
+        with patch.object(self.window, "_show_toast") as show_toast:
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                self.window._save_now()
+            self.assertTrue(self.window._storage_save_warning_active)
+            self.assertEqual(self.window.statusBar().currentMessage(), t("storage_save_failed"))
+            self.assertEqual(show_toast.call_count, 1)
+            self.assertEqual(show_toast.call_args.args, (t("storage_save_failed"), "error"))
+            self.window._save_now()
+            self.assertFalse(self.window._storage_save_warning_active)
+            self.assertEqual(self.window.statusBar().currentMessage(), "")
+            self.assertEqual(show_toast.call_args.args, (t("all_data_saved"), "success"))
 
     def test_dashboard_renders_existing_task(self):
         self.mock_storage.add_task("Finish report", due_date=date.today().isoformat())
@@ -322,6 +460,51 @@ class TestUIWidgets(unittest.TestCase):
             tv._set_filter(fid)
             self.assertEqual(tv.active_filter, fid)
 
+    def test_task_filters_ignore_missing_and_invalid_deadlines(self):
+        """Undated legacy tasks must not appear overdue or crash sorting."""
+        tv = self.window.tasks_view
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        past = self.mock_storage.add_task("Past deadline", due_date=yesterday)
+        future = self.mock_storage.add_task("Future deadline", due_date=tomorrow)
+        invalid = self.mock_storage.add_task("Invalid deadline", due_date="2026-02-30")
+        empty = self.mock_storage.add_task("Empty deadline")
+        self.mock_storage.update_task(empty["id"], due_date="")
+        missing = self.mock_storage.add_task("Missing deadline")
+        self.mock_storage.update_task(missing["id"], due_date=None)
+
+        def visible_ids():
+            return {
+                item.widget().task_id
+                for index in range(tv.tasks_layout.count())
+                if (item := tv.tasks_layout.itemAt(index)).widget()
+                and hasattr(item.widget(), "task_id")
+            }
+
+        tv._set_filter("overdue")
+        self.assertEqual(visible_ids(), {past["id"]})
+        tv._set_filter("upcoming")
+        self.assertEqual(visible_ids(), {future["id"]})
+        tv._set_filter("all")
+        self.assertEqual(
+            visible_ids(),
+            {past["id"], future["id"], invalid["id"], empty["id"], missing["id"]},
+        )
+
+    def test_dashboard_updates_immediately_after_task_changes(self):
+        """The Today badge reacts to create, complete and reschedule events."""
+        dashboard = self.window.dashboard_view
+        task = self.mock_storage.add_task("Live deadline", due_date=date.today().isoformat())
+        self.assertEqual(dashboard.task_badge_lbl.text(), "1")
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(dashboard.task_badge_lbl.text(), "0")
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(dashboard.task_badge_lbl.text(), "1")
+        self.mock_storage.update_task(
+            task["id"], due_date=(date.today() + timedelta(days=1)).isoformat()
+        )
+        self.assertEqual(dashboard.task_badge_lbl.text(), "0")
+
     def test_notes_tag_filtering(self):
         nv = self.window.notes_view
         nv._select_tag("all")
@@ -332,6 +515,142 @@ class TestUIWidgets(unittest.TestCase):
         cv.calendar.setSelectedDate(QDate(2026, 12, 31))
         cv._on_date_selected()
         self.assertEqual(cv.selected_qdate, QDate(2026, 12, 31))
+
+    def test_month_inspector_shows_recurring_lesson_for_actual_week(self):
+        cv = self.window.calendar_view
+        selected = QDate(2026, 11, 2)  # Monday, ISO week 45 (odd)
+        self.assertEqual(selected.weekNumber()[0] % 2, 1)
+        cv.calendar.setSelectedDate(selected)
+        self.mock_storage.add_recurring_lesson("Odd-week class", 0, week_parity="odd")
+        self.mock_storage.add_recurring_lesson("Even-week class", 0, week_parity="even")
+        labels = [label.text() for label in cv.agenda_container.findChildren(QLabel)]
+        self.assertIn("Odd-week class", labels)
+        self.assertNotIn("Even-week class", labels)
+
+    def test_month_inspector_shows_tasks_and_updates_when_completed(self):
+        cv = self.window.calendar_view
+        cv.calendar.setSelectedDate(QDate(2026, 11, 4))
+        task = self.mock_storage.add_task("Monthly deadline", due_date="2026-11-04")
+        buttons = cv.agenda_container.findChildren(QPushButton, "agenda_task_card")
+        self.assertEqual(len(buttons), 1)
+        self.assertIn("Monthly deadline", buttons[0].text())
+        self.window._navigate_to("calendar")
+        buttons[0].click()
+        self.assertIs(self.window.stack.currentWidget(), self.window.tasks_view)
+        self.mock_storage.toggle_task(task["id"])
+        self.assertEqual(cv.agenda_container.findChildren(QPushButton, "agenda_task_card"), [])
+
+    def test_month_highlight_clears_when_deadline_is_completed(self):
+        cv = self.window.calendar_view
+        selected = QDate(2026, 11, 5)
+        task = self.mock_storage.add_task("Highlight deadline", due_date="2026-11-05")
+        self.assertEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold.value)
+        self.mock_storage.toggle_task(task["id"])
+        self.assertNotEqual(cv.calendar.dateTextFormat(selected).fontWeight(), QFont.Weight.Bold.value)
+
+    def test_month_highlights_recurring_lessons_on_matching_iso_weeks(self):
+        cv = self.window.calendar_view
+        odd_monday = QDate(2026, 11, 2)  # ISO week 45
+        even_monday = QDate(2026, 11, 9)  # ISO week 46
+        cv.calendar.setCurrentPage(2026, 11)
+        odd = self.mock_storage.add_recurring_lesson(
+            "Odd recurring", 0, week_parity="odd"
+        )
+        self.assertEqual(
+            cv.calendar.dateTextFormat(odd_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Even recurring", 0, week_parity="even"
+        )
+        self.assertEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        self.mock_storage.delete_recurring_lesson(odd["id"])
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(odd_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+        cv.calendar.setCurrentPage(2026, 12)
+        self.assertNotEqual(
+            cv.calendar.dateTextFormat(even_monday).fontWeight(),
+            QFont.Weight.Bold.value
+        )
+
+    def test_weekly_timetable_uses_actual_parity_by_default(self):
+        cv = self.window.calendar_view
+        self.mock_storage.add_recurring_lesson(
+            "Odd-only class", 0, time_str="09:00", week_parity="odd"
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Even-only class", 0, time_str="09:00", week_parity="even"
+        )
+        self.mock_storage.add_recurring_lesson(
+            "Every-week class", 0, time_str="09:00", week_parity="all"
+        )
+
+        def visible_titles():
+            return [
+                card.event_data["title"]
+                for card in cv.timetable.grid_container.findChildren(QFrame, "lesson_card")
+            ]
+
+        cv.current_monday = QDate(2026, 11, 2)  # ISO week 45
+        cv.timetable.set_monday(cv.current_monday)
+        cv.current_parity = "all"
+        cv._refresh_timetable()
+        self.assertIn("Odd-only class", visible_titles())
+        self.assertIn("Every-week class", visible_titles())
+        self.assertNotIn("Even-only class", visible_titles())
+
+        cv.current_monday = QDate(2026, 11, 9)  # ISO week 46
+        cv.timetable.set_monday(cv.current_monday)
+        cv._refresh_timetable()
+        self.assertIn("Even-only class", visible_titles())
+        self.assertNotIn("Odd-only class", visible_titles())
+
+        cv.current_parity = "odd"  # Explicit preview of odd-week lessons
+        cv._refresh_timetable()
+        self.assertIn("Odd-only class", visible_titles())
+        self.assertNotIn("Even-only class", visible_titles())
+
+    def test_calendar_rollover_advances_followed_week_and_selected_today(self):
+        cv = self.window.calendar_view
+        old_today = QDate(2026, 11, 1)  # Sunday
+        new_today = QDate(2026, 11, 2)  # Monday
+        cv._last_seen_today = old_today
+        cv.current_monday = QDate(2026, 10, 26)
+        cv.timetable.set_monday(cv.current_monday)
+        cv.calendar.setSelectedDate(old_today)
+
+        cv._apply_day_rollover(old_today, new_today)
+
+        self.assertEqual(cv.current_monday, new_today)
+        self.assertEqual(cv.timetable.monday_date, new_today)
+        self.assertEqual(cv.selected_qdate, new_today)
+        self.assertEqual(cv._last_seen_today, new_today)
+
+    def test_calendar_rollover_preserves_user_browsed_week(self):
+        cv = self.window.calendar_view
+        old_today = QDate(2026, 11, 1)
+        new_today = QDate(2026, 11, 2)
+        browsed_monday = QDate(2026, 10, 19)
+        browsed_day = QDate(2026, 10, 20)
+        cv._last_seen_today = old_today
+        cv.current_monday = browsed_monday
+        cv.timetable.set_monday(browsed_monday)
+        cv.calendar.setSelectedDate(browsed_day)
+
+        cv._apply_day_rollover(old_today, new_today)
+
+        self.assertEqual(cv.current_monday, browsed_monday)
+        self.assertEqual(cv.timetable.monday_date, browsed_monday)
+        self.assertEqual(cv.selected_qdate, browsed_day)
 
     def test_topbar_search_and_create(self):
         self.assertIsNotNone(self.window.search_btn)
@@ -522,6 +841,61 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("Быстрая задача", self.window.tasks_view.quick_task_input.placeholderText())
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
+
+
+    def test_reminders_repeat_on_new_day_but_not_on_same_day_poll(self):
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+        event = self.mock_storage.add_event("Lecture", today.isoformat(), time_str="09:00")
+        task = self.mock_storage.add_task(
+            "Urgent deadline", due_date=today.isoformat(), priority="urgent"
+        )
+        with patch.object(self.window.desktop_notification, "notify") as notify:
+            with patch("src.main_window.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+
+                self.mock_storage.update_event(event["id"], date=tomorrow.isoformat())
+                self.mock_storage.update_task(task["id"], due_date=tomorrow.isoformat())
+                clock.now.return_value = datetime.combine(tomorrow, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 4)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 4)
+                self.assertEqual(self.window._reminder_day, tomorrow.isoformat())
+                self.assertEqual(len(self.window._notified_events), 1)
+                self.assertEqual(len(self.window._notified_tasks), 1)
+
+    def test_rescheduled_lesson_can_notify_again_at_new_time(self):
+        today = date.today()
+        event = self.mock_storage.add_event("Rescheduled", today.isoformat(), time_str="09:00")
+        with patch.object(self.window.desktop_notification, "notify") as notify:
+            with patch("src.main_window.datetime", wraps=datetime) as clock:
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=8, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 1)
+                self.mock_storage.update_event(event["id"], time="10:00")
+                clock.now.return_value = datetime.combine(today, datetime.min.time()).replace(hour=9, minute=50)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+                self.window._check_reminders()
+                self.assertEqual(notify.call_count, 2)
+
+class TestSidebarAccessibility(unittest.TestCase):
+    def test_custom_nav_button_has_accessible_name_when_collapsed(self):
+        from src.components.sidebar import NavItem
+
+        button = NavItem("calendar", "Calendar", "Ctrl+2", "calendar")
+        self.assertEqual(button.accessibleName(), "Calendar")
+        button.set_collapsed(True)
+        self.assertEqual(button.accessibleName(), "Calendar")
+        button.set_label_text("Календарь")
+        self.assertEqual(button.accessibleName(), "Календарь")
+        button.close()
+
 
 class TestI18n(unittest.TestCase):
     def test_i18n_translation_and_formatting(self):

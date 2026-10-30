@@ -34,7 +34,15 @@ class TestTrayAndCloseAction(unittest.TestCase):
         shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_version_uses_semantic_format(self):
-        self.assertRegex(__version__, r"^\d+\.\d+\.\d+$")
+        # SemVer permits prerelease identifiers such as 1.5.0-beta.1.
+        semver = r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+        self.assertRegex(__version__, semver)
+        for valid in ("1.4.7", "1.5.0-beta.1", "1.5.0-rc.2+build.3"):
+            with self.subTest(version=valid):
+                self.assertRegex(valid, semver)
+        for invalid in ("1.5", "v1.5.0", "1.5.0-", "1.5.0-beta."):
+            with self.subTest(version=invalid):
+                self.assertNotRegex(invalid, semver)
 
     def test_close_dialog_tray_selection(self):
         dialog = CloseActionDialog()

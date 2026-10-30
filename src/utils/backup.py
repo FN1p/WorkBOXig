@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 
 ARCHIVE_SUFFIXES = {".zip", ".workboxig"}
+MAX_STORAGE_BYTES = 20 * 1024 * 1024
 MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 500 * 1024 * 1024
 _ATTACHMENT_URL = re.compile(r"file://[^\s\"'<>]+/attachments/([^/\s\"'<>?#]+)", re.IGNORECASE)
@@ -21,11 +22,39 @@ def is_archive(path: str) -> bool:
 
 def write_archive(path: str, data: dict, attachments_dir: str) -> None:
     """Write a complete archive without following attachment symlinks."""
+    # Validate before creating an archive: otherwise export can report success
+    # for a backup that read_archive() would refuse to restore.
+    metadata = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    if len(metadata) > MAX_STORAGE_BYTES:
+        raise ValueError("Backup metadata is too large")
+    total_size = len(metadata)
+    files = []
+    for entry in sorted(Path(attachments_dir).iterdir()):
+        if entry.is_symlink() or not entry.is_file():
+            continue
+        if entry.name in {".", ".."} or not re.fullmatch(r"[\w.-]+", entry.name):
+            raise ValueError("Unsafe attachment name in backup")
+        size = entry.stat().st_size
+        if size > MAX_ATTACHMENT_BYTES:
+            raise ValueError("Backup attachment is too large")
+        total_size += size
+        if total_size > MAX_ARCHIVE_BYTES:
+            raise ValueError("Backup archive is too large")
+        files.append(entry)
+
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("storage.json", json.dumps(data, ensure_ascii=False, indent=2))
-        for entry in sorted(Path(attachments_dir).iterdir()):
-            if entry.is_file() and not entry.is_symlink():
-                archive.write(entry, f"attachments/{entry.name}")
+        archive.writestr("storage.json", metadata)
+        # Recheck actual archived sizes in case a file grew after preflight.
+        written_total = len(metadata)
+        for entry in files:
+            name = f"attachments/{entry.name}"
+            archive.write(entry, name)
+            written_size = archive.getinfo(name).file_size
+            if written_size > MAX_ATTACHMENT_BYTES:
+                raise ValueError("Backup attachment is too large")
+            written_total += written_size
+            if written_total > MAX_ARCHIVE_BYTES:
+                raise ValueError("Backup archive is too large")
 
 
 def read_archive(path: str) -> tuple[dict, dict[str, bytes]]:
@@ -37,8 +66,16 @@ def read_archive(path: str) -> tuple[dict, dict[str, bytes]]:
             raise ValueError("Backup archive is too large")
         if len([info for info in infos if info.filename == "storage.json"]) != 1:
             raise ValueError("Backup archive has no unique storage.json")
-        with archive.open("storage.json") as handle:
-            data = json.load(handle)
+        storage_info = next(info for info in infos if info.filename == "storage.json")
+        if storage_info.file_size > MAX_STORAGE_BYTES:
+            raise ValueError("Backup metadata is too large")
+        with archive.open(storage_info) as handle:
+            raw = handle.read(MAX_STORAGE_BYTES + 1)
+        if len(raw) > MAX_STORAGE_BYTES:
+            raise ValueError("Backup metadata is too large")
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            raise ValueError("Backup metadata must be an object")
         for info in infos:
             if info.filename == "storage.json" or info.is_dir():
                 continue

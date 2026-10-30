@@ -99,6 +99,7 @@ class MainWindow(QMainWindow):
         self.sidebar_toggle_btn.setIcon(get_icon("panel_left", COLORS['text_secondary'], 16))
         self.sidebar_toggle_btn.setFixedSize(32, 32)
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.sidebar_toggle_btn.setAccessibleName(t("collapse_sidebar"))
         self.sidebar_toggle_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.sidebar_toggle_btn.setStyleSheet(f"""
             QPushButton {{
@@ -215,6 +216,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.dashboard_view)
 
         self.calendar_view = CalendarView(self)
+        # Month inspector deadlines open the Tasks page.
+        self.calendar_view.open_task_requested.connect(lambda _task_id: self._navigate_to("tasks"))
         self.views["calendar"] = self.calendar_view
         self.stack.addWidget(self.calendar_view)
 
@@ -242,11 +245,16 @@ class MainWindow(QMainWindow):
 
         # 4. Notifications & Desktop Alert Card
         self.toast = ToastNotification(self)
+        # A failed autosave must remain visible after the transient toast fades.
+        self._storage_save_warning_active = False
+        self.storage.save_failed.connect(self._on_storage_save_failed)
+        self.storage.save_completed.connect(self._on_storage_save_completed)
         self.desktop_notification = DesktopNotification()
         self.desktop_notification.action_clicked.connect(self._handle_notification_action)
 
         self._notified_events = set()
         self._notified_tasks = set()
+        self._reminder_day = None
 
         # Reminder polling timer (every 30 sec)
         self._reminder_timer = QTimer(self)
@@ -323,7 +331,8 @@ class MainWindow(QMainWindow):
             self.show_toast(t("google_sync_success", added=added, updated=updated, total=total), icon_type="check")
 
     def _check_startup_update(self):
-        self._startup_update_thread = CheckUpdateThread(parent=self)
+        channel = self.storage.get_setting("update_channel", "stable")
+        self._startup_update_thread = CheckUpdateThread(parent=self, channel=channel)
         self._startup_update_thread.update_available.connect(self._on_startup_update_available)
         self._startup_update_thread.start()
 
@@ -612,6 +621,22 @@ class MainWindow(QMainWindow):
 
     show_toast = _show_toast
 
+    def _on_storage_save_failed(self, _reason: str):
+        self._storage_save_warning_active = True
+        message = t("storage_save_failed")
+        self.statusBar().showMessage(message)
+        self._show_toast(message, "error")
+
+    def _on_storage_save_completed(self):
+        if self._storage_save_warning_active:
+            self._storage_save_warning_active = False
+            self.statusBar().clearMessage()
+
+    def _save_now(self):
+        # Never show a success toast when the atomic write failed.
+        if self.storage.save_immediately():
+            self._show_toast(t("all_data_saved"), "success")
+
     def _on_pomodoro_completed(self, mode: str):
         if mode == "focus":
             self._show_toast(t("pomo_focus_finished_toast"), "success")
@@ -663,20 +688,27 @@ class MainWindow(QMainWindow):
         """Background checker for upcoming lessons and urgent tasks."""
         now = datetime.now()
         today_iso = now.date().isoformat()
+        if self._reminder_day != today_iso:
+            # An open app may run for days. Yesterday's notification IDs must
+            # not suppress a lesson or deadline moved to a new date.
+            self._notified_events.clear()
+            self._notified_tasks.clear()
+            self._reminder_day = today_iso
 
         # 1. Lesson Reminders (15 min before)
         if self.storage.get_setting("notif_lessons", True):
             for ev in self.storage.get_events():
                 ev_id = ev.get("id")
-                if ev.get("date") == today_iso and ev_id not in self._notified_events:
-                    time_str = ev.get("time", "")
+                time_str = ev.get("time", "")
+                reminder_key = (ev_id, today_iso, time_str)
+                if ev.get("date") == today_iso and reminder_key not in self._notified_events:
                     if time_str and ":" in time_str:
                         try:
                             h, m = map(int, time_str.split(":"))
                             ev_time = now.replace(hour=h, minute=m, second=0, microsecond=0)
                             diff_min = (ev_time - now).total_seconds() / 60.0
                             if 0 <= diff_min <= 15:
-                                self._notified_events.add(ev_id)
+                                self._notified_events.add(reminder_key)
                                 room_txt = f" • {ev.get('room')}" if ev.get('room') else ""
                                 self.desktop_notification.notify(
                                     title=t("notif_lesson_soon_title", title=ev.get('title')),
@@ -693,8 +725,9 @@ class MainWindow(QMainWindow):
         if self.storage.get_setting("notif_tasks", True):
             for task_item in self.storage.get_tasks():
                 t_id = task_item.get("id")
-                if not task_item.get("completed") and task_item.get("priority") == "urgent" and task_item.get("due_date") == today_iso and t_id not in self._notified_tasks:
-                    self._notified_tasks.add(t_id)
+                reminder_key = (t_id, today_iso)
+                if not task_item.get("completed") and task_item.get("priority") == "urgent" and task_item.get("due_date") == today_iso and reminder_key not in self._notified_tasks:
+                    self._notified_tasks.add(reminder_key)
                     due_txt = f" {task_item.get('due_time')}" if task_item.get('due_time') else ""
                     self.desktop_notification.notify(
                         title=t("notif_deadline_title"),
@@ -804,10 +837,7 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+6"), self, lambda: self._navigate_to("settings"))
         QShortcut(QKeySequence("Ctrl+,"), self, lambda: self._navigate_to("settings"))
         QShortcut(QKeySequence("Ctrl+N"), self, self._quick_add_note)
-        QShortcut(QKeySequence("Ctrl+S"), self, lambda: (
-            self.storage.save_immediately(),
-            self._show_toast(t("all_data_saved"), "success")
-        ))
+        QShortcut(QKeySequence("Ctrl+S"), self, self._save_now)
 
     def _focus_search(self):
         current = self.stack.currentWidget()
@@ -826,6 +856,7 @@ class MainWindow(QMainWindow):
     def _on_language_changed(self, lang: str):
         self.setWindowTitle(t("app_title"))
         self.sidebar_toggle_btn.setToolTip(t("collapse_sidebar"))
+        self.sidebar_toggle_btn.setAccessibleName(t("collapse_sidebar"))
         self.search_btn.setText(t("search_placeholder"))
         self.quick_add_btn.setText(t("quick_add_btn"))
         self.quick_add_btn.setToolTip(t("quick_add"))
