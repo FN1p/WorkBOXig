@@ -170,6 +170,87 @@ class TestUpdater(unittest.TestCase):
         finally:
             shutil.rmtree(os.path.dirname(completed[0]), ignore_errors=True)
 
+    def test_download_rejects_asset_size_mismatch(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {"content-length": "3"}
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+            expected_size=4,
+        )
+        errors, completed = [], []
+        worker.error.connect(errors.append)
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertTrue(errors)
+        self.assertEqual(completed, [])
+
+    def test_download_rejects_truncation_without_content_length(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+            expected_size=6,
+        )
+        errors, completed = [], []
+        worker.error.connect(errors.append)
+        worker.completed.connect(completed.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertTrue(errors)
+        self.assertEqual(completed, [])
+
+    def test_download_accepts_expected_size_without_content_length(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {}
+        resp.read.side_effect = [b"abc", b""]
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+            expected_size=3,
+        )
+        completed, errors = [], []
+        worker.completed.connect(completed.append)
+        worker.error.connect(errors.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertFalse(errors)
+        self.assertEqual(len(completed), 1)
+        try:
+            with open(completed[0], "rb") as downloaded:
+                self.assertEqual(downloaded.read(), b"abc")
+        finally:
+            shutil.rmtree(os.path.dirname(completed[0]), ignore_errors=True)
+
+    def test_download_rejects_oversized_header_before_reading(self):
+        response = MagicMock()
+        resp = response.__enter__.return_value
+        resp.headers = {"content-length": str(1024 * 1024 * 1024 + 1)}
+        worker = DownloadUpdateThread(
+            "https://example.invalid/setup.exe", "WorkBOXig_Setup.exe",
+        )
+        errors = []
+        worker.error.connect(errors.append)
+        with patch("src.utils.updater.urllib.request.urlopen", return_value=response):
+            worker.run()
+        self.assertTrue(errors)
+        resp.read.assert_not_called()
+
+    def test_dialog_passes_release_asset_size_to_downloader(self):
+        dialog = UpdateDialog({
+            "tag_name": "v999.0.0",
+            "installer_url": "https://github.com/FN1p/WorkBOXig/releases/download/v999.0.0/WorkBOXig_Setup.exe",
+            "installer_name": "WorkBOXig_Setup.exe",
+            "installer_size": 120000000,
+        }, storage=self.storage)
+        with patch("src.components.update_dialog.DownloadUpdateThread") as downloader:
+            dialog._start_update()
+            self.assertEqual(downloader.call_args.kwargs["expected_size"], 120000000)
+        dialog.close()
+
     def test_update_dialog_instantiation(self):
         mock_info = {
             "tag_name": "v1.0.1",
