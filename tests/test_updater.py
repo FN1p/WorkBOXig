@@ -113,6 +113,22 @@ class TestUpdater(unittest.TestCase):
                 downloader.assert_not_called()
         dialog.close()
 
+    def test_installer_launch_failure_restores_dialog_controls(self):
+        dialog = UpdateDialog({
+            "tag_name": "v999.0.0",
+            "body": "Update",
+            "installer_url": "https://github.com/FN1p/WorkBOXig/releases/download/v999.0.0/WorkBOXig_Setup.exe",
+        }, storage=self.storage)
+        dialog.install_btn.setEnabled(False)
+        dialog.later_btn.setEnabled(False)
+        with patch("src.components.update_dialog.launch_installer_and_quit",
+                   return_value=False):
+            dialog._on_download_completed("fake-setup.exe")
+        self.assertTrue(dialog.install_btn.isEnabled())
+        self.assertTrue(dialog.later_btn.isEnabled())
+        self.assertIn("Update cancelled", dialog.notes_browser.toPlainText())
+        dialog.close()
+
     def test_update_dialog_instantiation(self):
         mock_info = {
             "tag_name": "v1.0.1",
