@@ -120,3 +120,12 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Added `tests/test_layout_cleanup.py` covering visible calendar-like widgets and empty cleanup.
 - **Pending:** confirm latest Windows CI and manually reproduce add/delete/edit of lessons using the new Windows review build. Do not claim the flicker fixed on real Windows until manual verification.
 - First Windows CI attempt exposed three tests depending on immediate detachment; revised the fix to hide **before** detaching (instead of keeping old widgets parented) and updated regression test. Verify CI on the latest commit.
+
+## Progress notes — 2026-10-30 dialog and popup UX
+- User requested improvements to the popup windows when adding lessons and other records.
+- Lesson editor: remove the unmovable frameless fixed 540x680 window, use parent-owned window-modal dialog, bound initial size to screen, place the form in a scroll area, keep Save/Cancel outside the scroll area.
+- Task editor: adopt the same high-DPI-friendly scrollable form and fixed footer so lengthy subtask lists do not clip the buttons.
+- Fix lesson preset / edited-event color selection: rely on explicit color properties rather than matching tooltip text or CSS substrings.
+- Shared layout cleanup now recursively removes controls in nested subtask rows instead of leaving orphaned children that can flash or persist.
+- Add tests for visible modal forms, scrollable content, color selection, and nested layout cleanup.
+- **Verification required:** review latest Windows CI before recommending any EXE; manually test on Windows at 100%, 125%, 150% DPI, add/edit/delete lessons and tasks, keyboard Escape / close controls and long subtask lists.
