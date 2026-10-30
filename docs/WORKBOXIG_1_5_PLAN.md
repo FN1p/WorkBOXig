@@ -105,3 +105,10 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Parse deadlines defensively in the Tasks view; exclude undated/invalid legacy tasks from Today/Upcoming/Overdue while retaining them in All. Sorting places undated tasks after dated ones.
 - Added UI regression tests for empty, null and invalid dates, plus immediate Today badge updates on task creation, completion and rescheduling.
 - **Pending:** confirm Windows CI on latest branch head and a new `WorkBOXig-Windows-review` artifact; manually test legacy profiles and real Windows UI. No merge or stable release.
+
+## Progress notes — 2026-10-30 backup export/import consistency
+- Found that the archive writer accepted oversized metadata, oversized attachments, aggregate uncompressed data over 500 MiB, and filenames the importer rejects. Such exports could succeed but fail on restore.
+- Preflight archive metadata bytes and attachment sizes/names against the existing importer limits; recheck actual ZIP entry sizes after writing to guard against file growth during export.
+- Added regression tests for oversized metadata, a single oversized attachment, excessive aggregate size, and unsafe attachment names.
+- The storage export flow already uses a temporary file and atomic replacement, so validation failures leave an existing destination backup untouched. Large or unusual user attachments are **not deleted**; export now fails explicitly rather than creating a non-restorable backup.
+- **Pending:** Windows CI for this change and manual export/restore tests using real legacy images. Keep PR draft, do not merge or release.
