@@ -85,3 +85,10 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Reset per-day notification keys at local date rollover; event deduplication also includes scheduled time so a moved lesson can notify at its new time.
 - Added UI-level regression tests for same-day polling, next-day rescheduling and same-day time changes.
 - **Pending:** Windows CI on reminder commits; confirm review artifact before manual testing. No real Windows notification delivery test yet.
+
+## Progress notes — 2026-10-30 storage initialization safety
+- Verified reminder CI run 40989483124 succeeded on `5f2e0b2a` (Windows tests, portable EXE, installer and review artifact).
+- Found a data-loss risk: if a new or recovered profile could not write its initial `storage.json`, the app opened with unsaved default data and silently discarded subsequent edits on restart.
+- Startup now aborts with a clear storage error when the first atomic save fails. Corrupt originals already moved to `storage.json.bak-*` remain preserved.
+- Added regression tests for fresh-profile write failure and corrupt-file recovery followed by write failure; updated `docs/DATA_RECOVERY.md`.
+- **Pending:** Windows CI and new review artifact for this iteration, plus manual Windows disk-full/permissions and installer smoke tests. Do not claim these changes verified until CI passes.
