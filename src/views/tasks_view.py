@@ -20,6 +20,17 @@ from src.utils.shortcuts import clear_layout
 from src.utils.quick_task import parse_quick_task
 
 
+def _task_due_date(task: dict):
+    """Parse a task deadline; legacy imports may contain empty or invalid dates."""
+    raw = task.get("due_date")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 def get_priority_config(priority: str) -> dict:
     colors = {
         "urgent": ("#EF4444", "rgba(239, 68, 68, 0.18)"),
@@ -1114,7 +1125,7 @@ class TasksView(QWidget):
         clear_layout(self.tasks_layout)
 
         tasks = self.storage.get_tasks()
-        today_iso = date.today().isoformat()
+        today = date.today()
         query = self.search_input.text().lower().strip()
 
         # Compute metrics
@@ -1122,7 +1133,7 @@ class TasksView(QWidget):
         done = sum(1 for task_item in tasks if task_item.get("completed"))
         self.clear_done_btn.setVisible(self.active_filter == "done" and done > 0)
         pending = total - done
-        today_due = sum(1 for task_item in tasks if not task_item.get("completed") and task_item.get("due_date") == today_iso)
+        today_due = sum(1 for task_item in tasks if not task_item.get("completed") and _task_due_date(task_item) == today)
 
         self.card_total.findChild(QLabel, "stat_value").setText(str(total))
         self.card_pending.findChild(QLabel, "stat_value").setText(str(pending))
@@ -1133,7 +1144,7 @@ class TasksView(QWidget):
         filtered = []
         for single_task in tasks:
             is_done = single_task.get("completed", False)
-            d_date = single_task.get("due_date", "")
+            due_date = _task_due_date(single_task)
             priority = single_task.get("priority", "medium")
             subj = single_task.get("subject", "")
 
@@ -1147,13 +1158,13 @@ class TasksView(QWidget):
 
             # Status filter
             if self.active_filter == "today":
-                if not (not is_done and d_date == today_iso):
+                if not (not is_done and due_date == today):
                     continue
             elif self.active_filter == "upcoming":
-                if not (not is_done and d_date >= today_iso):
+                if not (not is_done and due_date is not None and due_date >= today):
                     continue
             elif self.active_filter == "overdue":
-                if not (not is_done and d_date < today_iso):
+                if not (not is_done and due_date is not None and due_date < today):
                     continue
             elif self.active_filter == "urgent":
                 if not (not is_done and priority in ("urgent", "high")):
@@ -1164,7 +1175,7 @@ class TasksView(QWidget):
 
             filtered.append(single_task)
 
-        sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), x.get("due_date", "9999-99-99")))
+        sorted_tasks = sorted(filtered, key=lambda x: (x.get("completed", False), _task_due_date(x) or date.max))
 
         if not sorted_tasks:
             empty_lbl = QLabel(t("no_tasks") if not tasks else t("no_tasks_filtered"))
