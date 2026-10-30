@@ -32,7 +32,7 @@ def write_archive(path: str, data: dict, attachments_dir: str) -> None:
     for entry in sorted(Path(attachments_dir).iterdir()):
         if entry.is_symlink() or not entry.is_file():
             continue
-        if entry.name in {".", ".."} or not re.fullmatch(r"[\\w.-]+", entry.name):
+        if entry.name in {".", ".."} or not re.fullmatch(r"[\w.-]+", entry.name):
             raise ValueError("Unsafe attachment name in backup")
         size = entry.stat().st_size
         if size > MAX_ATTACHMENT_BYTES:
