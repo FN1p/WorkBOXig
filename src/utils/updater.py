@@ -8,6 +8,7 @@ import os
 import sys
 import re
 import json
+import hashlib
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -197,6 +198,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: st
     installer_url = None
     installer_name = None
     installer_size = 0
+    installer_sha256 = None
 
     portable_url = None
     portable_name = None
@@ -206,12 +208,15 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: st
         name = asset.get("name", "")
         url = asset.get("browser_download_url", "")
         size = asset.get("size", 0)
-        
-        if "setup" in name.lower() and name.endswith(".exe"):
+        digest = asset.get("digest") or ""
+        sha256 = digest[7:].lower() if re.fullmatch(r"sha256:[a-fA-F0-9]{64}", digest) else None
+
+        if "setup" in name.lower() and name.lower().endswith(".exe"):
             installer_url = url
             installer_name = name
             installer_size = size
-        elif name.endswith(".exe") and "setup" not in name.lower():
+            installer_sha256 = sha256
+        elif name.lower().endswith(".exe") and "setup" not in name.lower():
             portable_url = url
             portable_name = name
             portable_size = size
@@ -230,6 +235,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: st
         "installer_url": installer_url,
         "installer_name": installer_name,
         "installer_size": installer_size,
+        "installer_sha256": installer_sha256,
         "portable_url": portable_url,
         "portable_name": portable_name,
         "portable_size": portable_size,
@@ -270,7 +276,7 @@ class DownloadUpdateThread(QThread):
     error = pyqtSignal(str)
 
     def __init__(self, download_url: str, filename: str, parent: Optional[QObject] = None,
-                 expected_size: Optional[int] = None):
+                 expected_size: Optional[int] = None, expected_sha256: Optional[str] = None):
         super().__init__(parent)
         self.download_url = download_url
         self.filename = filename
@@ -278,6 +284,7 @@ class DownloadUpdateThread(QThread):
         # Content-Length. Use it to catch truncated/incorrect downloads even
         # when the server omits that header.
         self.expected_size = expected_size
+        self.expected_sha256 = expected_sha256
         self._is_cancelled = False
 
     def cancel(self):
@@ -293,6 +300,9 @@ class DownloadUpdateThread(QThread):
                 type(self.expected_size) is not int or
                 not 0 < self.expected_size <= MAX_UPDATE_DOWNLOAD_BYTES):
             self.error.emit("Invalid update asset size")
+            return
+        if self.expected_sha256 is not None and not re.fullmatch(r"[a-fA-F0-9]{64}", self.expected_sha256):
+            self.error.emit("Invalid update asset digest")
             return
         temp_dir = tempfile.mkdtemp(prefix="workboxig_update_")
         dest_path = os.path.join(temp_dir, self.filename)
@@ -312,6 +322,7 @@ class DownloadUpdateThread(QThread):
                     raise IOError("Update asset size differs from release metadata")
                 total_size = self.expected_size or header_size
                 downloaded = 0
+                sha256_hash = hashlib.sha256()
                 chunk_size = 65536  # 64 KB
 
                 with open(partial_path, "wb") as f:
@@ -327,6 +338,7 @@ class DownloadUpdateThread(QThread):
                         if total_size and downloaded + len(chunk) > total_size:
                             raise IOError("Update download exceeds declared size")
                         f.write(chunk)
+                        sha256_hash.update(chunk)
                         downloaded += len(chunk)
 
                         pct = (downloaded / total_size * 100.0) if total_size > 0 else 0.0
@@ -337,6 +349,8 @@ class DownloadUpdateThread(QThread):
                 return
             if downloaded == 0 or (total_size > 0 and downloaded != total_size):
                 raise IOError("Update download was empty or incomplete")
+            if self.expected_sha256 and sha256_hash.hexdigest() != self.expected_sha256.lower():
+                raise IOError("Update checksum mismatch; download rejected")
             os.replace(partial_path, dest_path)
             self.completed.emit(dest_path)
 
