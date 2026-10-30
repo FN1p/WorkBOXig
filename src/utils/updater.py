@@ -38,22 +38,72 @@ def parse_version_tuple(version_str: str) -> Tuple[int, ...]:
     return tuple(parts[:3])
 
 
+_RELEASE_TAG_PATTERN = re.compile(
+    r"^[vV]?(\\d+)\\.(\\d+)\\.(\\d+)"
+    r"(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
+    r"(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+)
+
+
+def parse_release_version(tag: str):
+    """Parse a GitHub release version including SemVer pre-release identifiers."""
+    if not isinstance(tag, str):
+        return None
+    match = _RELEASE_TAG_PATTERN.fullmatch(tag.strip())
+    if not match:
+        return None
+    base = tuple(int(match.group(i)) for i in (1, 2, 3))
+    raw = match.group(4)
+    identifiers = tuple(
+        int(part) if part.isdigit() and (part == "0" or not part.startswith("0"))
+        else part for part in raw.split(".")
+    ) if raw else ()
+    return base, identifiers
+
+
+def compare_release_versions(left: str, right: str) -> int:
+    """SemVer precedence: stable > prerelease at the same major.minor.patch."""
+    a, b = parse_release_version(left), parse_release_version(right)
+    if a is None or b is None:
+        raise ValueError("Invalid GitHub release version")
+    if a[0] != b[0]:
+        return (a[0] > b[0]) - (a[0] < b[0])
+    a_pre, b_pre = a[1], b[1]
+    if not a_pre or not b_pre:
+        return (not a_pre) - (not b_pre)
+    for x, y in zip(a_pre, b_pre):
+        if x == y:
+            continue
+        if isinstance(x, int) and isinstance(y, int):
+            return (x > y) - (x < y)
+        if isinstance(x, int):
+            return -1
+        if isinstance(y, int):
+            return 1
+        return (x > y) - (x < y)
+    return (len(a_pre) > len(b_pre)) - (len(a_pre) < len(b_pre))
+
+
 def is_newer_version(latest_tag: str, current_version: str = __version__) -> bool:
-    """Check if latest_tag from GitHub is strictly newer than current_version."""
+    """Compare stable and prerelease tags without treating beta as stable."""
     try:
-        remote_tuple = parse_version_tuple(latest_tag)
-        local_tuple = parse_version_tuple(current_version)
-        return remote_tuple > local_tuple
-    except Exception:
+        return compare_release_versions(latest_tag, current_version) > 0
+    except (TypeError, ValueError):
         return False
 
 
-def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str, Any]:
+def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: str = "stable") -> Dict[str, Any]:
     """
     Fetch latest release metadata from GitHub Releases API.
     Raises urllib.error.URLError or ValueError on failure.
     """
-    api_url = f"https://api.github.com/repos/{repo}/releases/latest"
+    if channel not in ("stable", "beta"):
+        raise ValueError("Invalid update channel")
+    # GitHub /releases/latest deliberately excludes prereleases. For the beta
+    # channel, inspect published releases and select the highest SemVer tag,
+    # not the most recently edited release.
+    api_url = (f"https://api.github.com/repos/{repo}/releases/latest" if channel == "stable"
+               else f"https://api.github.com/repos/{repo}/releases?per_page=100")
     headers = {
         "User-Agent": f"{APP_NAME}-Updater/{__version__}",
         "Accept": "application/vnd.github.v3+json"
@@ -73,6 +123,10 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
             raw_data = response.read().decode("utf-8")
             data = json.loads(raw_data)
     except urllib.error.HTTPError as he:
+        if he.code in (403, 429) and channel == "beta":
+            # The /latest redirect cannot discover prereleases. Do not silently
+            # switch the user's beta channel to the stable channel.
+            raise RuntimeError(t("update_rate_limit_error")) from he
         if he.code in (403, 429):
             # Seamless fallback to web redirect when unauthenticated API rate limit is reached
             try:
@@ -117,7 +171,26 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
     except urllib.error.URLError as ue:
         raise RuntimeError(t("update_network_error", reason=ue.reason)) from ue
 
-    tag_name = data.get("tag_name", "")
+    if channel == "beta":
+        if not isinstance(data, list):
+            raise ValueError("Invalid GitHub releases response")
+        candidates = [
+            release for release in data
+            if isinstance(release, dict) and not release.get("draft")
+            and parse_release_version(release.get("tag_name", "")) is not None
+        ]
+        if not candidates:
+            raise RuntimeError(t("update_no_releases"))
+        from functools import cmp_to_key
+        data = max(
+            candidates,
+            key=cmp_to_key(lambda a, b: compare_release_versions(
+                a["tag_name"], b["tag_name"]
+            )),
+        )
+    if not isinstance(data, dict) or not parse_release_version(data.get("tag_name", "")):
+        raise ValueError("Invalid GitHub release metadata")
+    tag_name = data["tag_name"]
     assets = data.get("assets", [])
 
     # Identify primary installer and portable assets
@@ -143,17 +216,13 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10) -> Dict[str
             portable_name = name
             portable_size = size
 
-    # Fallback to any .exe asset if specific names aren't matched
-    if not installer_url and not portable_url:
-        for asset in assets:
-            if asset.get("name", "").endswith(".exe"):
-                installer_url = asset.get("browser_download_url")
-                installer_name = asset.get("name")
-                installer_size = asset.get("size", 0)
-                break
+    # Never execute a random executable from a release as an installer.
+    # Portable-only releases are opened in the browser by UpdateDialog.
 
     return {
         "tag_name": tag_name,
+        "prerelease": bool(data.get("prerelease")),
+        "channel": channel,
         "title": data.get("name", tag_name),
         "body": data.get("body", ""),
         "html_url": data.get("html_url", f"https://github.com/{repo}/releases"),
@@ -174,13 +243,15 @@ class CheckUpdateThread(QThread):
     up_to_date = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, repo: str = GITHUB_REPO, parent: Optional[QObject] = None):
+    def __init__(self, repo: str = GITHUB_REPO, parent: Optional[QObject] = None,
+                 channel: str = "stable"):
         super().__init__(parent)
         self.repo = repo
+        self.channel = channel if channel in ("stable", "beta") else "stable"
 
     def run(self):
         try:
-            info = fetch_latest_release(self.repo)
+            info = fetch_latest_release(self.repo, channel=self.channel)
             if info["is_newer"]:
                 self.update_available.emit(info)
             else:
