@@ -1,0 +1,29 @@
+name: Promote existing WorkBOXig Beta 2 to regular release
+
+# One-time metadata change: preserve tag and uploaded files.
+on:
+  push:
+    branches:
+      - workboxig-1-5-backup-hardening
+    paths:
+      - .github/workflows/promote-existing-beta2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    if: github.repository == 'FN1p/WorkBOXig' && github.ref == 'refs/heads/workboxig-1-5-backup-hardening'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Change release category (no rebuilding or reupload)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: FN1p/WorkBOXig
+        run: |
+          set -euo pipefail
+          gh release view v1.5.0-beta.2 --json tagName,isDraft,assets >/dev/null
+          gh release edit v1.5.0-beta.2 --prerelease=false --latest
+          gh release view v1.5.0-beta.2 --json tagName,isDraft,isPrerelease,isLatest,assets --jq '.'
+          test "$(gh release view v1.5.0-beta.2 --json isPrerelease --jq '.isPrerelease')" = "false"
+          test "$(gh release view v1.5.0-beta.2 --json isLatest --jq '.isLatest')" = "true"
