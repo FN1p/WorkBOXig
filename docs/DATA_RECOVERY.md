@@ -21,6 +21,15 @@ Important files:
 4. To inspect an unreadable `storage.json.bak-*`, use a text editor on a **copy**. It may be partially damaged. Do not overwrite `storage.json` with unverified contents.
 5. If a restore fails, keep both the original data directory and the backup archive. Report the error message and attach only non-sensitive diagnostic details.
 
+## If WorkBOXig refuses to start because data cannot be saved
+
+A new profile or a profile recovering from damaged JSON must be writable before WorkBOXig opens. If the initial atomic save fails (for example, because the disk is full or the data folder is read-only), startup now stops instead of showing an empty workspace whose changes would be lost on exit.
+
+1. Close WorkBOXig and copy the entire data folder before troubleshooting.
+2. Check available disk space and write permissions for the folder shown above; do not delete the `attachments/` directory or any `storage.json.bak-*` recovery files.
+3. If a `storage.json.bak-*` file exists, the original JSON was preserved even if creation of a replacement `storage.json` failed. Keep it for manual recovery.
+4. After correcting the storage problem, restart WorkBOXig. If the original data was corrupt, restore a verified backup rather than treating the newly created default dataset as recovered data.
+
 ## Safe rollback after testing a new build
 
 1. Exit WorkBOXig completely.
