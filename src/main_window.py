@@ -331,7 +331,8 @@ class MainWindow(QMainWindow):
             self.show_toast(t("google_sync_success", added=added, updated=updated, total=total), icon_type="check")
 
     def _check_startup_update(self):
-        self._startup_update_thread = CheckUpdateThread(parent=self)
+        channel = self.storage.get_setting("update_channel", "stable")
+        self._startup_update_thread = CheckUpdateThread(parent=self, channel=channel)
         self._startup_update_thread.update_available.connect(self._on_startup_update_available)
         self._startup_update_thread.start()
 
