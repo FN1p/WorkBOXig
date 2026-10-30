@@ -116,6 +116,7 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 ## Progress notes — 2026-10-30 calendar flicker report
 - User reproduced transient blank Windows windows when adding or deleting calendar lessons; windows disappear after the calendar redraw.
 - Root cause identified in shared `clear_layout`: `setParent(None)` made visible Qt children temporary top-level windows before deferred deletion.
-- Fix hides removed widgets and keeps their original parent until `deleteLater`, avoiding transient popups across views.
+- Fix hides removed widgets *before* `setParent(None)` and `deleteLater`, preventing visible transient popups while keeping stale widgets out of Qt `findChildren()` queries.
 - Added `tests/test_layout_cleanup.py` covering visible calendar-like widgets and empty cleanup.
 - **Pending:** confirm latest Windows CI and manually reproduce add/delete/edit of lessons using the new Windows review build. Do not claim the flicker fixed on real Windows until manual verification.
+- First Windows CI attempt exposed three tests depending on immediate detachment; revised the fix to hide **before** detaching (instead of keeping old widgets parented) and updated regression test. Verify CI on the latest commit.
