@@ -1,0 +1,65 @@
+name: Publish WorkBOXig 1.5 Beta 2
+
+# One-shot prerelease publishing: triggers only when this workflow is added
+# or manually dispatched. Changing application files alone cannot republish.
+on:
+  push:
+    branches:
+      - workboxig-1-5-backup-hardening
+    paths:
+      - .github/workflows/workboxig-beta-2-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: workboxig-v1.5.0-beta.2-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'FN1p/WorkBOXig' && github.ref == 'refs/heads/workboxig-1-5-backup-hardening'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Verify beta version and source
+        run: python -c "from src.version import __version__; assert __version__ == '1.5.0-beta.2', __version__"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run full tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -v
+      - name: Build portable application
+        run: pyinstaller WorkBOXig.spec --noconfirm
+      - name: Build Windows installer
+        run: pyinstaller installer.spec --noconfirm
+      - name: Publish verified GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: $\{{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'v1.5.0-beta.2'
+          $files = @('dist/WorkBOXig.exe', 'dist/WorkBOXig_Setup.exe')
+          foreach ($file in $files) {
+            if (-not (Test-Path $file)) { throw "Missing release asset: $file" }
+            if ((Get-Item $file).Length -eq 0) { throw "Empty release asset: $file" }
+          }
+          $hashes = foreach ($file in $files) {
+            $digest = (Get-FileHash -Path $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$digest  $([System.IO.Path]::GetFileName($file))"
+          }
+          Set-Content -Path 'SHA256SUMS.txt' -Value $hashes -Encoding utf8
+          # Create a draft first so the files are complete before appearing publicly.
+          gh release create $tag 'dist/WorkBOXig.exe' 'dist/WorkBOXig_Setup.exe' 'SHA256SUMS.txt' --target $env:GITHUB_SHA --title 'WorkBOXig 1.5.0 Beta 2 — Update Channels & Fixes' --notes-file 'docs/RELEASE_1_5_0_BETA_2.md' --prerelease --latest=false --draft
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to create draft prerelease' }
+          gh release edit $tag --draft=false --prerelease --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish prerelease' }
+          gh release view $tag --json url,tagName,isPrerelease,isDraft --jq '.'
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to verify prerelease' }
