@@ -112,3 +112,10 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Added regression tests for oversized metadata, a single oversized attachment, excessive aggregate size, and unsafe attachment names.
 - The storage export flow already uses a temporary file and atomic replacement, so validation failures leave an existing destination backup untouched. Large or unusual user attachments are **not deleted**; export now fails explicitly rather than creating a non-restorable backup.
 - **Pending:** Windows CI for this change and manual export/restore tests using real legacy images. Keep PR draft, do not merge or release.
+
+## Progress notes — 2026-10-30 calendar flicker report
+- User reproduced transient blank Windows windows when adding or deleting calendar lessons; windows disappear after the calendar redraw.
+- Root cause identified in shared `clear_layout`: `setParent(None)` made visible Qt children temporary top-level windows before deferred deletion.
+- Fix hides removed widgets and keeps their original parent until `deleteLater`, avoiding transient popups across views.
+- Added `tests/test_layout_cleanup.py` covering visible calendar-like widgets and empty cleanup.
+- **Pending:** confirm latest Windows CI and manually reproduce add/delete/edit of lessons using the new Windows review build. Do not claim the flicker fixed on real Windows until manual verification.
