@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QCalendarWidget, QFrame, QScrollArea, QDialog, QLineEdit,
     QComboBox, QTextEdit, QTimeEdit, QDateEdit, QMessageBox, QCheckBox,
-    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog, QMenu
+    QGridLayout, QStackedWidget, QButtonGroup, QFileDialog, QMenu, QApplication
 )
 from PyQt6.QtCore import Qt, QDate, QTime, pyqtSignal, QTimer, QSize, QRectF
 from PyQt6.QtGui import QFont, QTextCharFormat, QColor, QCursor, QPainter, QPen, QBrush, QFontMetrics
@@ -93,9 +93,15 @@ class AddLessonDialog(QDialog):
             dialog_title = t("cal_new_title")
 
         self.setWindowTitle(dialog_title)
-        # Remove system title bar
-        self.setWindowFlags(Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
-        self.setFixedSize(540, 680)
+        # Use a native, parent-owned modal window: unlike a frameless fixed
+        # popup it can be moved/closed and remains usable at high DPI.
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.setMinimumSize(450, 450)
+        screen = (parent.window().screen() if parent is not None else None) or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen else None
+        width = min(560, max(450, available.width() - 48)) if available else 560
+        height = min(700, max(450, available.height() - 80)) if available else 700
+        self.resize(width, height)
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {COLORS['bg_card']};
@@ -104,8 +110,22 @@ class AddLessonDialog(QDialog):
             }}
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(26, 22, 26, 22)
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        # Keep the form scrollable while keeping Save/Cancel visible at the
+        # bottom. Large font sizes and Windows display scaling must not clip
+        # lesson fields or prevent submitting the form.
+        self.form_scroll = QScrollArea(self)
+        self.form_scroll.setWidgetResizable(True)
+        self.form_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.form_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.form_container = QWidget(self.form_scroll)
+        self.form_container.setObjectName("lesson_form_container")
+        self.form_container.setStyleSheet("QWidget#lesson_form_container { background: transparent; }")
+        layout = QVBoxLayout(self.form_container)
+        layout.setContentsMargins(26, 22, 26, 16)
         layout.setSpacing(10)
 
         # Header
@@ -372,6 +392,7 @@ class AddLessonDialog(QDialog):
             c_btn.setCheckable(True)
             c_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             c_btn.setToolTip(t(color_name))
+            c_btn.setProperty("lesson_hex_color", hex_code)
             c_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {hex_code};
@@ -415,9 +436,6 @@ class AddLessonDialog(QDialog):
                 pass
             c_val = existing_event.get("color", COLOR_PALETTE[0][0])
             self._set_color(c_val)
-            for btn in self.color_group.buttons():
-                if btn.toolTip() == c_val:
-                    btn.setChecked(True)
             b_val = existing_event.get("badge", "cal_badge_lesson")
             idx = next((i for i, key in enumerate(BADGE_KEYS) if localized_badge(b_val) == t(key)), -1)
             if idx >= 0:
@@ -428,8 +446,18 @@ class AddLessonDialog(QDialog):
                 self.parity_combo.setCurrentIndex(idx_p)
 
         layout.addStretch()
+        self.form_scroll.setWidget(self.form_container)
+        outer_layout.addWidget(self.form_scroll, stretch=1)
 
-        # Action Buttons
+        # Keep actions outside the scrolling form.
+        footer = QWidget(self)
+        footer.setObjectName("lesson_dialog_footer")
+        footer.setStyleSheet(
+            f"QWidget#lesson_dialog_footer {{ background-color: {COLORS['bg_card']}; "
+            f"border-top: 1px solid {COLORS['border_subtle']}; }}"
+        )
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 10, 24, 16)
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
         cancel_btn = QPushButton(t("cancel"))
@@ -445,10 +473,14 @@ class AddLessonDialog(QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(cancel_btn)
         btn_layout.addWidget(save_btn)
-        layout.addLayout(btn_layout)
+        footer_layout.addLayout(btn_layout)
+        outer_layout.addWidget(footer)
+        self.title_input.setFocus()
 
     def _set_color(self, hex_color: str):
         self.selected_color = hex_color
+        for button in self.color_group.buttons():
+            button.setChecked(button.property("lesson_hex_color") == hex_color)
 
     def _apply_pair_times(self, start_str: str, end_str: str):
         try:
@@ -459,10 +491,7 @@ class AddLessonDialog(QDialog):
 
     def _apply_preset(self, subject_name: str, color: str):
         self.title_input.setText(subject_name)
-        self.selected_color = color
-        for btn in self.color_group.buttons():
-            # Check button by color
-            btn.setChecked(btn.styleSheet().find(color) != -1)
+        self._set_color(color)
 
     def _on_save(self):
         if not self.title_input.text().strip():
