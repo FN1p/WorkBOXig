@@ -30,9 +30,11 @@ class LayoutCleanupTests(unittest.TestCase):
         self.assertEqual(layout.count(), 0)
         for widget in widgets:
             self.assertFalse(widget.isVisible())
-            self.assertIs(widget.parentWidget(), parent)
-            self.assertFalse(widget.isWindow())
-            self.assertNotIn(widget, QApplication.topLevelWidgets())
+            # The old widget is detached to avoid stale findChildren() hits,
+            # but it must be hidden *before* it becomes a top-level window.
+            self.assertIsNone(widget.parentWidget())
+            self.assertNotIn(widget, [top for top in QApplication.topLevelWidgets()
+                                       if top.isVisible()])
 
         parent.close()
         parent.deleteLater()
