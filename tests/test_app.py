@@ -138,6 +138,23 @@ class TestStorage(unittest.TestCase):
         self.assertEqual(self.storage.get_notes()[0]["title"], "Previous note")
         self.assertFalse(any(name.endswith(".tmp") for name in os.listdir(self.test_dir)))
 
+    def test_failed_autosave_emits_warning_and_successful_retry_recovers(self):
+        failed, completed = [], []
+        self.storage.save_failed.connect(failed.append)
+        self.storage.save_completed.connect(lambda: completed.append(True))
+        self.storage.add_task("Not yet saved")
+        with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+            self.assertFalse(self.storage.save_immediately())
+        self.assertEqual(len(failed), 1)
+        self.assertIn("disk full", failed[0])
+        self.assertEqual(completed, [])
+        with open(self.storage.file_path, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["tasks"], [])
+        self.assertTrue(self.storage.save_immediately())
+        self.assertEqual(completed, [True])
+        with open(self.storage.file_path, encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["tasks"][0]["title"], "Not yet saved")
+
     def test_fresh_storage_aborts_if_initial_save_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             storage_path = Path(directory, "storage.json")
@@ -303,6 +320,22 @@ class TestUIWidgets(unittest.TestCase):
         self.assertIn("notebooks", self.window.views)
         self.assertIn("notes", self.window.views)
         self.assertIn("tasks", self.window.views)
+
+    def test_ctrl_s_does_not_claim_success_on_failed_write(self):
+        from src.i18n import t
+
+        self.mock_storage.add_task("Unsaved task")
+        with patch.object(self.window, "_show_toast") as show_toast:
+            with patch("src.storage.os.replace", side_effect=OSError("disk full")):
+                self.window._save_now()
+            self.assertTrue(self.window._storage_save_warning_active)
+            self.assertEqual(self.window.statusBar().currentMessage(), t("storage_save_failed"))
+            self.assertEqual(show_toast.call_count, 1)
+            self.assertEqual(show_toast.call_args.args, (t("storage_save_failed"), "error"))
+            self.window._save_now()
+            self.assertFalse(self.window._storage_save_warning_active)
+            self.assertEqual(self.window.statusBar().currentMessage(), "")
+            self.assertEqual(show_toast.call_args.args, (t("all_data_saved"), "success"))
 
     def test_dashboard_renders_existing_task(self):
         self.mock_storage.add_task("Finish report", due_date=date.today().isoformat())
