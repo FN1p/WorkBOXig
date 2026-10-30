@@ -21,6 +21,7 @@ from src.utils.updater import (parse_version_tuple, is_newer_version, CheckUpdat
 from src.components.update_dialog import UpdateDialog
 from src.storage import StorageManager
 from src.version import __version__
+from src.i18n import t
 
 app = QApplication.instance()
 if app is None:
@@ -126,7 +127,7 @@ class TestUpdater(unittest.TestCase):
             dialog._on_download_completed("fake-setup.exe")
         self.assertTrue(dialog.install_btn.isEnabled())
         self.assertTrue(dialog.later_btn.isEnabled())
-        self.assertIn("Update cancelled", dialog.notes_browser.toPlainText())
+        self.assertIn(t("update_install_failed"), dialog.notes_browser.toPlainText())
         dialog.close()
 
     def test_update_dialog_instantiation(self):
