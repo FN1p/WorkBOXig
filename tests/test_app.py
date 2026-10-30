@@ -742,6 +742,19 @@ class TestUIWidgets(unittest.TestCase):
         self.assertEqual(sidebar.nav_items["calendar"].item_text, "Календарь")
         self.assertEqual(sidebar.nav_items["settings"].item_text, "Настройки")
 
+class TestSidebarAccessibility(unittest.TestCase):
+    def test_custom_nav_button_has_accessible_name_when_collapsed(self):
+        from src.components.sidebar import NavItem
+
+        button = NavItem("calendar", "Calendar", "Ctrl+2", "calendar")
+        self.assertEqual(button.accessibleName(), "Calendar")
+        button.set_collapsed(True)
+        self.assertEqual(button.accessibleName(), "Calendar")
+        button.set_label_text("Календарь")
+        self.assertEqual(button.accessibleName(), "Календарь")
+        button.close()
+
+
 class TestI18n(unittest.TestCase):
     def test_i18n_translation_and_formatting(self):
         from src.i18n import set_language, get_language, t, format_lessons, format_tasks, format_days
