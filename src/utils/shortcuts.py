@@ -200,3 +200,11 @@ def clear_layout(layout):
                 w.hide()
                 w.setParent(None)
                 w.deleteLater()
+            else:
+                # A layout item may contain another layout (for example, a
+                # subtask row). Its child widgets must be removed as well,
+                # otherwise orphaned controls remain on screen after refresh.
+                nested_layout = item.layout()
+                if nested_layout is not None:
+                    clear_layout(nested_layout)
+                    nested_layout.deleteLater()
