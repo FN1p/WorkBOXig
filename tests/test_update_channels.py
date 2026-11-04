@@ -69,6 +69,44 @@ class UpdateChannelsTest(unittest.TestCase):
         self.assertEqual(info["channel"], "stable")
         self.assertFalse(info["prerelease"])
 
+    def test_stable_channel_ignores_beta_marked_as_regular_release(self):
+        # This is the current real GitHub state: v1.5.0-beta.2 was
+        # promoted to Latest without removing the beta suffix.
+        latest = release("v1.5.0-beta.2", prerelease=False)
+        history = [
+            latest,
+            release("v1.5.0-rc.1", prerelease=False),
+            release("v1.5.0", prerelease=True),
+            release("v1.4.7"),
+            release("v1.4.6"),
+            release("v2.0.0", draft=True),
+        ]
+        with patch("src.utils.updater.urllib.request.urlopen",
+                   side_effect=[api_response(latest), api_response(history)]) as urlopen:
+            info = fetch_latest_release("FN1p/WorkBOXig", channel="stable")
+        self.assertEqual(urlopen.call_count, 2)
+        self.assertTrue(urlopen.call_args.args[0].full_url.endswith("/releases?per_page=100"))
+        self.assertEqual(info["tag_name"], "v1.4.7")
+        self.assertFalse(info["prerelease"])
+        self.assertFalse(info["is_newer"])  # Running 1.5.0-beta.2 must not downgrade.
+
+    def test_mislabeled_beta_still_warns_in_beta_channel(self):
+        with patch("src.utils.updater.urllib.request.urlopen",
+                   return_value=api_response([release("v1.5.0-beta.2", prerelease=False)])):
+            info = fetch_latest_release("FN1p/WorkBOXig", channel="beta")
+        self.assertTrue(info["prerelease"])
+        dialog = UpdateDialog(info)
+        self.assertIsNotNone(dialog.findChild(QLabel, "update_beta_warning"))
+        dialog.close()
+        dialog.deleteLater()
+
+    def test_stable_channel_errors_without_any_stable_release(self):
+        mislabeled = release("v1.5.0-beta.2", prerelease=False)
+        with patch("src.utils.updater.urllib.request.urlopen",
+                   side_effect=[api_response(mislabeled), api_response([mislabeled])]):
+            with self.assertRaises(RuntimeError):
+                fetch_latest_release("FN1p/WorkBOXig", channel="stable")
+
     def test_beta_channel_selects_highest_non_draft_semver(self):
         options = [
             release("v2.0.0-beta.1", prerelease=True, draft=True),
