@@ -93,6 +93,36 @@ def is_newer_version(latest_tag: str, current_version: str = __version__) -> boo
         return False
 
 
+def select_published_release(releases, stable_only: bool = False) -> Dict[str, Any]:
+    """Choose the highest eligible GitHub release using semantic versioning.
+
+    A release with a -beta/-rc tag remains a prerelease for update-channel
+    purposes even if its GitHub release metadata says prerelease=False.
+    """
+    if not isinstance(releases, list):
+        raise ValueError("Invalid GitHub releases response")
+    candidates = []
+    for release in releases:
+        if not isinstance(release, dict) or release.get("draft"):
+            continue
+        parsed = parse_release_version(release.get("tag_name", ""))
+        if parsed is None:
+            continue
+        if stable_only and (release.get("prerelease") or parsed[1]):
+            continue
+        candidates.append(release)
+    if not candidates:
+        raise RuntimeError(t("update_no_releases"))
+
+    from functools import cmp_to_key
+    return max(
+        candidates,
+        key=cmp_to_key(
+            lambda a, b: compare_release_versions(a["tag_name"], b["tag_name"])
+        ),
+    )
+
+
 def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: str = "stable") -> Dict[str, Any]:
     """
     Fetch latest release metadata from GitHub Releases API.
@@ -173,22 +203,30 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: st
         raise RuntimeError(t("update_network_error", reason=ue.reason)) from ue
 
     if channel == "beta":
-        if not isinstance(data, list):
-            raise ValueError("Invalid GitHub releases response")
-        candidates = [
-            release for release in data
-            if isinstance(release, dict) and not release.get("draft")
-            and parse_release_version(release.get("tag_name", "")) is not None
-        ]
-        if not candidates:
-            raise RuntimeError(t("update_no_releases"))
-        from functools import cmp_to_key
-        data = max(
-            candidates,
-            key=cmp_to_key(lambda a, b: compare_release_versions(
-                a["tag_name"], b["tag_name"]
-            )),
-        )
+        data = select_published_release(data)
+    else:
+        # GitHub's /releases/latest uses its prerelease flag, not the SemVer
+        # suffix. A beta tag manually promoted to "Release" can therefore
+        # masquerade as stable. Never offer it to stable-channel users.
+        tag = data.get("tag_name", "") if isinstance(data, dict) else ""
+        version = parse_release_version(tag)
+        if (isinstance(data, dict) and (data.get("draft") or data.get("prerelease"))
+                or (version is not None and bool(version[1]))):
+            list_url = f"https://api.github.com/repos/{repo}/releases?per_page=100"
+            try:
+                with urllib.request.urlopen(
+                    urllib.request.Request(list_url, headers=headers), timeout=timeout
+                ) as response:
+                    if response.status != 200:
+                        raise ValueError(f"HTTP error {response.status}")
+                    data = json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as error:
+                if error.code in (403, 429):
+                    raise RuntimeError(t("update_rate_limit_error")) from error
+                raise RuntimeError(t("update_api_error", code=error.code)) from error
+            except urllib.error.URLError as error:
+                raise RuntimeError(t("update_network_error", reason=error.reason)) from error
+            data = select_published_release(data, stable_only=True)
     if not isinstance(data, dict) or not parse_release_version(data.get("tag_name", "")):
         raise ValueError("Invalid GitHub release metadata")
     tag_name = data["tag_name"]
@@ -226,7 +264,7 @@ def fetch_latest_release(repo: str = GITHUB_REPO, timeout: int = 10, channel: st
 
     return {
         "tag_name": tag_name,
-        "prerelease": bool(data.get("prerelease")),
+        "prerelease": bool(data.get("prerelease") or parse_release_version(tag_name)[1]),
         "channel": channel,
         "title": data.get("name", tag_name),
         "body": data.get("body", ""),
