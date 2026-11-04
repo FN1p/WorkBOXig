@@ -1,7 +1,10 @@
 name: Windows checks
 
 on:
+  # Avoid two Windows builds for every commit on an open PR.
   push:
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
   schedule:
@@ -42,4 +45,4 @@ jobs:
             dist/WorkBOXig.exe
             dist/WorkBOXig_Setup.exe
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 3
