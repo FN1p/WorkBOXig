@@ -99,7 +99,7 @@ class Legacy147UpgradeTests(unittest.TestCase):
                 self.assertEqual(len(restored_files), 1)
                 self.assertEqual(restored_files[0].read_bytes(), b"old image data")
                 html = target._data["notebooks"][0]["pages"][0]["content_html"]
-                self.assertIn(restored_files[0].resolve().as_uri(), html)
+                self.assertIn(restored_files[0].as_uri(), html)
                 self.assertTrue(list(target_dir.glob("storage.pre_import_*.workboxig")))
             finally:
                 source._debounce_timer.stop()
