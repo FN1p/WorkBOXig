@@ -139,3 +139,10 @@ Do not merge or publish a stable release until Windows CI succeeds and manual ba
 - Use saved update channel for background startup checks and manual settings checks.
 - Added mocked API, settings persistence, release ranking, checksum and cancellation tests.
 - **Still required:** Windows CI on latest branch head; manual Windows beta opt-in, update from v1.4.7 / v1.5.0-beta.1, and installer smoke test with copied user data. Leave PR draft and stable release unchanged.
+
+## Stabilization follow-up — 2026-11-04
+- Checked GitHub PR #1 and Windows CI. GitHub's latest *regular* release is `v1.5.0-beta.2`: its prerelease flag is false, but the SemVer tag still contains a beta suffix. It is not a properly named v1.5.0 stable version.
+- The stable update channel now rejects `-beta`, `-alpha`, `-rc` tags even if GitHub marks them regular. When the /latest endpoint returns such a release, the updater selects the highest genuinely stable version from published releases.
+- Prerelease warnings use either GitHub metadata or the SemVer tag, and test cases cover beta.2-as-Latest and empty stable release history.
+- Added synthetic 1.4.7 compatibility tests for old profiles: preserving notes, tasks, lessons and custom settings, restoring notebook images from archives, and rejecting incomplete imports safely.
+- **Pending:** successful Windows CI on this branch head, installation/update tests on a real Windows machine, restoration of genuine v1.3/v1.4 backups, first-run and 125–150% DPI smoke tests. Do not merge or publish v1.5.0 stable until release gates pass.
