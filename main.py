@@ -7,6 +7,7 @@ import sys
 import os
 import ctypes
 import traceback
+import json
 
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
@@ -52,6 +53,17 @@ def excepthook(exc_type, exc_value, exc_traceback):
 
 def main():
     sys.excepthook = excepthook
+    # Qt reads this value when QApplication is created.
+    data_dir = os.path.join(os.getcwd(), "data")
+    if not os.path.isdir(data_dir):
+        data_dir = os.path.join(os.path.expanduser("~"), ".workboxig")
+    try:
+        with open(os.path.join(data_dir, "storage.json"), encoding="utf-8") as stream:
+            scale = json.load(stream).get("settings", {}).get("ui_scale", "100")
+        if str(scale) in ("100", "110", "125"):
+            os.environ["QT_SCALE_FACTOR"] = str(int(scale) / 100)
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
     setup_windows_dpi()
     setup_windows_app_id()
 

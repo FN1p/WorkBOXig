@@ -44,7 +44,7 @@ DARK_COLORS = {
     "text_primary": "#FFFFFF",
     "text_secondary": "#CBD5E1",
     "text_muted": "#8A94A6",
-    "text_dim": "#5E687A",
+    "text_dim": "#9AA6BA",
 }
 
 LIGHT_COLORS = {
@@ -84,8 +84,8 @@ LIGHT_COLORS = {
     # Typography - High contrast deep slate for light mode
     "text_primary": "#0F172A",
     "text_secondary": "#334155",
-    "text_muted": "#64748B",
-    "text_dim": "#64748B",
+    "text_muted": "#52627A",
+    "text_dim": "#52627A",
 }
 
 CYBERPUNK_COLORS = {
@@ -126,7 +126,7 @@ CYBERPUNK_COLORS = {
     "text_primary": "#FFFFFF",
     "text_secondary": "#CFD7E6",
     "text_muted": "#8291A8",
-    "text_dim": "#4A566E",
+    "text_dim": "#9AA6BA",
 }
 
 COLORS = dict(DARK_COLORS)
