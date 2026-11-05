@@ -266,6 +266,17 @@ class SettingsView(QWidget):
         theme_card.add_layout(theme_row)
         layout.addWidget(theme_card)
 
+        scale_card = SettingsCard(t("ui_scale_title"), t("ui_scale_desc"))
+        self.scale_combo = QComboBox()
+        for value in (100, 110, 125):
+            self.scale_combo.addItem(f"{value}%", str(value))
+        saved_scale = str(self.storage.get_setting("ui_scale", "100"))
+        self.scale_combo.setCurrentIndex(max(0, self.scale_combo.findData(saved_scale)))
+        self.scale_combo.currentIndexChanged.connect(
+            lambda: self.storage.set_setting("ui_scale", self.scale_combo.currentData()))
+        scale_card.add_widget(self.scale_combo)
+        layout.addWidget(scale_card)
+
         layout.addStretch()
         return self._wrap_in_scroll(container)
 

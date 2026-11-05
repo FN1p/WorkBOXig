@@ -5,7 +5,7 @@ and animated collapse to icon-only mode.
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame, QSizePolicy
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QPropertyAnimation, QEasingCurve, QSize
 from PyQt6.QtGui import QFont, QCursor
@@ -78,6 +78,8 @@ class NavItem(QPushButton):
             self.shortcut_lbl.hide()
             self.badge_lbl.hide()
             self.btn_layout.setContentsMargins(0, 0, 0, 0)
+            self.btn_layout.itemAt(2).spacerItem().changeSize(0, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+            self.btn_layout.setStretch(2, 0)
             self.btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.setFixedSize(48, 44)
             self.setToolTip(f"{self.item_text} ({self.shortcut_str})")
@@ -87,6 +89,8 @@ class NavItem(QPushButton):
             self.setMaximumWidth(16777215)
             self.setFixedHeight(44)
             self.btn_layout.setContentsMargins(12, 0, 10, 0)
+            self.btn_layout.itemAt(2).spacerItem().changeSize(0, 0, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+            self.btn_layout.setStretch(2, 1)
             self.btn_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.setToolTip("")
             if self.badge_lbl.text():
@@ -94,6 +98,7 @@ class NavItem(QPushButton):
                 self.shortcut_lbl.hide()
             else:
                 self.shortcut_lbl.show()
+        self.btn_layout.invalidate()
         self.update_style(self.is_active)
 
     def set_label_text(self, text: str):
